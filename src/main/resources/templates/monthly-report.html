@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8" />
+    <title>Monthly Report</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 22mm 18mm;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            color: #201a2f;
+            background: #ffffff;
+            direction: rtl;
+            font-family: "Arial", "Tahoma", sans-serif;
+            font-size: 13px;
+            line-height: 1.8;
+        }
+
+        .header {
+            padding: 22px 24px;
+            color: #ffffff;
+            background: #6d28d9;
+            border-radius: 12px;
+        }
+
+        .brand {
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0;
+            margin-bottom: 8px;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 800;
+        }
+
+        .subtitle {
+            margin: 8px 0 0;
+            color: #eee7ff;
+            font-size: 13px;
+        }
+
+        .meta {
+            width: 100%;
+            margin: 20px 0;
+            border-collapse: collapse;
+        }
+
+        .meta td {
+            width: 50%;
+            padding: 14px 16px;
+            border: 1px solid #ede7f6;
+            background: #fbfaff;
+        }
+
+        .label {
+            display: block;
+            color: #70657f;
+            font-size: 11px;
+            margin-bottom: 4px;
+        }
+
+        .value {
+            display: block;
+            color: #201a2f;
+            font-size: 16px;
+            font-weight: 800;
+        }
+
+        h2 {
+            margin: 24px 0 10px;
+            font-size: 18px;
+            color: #201a2f;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 8px;
+        }
+
+        th {
+            padding: 12px;
+            color: #ffffff;
+            background: #6d28d9;
+            border: 1px solid #6d28d9;
+            font-size: 12px;
+            text-align: right;
+        }
+
+        td {
+            padding: 12px;
+            border: 1px solid #e5def1;
+            background: #ffffff;
+            text-align: right;
+        }
+
+        tr:nth-child(even) td {
+            background: #fbfaff;
+        }
+
+        .recommendations {
+            padding: 16px 18px;
+            border: 1px solid #e5def1;
+            border-right: 5px solid #6d28d9;
+            border-radius: 10px;
+            background: #fbfaff;
+            white-space: pre-line;
+        }
+
+        .footer {
+            margin-top: 26px;
+            padding-top: 12px;
+            border-top: 1px solid #e5def1;
+            color: #7b7288;
+            font-size: 11px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="brand">على دربك</div>
+        <h1>التقرير الشهري</h1>
+        <p class="subtitle">ملخص أداء الحملات، استخدام رموز QR، ونسبة التحويل.</p>
+    </div>
+
+    <table class="meta">
+        <tr>
+            <td>
+                <span class="label">اسم المتجر</span>
+                <span class="value">{{storeName}}</span>
+            </td>
+            <td>
+                <span class="label">تاريخ التقرير</span>
+                <span class="value">{{generatedAt}}</span>
+            </td>
+        </tr>
+    </table>
+
+    <h2>نتائج الحملات</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>الحملة</th>
+                <th>الرسائل المرسلة</th>
+                <th>استخدام QR</th>
+                <th>نسبة التحويل</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{campaignRows}}
+        </tbody>
+    </table>
+
+    <h2>التوصيات</h2>
+    <div class="recommendations">{{recommendations}}</div>
+
+    <div class="footer">
+        تم إنشاء هذا التقرير تلقائيا من منصة على دربك.
+    </div>
+</body>
+</html>

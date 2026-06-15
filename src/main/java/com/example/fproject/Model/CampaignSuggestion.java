@@ -1,6 +1,6 @@
 package com.example.fproject.Model;
 
-import com.example.fproject.Enum.StoreStatus;
+import com.example.fproject.Enum.SuggestionStatus;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -10,54 +10,47 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.OneToMany;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
-import lombok.*;
-
-import java.util.Set;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "stores")
-public class Store {
+@Table(name = "campaign_suggestions")
+public class CampaignSuggestion {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
     @Column(nullable = false)
-    private String name;
+    private String offerType;
 
     @Column(nullable = false)
-    private Double latitude;
+    private Double discount;
 
     @Column(nullable = false)
-    private Double longitude;
+    private Boolean interactive;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private StoreStatus status;
+    private SuggestionStatus approvalStatus;
 
     @Column(nullable = false)
-    private Integer geofenceRadiusMeters;
+    private Integer suggestionRound;
 
-    @OneToOne
-    @JoinColumn(name = "store_owner_id", unique = true)
-    private StoreOwner storeOwner;
+    @ManyToOne
+    @JoinColumn(name = "ai_analysis_id")
+    private AIAnalysis aiAnalysis;
 
-    @OneToMany(mappedBy = "store")
+    @OneToOne(mappedBy = "campaignSuggestion")
     @JsonIgnore
-    private Set<SalesRecord> salesRecords;
-
-    @OneToMany(mappedBy = "store")
-    @JsonIgnore
-    private Set<Campaign> campaigns;
-
-    @OneToMany(mappedBy = "store")
-    @JsonIgnore
-    private Set<MonthlyReport> monthlyReports;
+    private Campaign campaign;
 }

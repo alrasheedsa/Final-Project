@@ -1,5 +1,6 @@
 package com.example.fproject.Model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.example.fproject.Enum.RoleType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -8,8 +9,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.Inheritance;
-import jakarta.persistence.InheritanceType;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -22,12 +22,11 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Entity
 @Table(name = "users")
-@Inheritance(strategy = InheritanceType.JOINED)
-public abstract class User {
+public class User {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private Integer id;
 
     @Column(nullable = false)
     private String fullName;
@@ -51,4 +50,12 @@ public abstract class User {
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    @OneToOne(mappedBy = "user")
+    @JsonIgnore
+    private StoreOwner storeOwner;
+
+    @OneToOne(mappedBy = "user")
+    @JsonIgnore
+    private Customer customer;
 }
