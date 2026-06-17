@@ -20,6 +20,7 @@ public class StoreService {
 
     private final StoreRepository storeRepository;
     private final StoreOwnerRepository storeOwnerRepository;
+    private final WathqService wathqService;
 
     public StoreOut addStore(Integer storeOwnerId, StoreIn dto) {
         StoreOwner storeOwner = storeOwnerRepository.findStoreOwnerById(storeOwnerId);
@@ -36,12 +37,14 @@ public class StoreService {
             throw new ApiException("Store name already exists for this store owner");
         }
 
+        wathqService.validateCommercialRegistration(dto.getCommercialRegisterNo());
+
         Store store = new Store();
         store.setName(dto.getName());
         store.setBusinessType(dto.getBusinessType());
         store.setCommercialRegisterNo(dto.getCommercialRegisterNo());
-        store.setCommercialRegisterVerified(false);
-        store.setStatus(StoreStatus.PENDING);
+        store.setCommercialRegisterVerified(true);
+        store.setStatus(StoreStatus.ACTIVE);
         store.setStoreOwner(storeOwner);
 
         storeRepository.save(store);
@@ -104,9 +107,16 @@ public class StoreService {
             throw new ApiException("Store name already exists for this store owner");
         }
 
+        if (!store.getCommercialRegisterNo().equals(dto.getCommercialRegisterNo())) {
+            wathqService.validateCommercialRegistration(dto.getCommercialRegisterNo());
+
+            store.setCommercialRegisterNo(dto.getCommercialRegisterNo());
+            store.setCommercialRegisterVerified(true);
+            store.setStatus(StoreStatus.ACTIVE);
+        }
+
         store.setName(dto.getName());
         store.setBusinessType(dto.getBusinessType());
-        store.setCommercialRegisterNo(dto.getCommercialRegisterNo());
 
         storeRepository.save(store);
 
@@ -118,6 +128,10 @@ public class StoreService {
 
         if (store == null) {
             throw new ApiException("Store not found");
+        }
+
+        if (!Boolean.TRUE.equals(store.getCommercialRegisterVerified())) {
+            throw new ApiException("Store cannot be activated before commercial register verification");
         }
 
         store.setStatus(StoreStatus.ACTIVE);

@@ -1,7 +1,6 @@
 package com.example.fproject.Service;
 
 import com.example.fproject.Api.ApiException;
-
 import com.example.fproject.DTO.IN.StoreOwnerIn;
 import com.example.fproject.DTO.OUT.StoreOwnerOut;
 import com.example.fproject.Enum.RoleType;
@@ -63,6 +62,16 @@ public class StoreOwnerService {
 
     public StoreOwnerOut getStoreOwnerById(Integer storeOwnerId) {
         StoreOwner storeOwner = storeOwnerRepository.findStoreOwnerById(storeOwnerId);
+
+        if (storeOwner == null) {
+            throw new ApiException("Store owner not found");
+        }
+
+        return mapToDTOOUT(storeOwner);
+    }
+
+    public StoreOwnerOut getStoreOwnerByUserId(Integer userId) {
+        StoreOwner storeOwner = storeOwnerRepository.findStoreOwnerByUserId(userId);
 
         if (storeOwner == null) {
             throw new ApiException("Store owner not found");

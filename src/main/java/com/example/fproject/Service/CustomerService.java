@@ -20,6 +20,7 @@ public class CustomerService {
 
     private final CustomerRepository customerRepository;
     private final UserRepository userRepository;
+    private final GoogleMapService googleMapService;
 
     public CustomerOut registerCustomer(CustomerIn dto) {
 
@@ -30,6 +31,8 @@ public class CustomerService {
         if (userRepository.existsUserByPhone(dto.getPhone())) {
             throw new ApiException("Phone already exists");
         }
+
+        double[] coordinates = googleMapService.extractLocationFromLink(dto.getLocationUrl());
 
         User user = new User();
         user.setFullName(dto.getFullName());
@@ -43,8 +46,8 @@ public class CustomerService {
 
         Customer customer = new Customer();
         customer.setUser(user);
-        customer.setLatitude(dto.getLatitude());
-        customer.setLongitude(dto.getLongitude());
+        customer.setLatitude(coordinates[0]);
+        customer.setLongitude(coordinates[1]);
         customer.setLocationConsent(dto.getLocationConsent());
 
         customerRepository.save(customer);
@@ -90,6 +93,8 @@ public class CustomerService {
             throw new ApiException("Phone already exists");
         }
 
+        double[] coordinates = googleMapService.extractLocationFromLink(dto.getLocationUrl());
+
         user.setFullName(dto.getFullName());
         user.setPhone(dto.getPhone());
         user.setEmail(dto.getEmail());
@@ -97,8 +102,8 @@ public class CustomerService {
 
         userRepository.save(user);
 
-        customer.setLatitude(dto.getLatitude());
-        customer.setLongitude(dto.getLongitude());
+        customer.setLatitude(coordinates[0]);
+        customer.setLongitude(coordinates[1]);
         customer.setLocationConsent(dto.getLocationConsent());
 
         customerRepository.save(customer);

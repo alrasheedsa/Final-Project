@@ -27,16 +27,8 @@ public class CustomerIn {
     @Size(min = 6, max = 100, message = "Password must be at least 6 characters")
     private String password;
 
-    // Customer fields
-    @NotNull(message = "Latitude is required")
-    @DecimalMin(value = "-90.0", message = "Latitude must be greater than or equal to -90")
-    @DecimalMax(value = "90.0", message = "Latitude must be less than or equal to 90")
-    private Double latitude;
-
-    @NotNull(message = "Longitude is required")
-    @DecimalMin(value = "-180.0", message = "Longitude must be greater than or equal to -180")
-    @DecimalMax(value = "180.0", message = "Longitude must be less than or equal to 180")
-    private Double longitude;
+    @NotBlank(message = "Location URL is required")
+    private String locationUrl;
 
     @NotNull(message = "Location consent is required")
     private Boolean locationConsent;
