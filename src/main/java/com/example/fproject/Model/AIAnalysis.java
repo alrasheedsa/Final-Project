@@ -1,14 +1,7 @@
 package com.example.fproject.Model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.OneToMany;
-import jakarta.persistence.OneToOne;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -29,23 +22,39 @@ public class AIAnalysis {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "TEXT")
+    private String topProducts;
+
+    @Column(nullable = false, columnDefinition = "TEXT")
+    private String lowProducts;
+
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String peakHours;
 
-    @Column(nullable = false)
-    private String idleHours;
+    @Column(nullable = false, columnDefinition = "TEXT")
+    private String slowHours;
 
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "TEXT")
+    private String surplusProducts;
+
+    @Column(columnDefinition = "TEXT")
+    private String seasonalPatterns;
+
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String recommendation;
+
+    @Column(nullable = false, columnDefinition = "TEXT")
+    private String aiSummary;
 
     @Column(nullable = false)
     private LocalDateTime analyzedAt;
 
-    @OneToOne(mappedBy = "aiAnalysis")
+    @OneToOne
+    @JoinColumn(name = "sales_record_id", nullable = false, unique = true)
     @JsonIgnore
     private SalesRecord salesRecord;
 
-    @OneToMany(mappedBy = "aiAnalysis")
+    @OneToMany(mappedBy = "aiAnalysis", cascade = CascadeType.ALL)
     @JsonIgnore
     private Set<CampaignSuggestion> campaignSuggestions;
 }

@@ -1,17 +1,13 @@
 package com.example.fproject.Model;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+
+import java.time.LocalDate;
+import java.time.LocalTime;
 
 @Getter
 @Setter
@@ -29,18 +25,29 @@ public class SalesRecordItem {
     private String productName;
 
     @Column(nullable = false)
-    private Integer stockQuantity;
+    private Integer quantity;
 
     @Column(nullable = false)
-    private Double price;
+    private Double unitPrice;
 
     @Column(nullable = false)
-    private Integer quantitySold;
+    private Double totalPrice;
 
     @Column(nullable = false)
-    private Double revenue;
+    private LocalDate saleDate;
+
+    @Column(nullable = false)
+    private LocalTime saleTime;
 
     @ManyToOne
-    @JoinColumn(name = "sales_record_id")
+    @JoinColumn(name = "sales_record_id", nullable = false)
     private SalesRecord salesRecord;
+
+    @PrePersist
+    @PreUpdate
+    public void calculateTotalPrice() {
+        if (quantity != null && unitPrice != null) {
+            totalPrice = quantity * unitPrice;
+        }
+    }
 }

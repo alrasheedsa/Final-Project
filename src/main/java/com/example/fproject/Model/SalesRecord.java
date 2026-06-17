@@ -1,16 +1,7 @@
 package com.example.fproject.Model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.OneToMany;
-import jakarta.persistence.OneToOne;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -32,20 +23,29 @@ public class SalesRecord {
     private Integer id;
 
     @Column(nullable = false)
-    private String pdfUrl;
-
-    @Column(nullable = false)
     private LocalDateTime uploadedAt;
 
+    @Column(nullable = false)
+    private String fileName;
+
+    @Column(nullable = false)
+    private String fileUrl;
+
+    @Column(nullable = false)
+    private Integer month;
+
+    @Column(nullable = false)
+    private Integer year;
+
     @ManyToOne
-    @JoinColumn(name = "store_id")
+    @JoinColumn(name = "store_id", nullable = false)
     private Store store;
 
-    @OneToMany(mappedBy = "salesRecord")
+    @OneToMany(mappedBy = "salesRecord", cascade = CascadeType.ALL)
     @JsonIgnore
     private Set<SalesRecordItem> items;
 
-    @OneToOne
-    @JoinColumn(name = "ai_analysis_id", unique = true)
+    @OneToOne(mappedBy = "salesRecord", cascade = CascadeType.ALL)
     private AIAnalysis aiAnalysis;
 }
+

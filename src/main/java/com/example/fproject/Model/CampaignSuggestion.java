@@ -18,6 +18,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.LocalTime;
+
 @Getter
 @Setter
 @NoArgsConstructor
@@ -31,13 +33,31 @@ public class CampaignSuggestion {
     private Integer id;
 
     @Column(nullable = false)
-    private String offerType;
+    private String title;
+
+    @Column(columnDefinition = "TEXT")
+    private String description;
+
+    @Column(nullable = false, columnDefinition = "TEXT")
+    private String offerText;
 
     @Column(nullable = false)
-    private Double discount;
+    private String campaignType;
 
     @Column(nullable = false)
-    private Boolean interactive;
+    private LocalTime suggestedStartTime;
+
+    @Column(nullable = false)
+    private LocalTime suggestedEndTime;
+
+    @Column(nullable = false)
+    private Integer targetCustomersCount;
+
+    @Column(nullable = false)
+    private Double discountValue;
+
+    @Column(nullable = false)
+    private String suggestedProductName;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -47,7 +67,7 @@ public class CampaignSuggestion {
     private Integer suggestionRound;
 
     @ManyToOne
-    @JoinColumn(name = "ai_analysis_id")
+    @JoinColumn(name = "ai_analysis_id", nullable = false)
     private AIAnalysis aiAnalysis;
 
     @OneToOne(mappedBy = "campaignSuggestion")
