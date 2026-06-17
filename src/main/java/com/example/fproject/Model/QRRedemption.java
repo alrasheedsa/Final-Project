@@ -1,12 +1,15 @@
 package com.example.fproject.Model;
 
+import com.example.fproject.Enum.QRRedemptionStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
-import jakarta.persistence.OneToOne;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -30,7 +33,15 @@ public class QRRedemption {
     @Column(nullable = false)
     private LocalDateTime redeemedAt;
 
-    @OneToOne
-    @JoinColumn(name = "qr_code_id", unique = true)
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private QRRedemptionStatus status;
+
+    @ManyToOne
+    @JoinColumn(name = "qr_code_id")
     private QRCode qrCode;
+
+    @ManyToOne
+    @JoinColumn(name = "campaign_id")
+    private Campaign campaign;
 }

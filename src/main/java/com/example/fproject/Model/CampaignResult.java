@@ -15,6 +15,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.LocalDateTime;
+
 @Getter
 @Setter
 @NoArgsConstructor
@@ -28,16 +30,19 @@ public class CampaignResult {
     private Integer id;
 
     @Column(nullable = false)
-    private Integer totalSent;
+    private Integer sentCount;
 
     @Column(nullable = false)
-    private Integer qrUsed;
+    private Integer redeemedCount;
 
     @Column(nullable = false)
     private Double conversionRate;
 
     @Column(nullable = false)
-    private String bestResponseTime;
+    private String aiSummary;
+
+    @Column(nullable = false)
+    private LocalDateTime createdAt;
 
     @OneToOne(mappedBy = "campaignResult")
     @JsonIgnore
