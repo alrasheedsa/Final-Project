@@ -30,6 +30,6 @@ public class SalesRecordIn {
     @Min(value = 2020, message = "Year must be valid")
     private Integer year;
 
-    @NotNull(message = "Store id is required")
-    private Integer storeId;
+    @NotNull(message = "Branch id is required")
+    private Integer branchId;
 }

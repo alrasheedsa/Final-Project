@@ -24,6 +24,7 @@ public class CampaignSuggestionIn {
     @NotBlank(message = "Offer text is required")
     private String offerText;
 
+    @NotNull(message = "Campaign type is required")
     private CampaignType campaignType;
 
     @NotNull(message = "Suggested start time is required")

@@ -25,9 +25,9 @@ public class SalesRecordController {
         return ResponseEntity.status(200).body(salesRecordService.getSalesRecordById(id));
     }
 
-    @GetMapping("/get-by-store/{storeId}")
-    public ResponseEntity<?> getSalesRecordsByStoreId(@PathVariable Integer storeId) {
-        return ResponseEntity.status(200).body(salesRecordService.getSalesRecordsByStoreId(storeId));
+    @GetMapping("/get-by-branch/{branchId}")
+    public ResponseEntity<?> getSalesRecordsByBranchId(@PathVariable Integer branchId) {
+        return ResponseEntity.status(200).body(salesRecordService.getSalesRecordsByBranchId(branchId));
     }
 
     @PostMapping("/add")
@@ -37,7 +37,8 @@ public class SalesRecordController {
     }
 
     @PutMapping("/update/{id}")
-    public ResponseEntity<?> updateSalesRecord(@PathVariable Integer id, @RequestBody @Valid SalesRecordIn salesRecordIn) {
+    public ResponseEntity<?> updateSalesRecord(@PathVariable Integer id,
+                                               @RequestBody @Valid SalesRecordIn salesRecordIn) {
         salesRecordService.updateSalesRecord(id, salesRecordIn);
         return ResponseEntity.status(200).body(new ApiResponse("Sales record updated successfully"));
     }

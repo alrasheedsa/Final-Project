@@ -3,8 +3,10 @@ package com.example.fproject.Service;
 import com.example.fproject.Api.ApiException;
 import com.example.fproject.DTO.IN.SalesRecordIn;
 import com.example.fproject.DTO.OUT.SalesRecordOut;
+import com.example.fproject.Model.Branch;
 import com.example.fproject.Model.SalesRecord;
 import com.example.fproject.Model.Store;
+import com.example.fproject.Repository.BranchRepository;
 import com.example.fproject.Repository.SalesRecordRepository;
 import com.example.fproject.Repository.StoreRepository;
 import lombok.RequiredArgsConstructor;
@@ -20,7 +22,7 @@ import java.util.List;
 public class SalesRecordService {
 
     private final SalesRecordRepository salesRecordRepository;
-    private final StoreRepository storeRepository;
+    private final BranchRepository branchRepository;
 
     public List<SalesRecordOut> getAllSalesRecords() {
         List<SalesRecord> salesRecords = salesRecordRepository.findAll();
@@ -43,14 +45,14 @@ public class SalesRecordService {
         return convertToOut(salesRecord);
     }
 
-    public List<SalesRecordOut> getSalesRecordsByStoreId(Integer storeId) {
-        Store store = storeRepository.findStoreById(storeId);
+    public List<SalesRecordOut> getSalesRecordsByBranchId(Integer branchId) {
+        Branch branch = branchRepository.findBranchById(branchId);
 
-        if (store == null) {
-            throw new ApiException("Store not found");
+        if (branch == null) {
+            throw new ApiException("Branch not found");
         }
 
-        List<SalesRecord> salesRecords = salesRecordRepository.findAllByStore_Id(storeId);
+        List<SalesRecord> salesRecords = salesRecordRepository.findAllByBranch_Id(branchId);
         List<SalesRecordOut> salesRecordOuts = new ArrayList<>();
 
         for (SalesRecord salesRecord : salesRecords) {
@@ -63,20 +65,20 @@ public class SalesRecordService {
     public void addSalesRecord(SalesRecordIn salesRecordIn) {
         validateSalesRecordIn(salesRecordIn);
 
-        Store store = storeRepository.findStoreById(salesRecordIn.getStoreId());
+        Branch branch = branchRepository.findBranchById(salesRecordIn.getBranchId());
 
-        if (store == null) {
-            throw new ApiException("Store not found");
+        if (branch == null) {
+            throw new ApiException("Branch not found");
         }
 
-        Boolean exists = salesRecordRepository.existsByStore_IdAndMonthAndYear(
-                salesRecordIn.getStoreId(),
+        Boolean exists = salesRecordRepository.existsByBranch_IdAndMonthAndYear(
+                salesRecordIn.getBranchId(),
                 salesRecordIn.getMonth(),
                 salesRecordIn.getYear()
         );
 
         if (Boolean.TRUE.equals(exists)) {
-            throw new ApiException("Sales record already exists for this store in the same month and year");
+            throw new ApiException("Sales record already exists for this branch in the same month and year");
         }
 
         SalesRecord salesRecord = new SalesRecord();
@@ -85,11 +87,8 @@ public class SalesRecordService {
         salesRecord.setFileUrl(salesRecordIn.getFileUrl());
         salesRecord.setMonth(salesRecordIn.getMonth());
         salesRecord.setYear(salesRecordIn.getYear());
-
-        // اليوزر ما يدخلها، السيرفس يحطها وقت الإضافة
         salesRecord.setUploadedAt(LocalDateTime.now());
-
-        salesRecord.setStore(store);
+        salesRecord.setBranch(branch);
 
         salesRecordRepository.save(salesRecord);
     }
@@ -103,25 +102,25 @@ public class SalesRecordService {
             throw new ApiException("Sales record not found");
         }
 
-        Store store = storeRepository.findStoreById(salesRecordIn.getStoreId());
+        Branch branch = branchRepository.findBranchById(salesRecordIn.getBranchId());
 
-        if (store == null) {
-            throw new ApiException("Store not found");
+        if (branch == null) {
+            throw new ApiException("Branch not found");
         }
 
-        Boolean changedStore = !oldSalesRecord.getStore().getId().equals(salesRecordIn.getStoreId());
+        Boolean changedBranch = !oldSalesRecord.getBranch().getId().equals(salesRecordIn.getBranchId());
         Boolean changedMonth = !oldSalesRecord.getMonth().equals(salesRecordIn.getMonth());
         Boolean changedYear = !oldSalesRecord.getYear().equals(salesRecordIn.getYear());
 
-        if (changedStore || changedMonth || changedYear) {
-            Boolean exists = salesRecordRepository.existsByStore_IdAndMonthAndYear(
-                    salesRecordIn.getStoreId(),
+        if (changedBranch || changedMonth || changedYear) {
+            Boolean exists = salesRecordRepository.existsByBranch_IdAndMonthAndYear(
+                    salesRecordIn.getBranchId(),
                     salesRecordIn.getMonth(),
                     salesRecordIn.getYear()
             );
 
             if (Boolean.TRUE.equals(exists)) {
-                throw new ApiException("Another sales record already exists for this store in the same month and year");
+                throw new ApiException("Another sales record already exists for this branch in the same month and year");
             }
         }
 
@@ -129,9 +128,8 @@ public class SalesRecordService {
         oldSalesRecord.setFileUrl(salesRecordIn.getFileUrl());
         oldSalesRecord.setMonth(salesRecordIn.getMonth());
         oldSalesRecord.setYear(salesRecordIn.getYear());
-        oldSalesRecord.setStore(store);
+        oldSalesRecord.setBranch(branch);
 
-        // ما نغير uploadedAt لأنه تاريخ الرفع الأصلي
         salesRecordRepository.save(oldSalesRecord);
     }
 
@@ -178,6 +176,10 @@ public class SalesRecordService {
             throw new ApiException("Year must be valid");
         }
 
+        if (salesRecordIn.getBranchId() == null) {
+            throw new ApiException("Branch id is required");
+        }
+
         LocalDate today = LocalDate.now();
 
         if (salesRecordIn.getYear() > today.getYear()) {
@@ -209,7 +211,7 @@ public class SalesRecordService {
                 salesRecord.getMonth(),
                 salesRecord.getYear(),
                 salesRecord.getUploadedAt(),
-                salesRecord.getStore().getId(),
+                salesRecord.getBranch().getId(),
                 itemsCount,
                 aiAnalysisId
         );

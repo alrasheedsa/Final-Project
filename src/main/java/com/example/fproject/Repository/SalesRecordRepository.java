@@ -9,7 +9,7 @@ public interface SalesRecordRepository  extends JpaRepository<SalesRecord, Integ
 
     SalesRecord findSalesRecordById(Integer id);
 
-    List<SalesRecord> findAllByStore_Id(Integer storeId);
+    List<SalesRecord> findAllByBranch_Id(Integer branchId);
 
-    boolean existsByStore_IdAndMonthAndYear(Integer storeId, Integer month, Integer year);
+    Boolean existsByBranch_IdAndMonthAndYear(Integer branchId, Integer month, Integer year);
 }
