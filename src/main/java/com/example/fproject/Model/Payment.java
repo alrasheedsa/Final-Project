@@ -1,20 +1,10 @@
 package com.example.fproject.Model;
 
 import com.example.fproject.Enum.PaymentStatus;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import jakarta.persistence.*;
+import lombok.*;
+
+import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -31,12 +21,17 @@ public class Payment {
     @Column(nullable = false)
     private Double amount;
 
-    @Column(nullable = false, unique = true)
+    @Column(unique = true)
     private String transactionId;
+
+    @Column(nullable = false)
+    private String paymentProvider;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private PaymentStatus status;
+
+    private LocalDateTime paidAt;
 
     @ManyToOne
     @JoinColumn(name = "subscription_id")

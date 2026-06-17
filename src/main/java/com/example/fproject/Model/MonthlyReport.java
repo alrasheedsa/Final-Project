@@ -1,19 +1,8 @@
 package com.example.fproject.Model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.OneToMany;
-import jakarta.persistence.Table;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import jakarta.persistence.*;
+import lombok.*;
 
 import java.time.LocalDateTime;
 import java.util.Set;
@@ -31,10 +20,37 @@ public class MonthlyReport {
     private Integer id;
 
     @Column(nullable = false)
-    private String pdfUrl;
+    private Integer month;
 
     @Column(nullable = false)
-    private String recommendations;
+    private Integer year;
+
+    @Column(nullable = false)
+    private Double totalSales;
+
+    @Column(nullable = false)
+    private Integer totalQuantity;
+
+    @Column(nullable = false, columnDefinition = "TEXT")
+    private String topProducts;
+
+    @Column(nullable = false, columnDefinition = "TEXT")
+    private String lowProducts;
+
+    @Column(nullable = false, columnDefinition = "TEXT")
+    private String peakHours;
+
+    @Column(nullable = false, columnDefinition = "TEXT")
+    private String slowHours;
+
+    @Column(nullable = false, columnDefinition = "TEXT")
+    private String surplusProducts;
+
+    @Column(nullable = false, columnDefinition = "TEXT")
+    private String aiSummary;
+
+    @Column(nullable = false)
+    private String pdfUrl;
 
     @Column(nullable = false)
     private LocalDateTime generatedAt;

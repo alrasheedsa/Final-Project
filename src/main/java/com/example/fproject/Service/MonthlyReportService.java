@@ -1,0 +1,170 @@
+package com.example.fproject.Service;
+
+import com.example.fproject.Api.ApiException;
+import com.example.fproject.DTO.IN.MonthlyReportIn;
+import com.example.fproject.DTO.OUT.MonthlyReportOut;
+import com.example.fproject.Model.MonthlyReport;
+import com.example.fproject.Model.Store;
+import com.example.fproject.Repository.MonthlyReportRepository;
+import com.example.fproject.Repository.StoreRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+public class MonthlyReportService {
+
+    private final MonthlyReportRepository monthlyReportRepository;
+    private final StoreRepository storeRepository;
+
+    public MonthlyReportOut generateMonthlyReport(Integer storeId, MonthlyReportIn dto) {
+        Store store = storeRepository.findStoreById(storeId);
+
+        if (store == null) {
+            throw new ApiException("Store not found");
+        }
+
+        if (monthlyReportRepository.existsMonthlyReportByStoreIdAndMonthAndYear(storeId, dto.getMonth(), dto.getYear())) {
+            throw new ApiException("Monthly report already exists for this month and year");
+        }
+
+        MonthlyReport monthlyReport = new MonthlyReport();
+        monthlyReport.setMonth(dto.getMonth());
+        monthlyReport.setYear(dto.getYear());
+
+        // Temporary values until SalesRecord / AIAnalysis integration is ready
+        monthlyReport.setTotalSales(0.0);
+        monthlyReport.setTotalQuantity(0);
+        monthlyReport.setTopProducts("Not generated yet");
+        monthlyReport.setLowProducts("Not generated yet");
+        monthlyReport.setPeakHours("Not generated yet");
+        monthlyReport.setSlowHours("Not generated yet");
+        monthlyReport.setSurplusProducts("Not generated yet");
+        monthlyReport.setAiSummary("Monthly report generated. AI summary will be updated after sales analysis.");
+        monthlyReport.setPdfUrl("Not generated yet");
+        monthlyReport.setGeneratedAt(LocalDateTime.now());
+        monthlyReport.setStore(store);
+
+        monthlyReportRepository.save(monthlyReport);
+
+        return mapToDTOOUT(monthlyReport);
+    }
+
+    public List<MonthlyReportOut> getAllMonthlyReports() {
+        List<MonthlyReport> reports = monthlyReportRepository.findAll();
+        List<MonthlyReportOut> result = new ArrayList<>();
+
+        for (MonthlyReport report : reports) {
+            result.add(mapToDTOOUT(report));
+        }
+
+        return result;
+    }
+
+    public MonthlyReportOut getMonthlyReportById(Integer reportId) {
+        MonthlyReport report = monthlyReportRepository.findMonthlyReportById(reportId);
+
+        if (report == null) {
+            throw new ApiException("Monthly report not found");
+        }
+
+        return mapToDTOOUT(report);
+    }
+
+    public List<MonthlyReportOut> getMonthlyReportsByStoreId(Integer storeId) {
+        Store store = storeRepository.findStoreById(storeId);
+
+        if (store == null) {
+            throw new ApiException("Store not found");
+        }
+
+        List<MonthlyReport> reports =
+                monthlyReportRepository.findMonthlyReportsByStoreIdOrderByYearDescMonthDesc(storeId);
+
+        List<MonthlyReportOut> result = new ArrayList<>();
+
+        for (MonthlyReport report : reports) {
+            result.add(mapToDTOOUT(report));
+        }
+
+        return result;
+    }
+
+    public MonthlyReportOut getMonthlyReportByStoreAndDate(Integer storeId, Integer month, Integer year) {
+        Store store = storeRepository.findStoreById(storeId);
+
+        if (store == null) {
+            throw new ApiException("Store not found");
+        }
+
+        MonthlyReport report =
+                monthlyReportRepository.findMonthlyReportByStoreIdAndMonthAndYear(storeId, month, year);
+
+        if (report == null) {
+            throw new ApiException("Monthly report not found");
+        }
+
+        return mapToDTOOUT(report);
+    }
+
+    public MonthlyReportOut updateMonthlyReport(Integer reportId, MonthlyReportIn dto) {
+        MonthlyReport report = monthlyReportRepository.findMonthlyReportById(reportId);
+
+        if (report == null) {
+            throw new ApiException("Monthly report not found");
+        }
+
+        if (!report.getMonth().equals(dto.getMonth()) || !report.getYear().equals(dto.getYear())) {
+            boolean exists = monthlyReportRepository.existsMonthlyReportByStoreIdAndMonthAndYear(
+                    report.getStore().getId(),
+                    dto.getMonth(),
+                    dto.getYear()
+            );
+
+            if (exists) {
+                throw new ApiException("Monthly report already exists for this month and year");
+            }
+        }
+
+        report.setMonth(dto.getMonth());
+        report.setYear(dto.getYear());
+        report.setGeneratedAt(LocalDateTime.now());
+
+        monthlyReportRepository.save(report);
+
+        return mapToDTOOUT(report);
+    }
+
+    public void deleteMonthlyReport(Integer reportId) {
+        MonthlyReport report = monthlyReportRepository.findMonthlyReportById(reportId);
+
+        if (report == null) {
+            throw new ApiException("Monthly report not found");
+        }
+
+        monthlyReportRepository.delete(report);
+    }
+
+    private MonthlyReportOut mapToDTOOUT(MonthlyReport report) {
+        return new MonthlyReportOut(
+                report.getId(),
+                report.getMonth(),
+                report.getYear(),
+                report.getTotalSales(),
+                report.getTotalQuantity(),
+                report.getTopProducts(),
+                report.getLowProducts(),
+                report.getPeakHours(),
+                report.getSlowHours(),
+                report.getSurplusProducts(),
+                report.getAiSummary(),
+                report.getPdfUrl(),
+                report.getGeneratedAt(),
+                report.getStore().getName()
+        );
+    }
+}
