@@ -45,6 +45,8 @@ public class CampaignSuggestionIn {
     @NotBlank(message = "Suggested product name is required")
     private String suggestedProductName;
 
+    private SuggestionStatus approvalStatus;
+
     @NotNull(message = "Suggestion round is required")
     @Positive(message = "Suggestion round must be greater than zero")
     private Integer suggestionRound;

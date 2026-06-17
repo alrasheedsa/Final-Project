@@ -50,5 +50,4 @@ public class SalesRecordItem {
             totalPrice = quantity * unitPrice;
         }
     }
-
 }
