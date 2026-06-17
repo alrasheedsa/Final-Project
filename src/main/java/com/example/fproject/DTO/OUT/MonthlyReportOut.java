@@ -37,5 +37,11 @@ public class MonthlyReportOut {
 
     private LocalDateTime generatedAt;
 
+    private Integer branchId;
+
+    private String branchName;
+
+    private Integer storeId;
+
     private String storeName;
 }

@@ -3,7 +3,10 @@ package com.example.fproject.Service;
 import com.example.fproject.Api.ApiException;
 import com.example.fproject.DTO.IN.StoreIn;
 import com.example.fproject.DTO.OUT.StoreOut;
+import com.example.fproject.Enum.StoreStatus;
 import com.example.fproject.Model.Store;
+import com.example.fproject.Model.StoreOwner;
+import com.example.fproject.Repository.StoreOwnerRepository;
 import com.example.fproject.Repository.StoreRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -16,6 +19,35 @@ import java.util.List;
 public class StoreService {
 
     private final StoreRepository storeRepository;
+    private final StoreOwnerRepository storeOwnerRepository;
+
+    public StoreOut addStore(Integer storeOwnerId, StoreIn dto) {
+        StoreOwner storeOwner = storeOwnerRepository.findStoreOwnerById(storeOwnerId);
+
+        if (storeOwner == null) {
+            throw new ApiException("Store owner not found");
+        }
+
+        if (storeRepository.existsStoreByCommercialRegisterNo(dto.getCommercialRegisterNo())) {
+            throw new ApiException("Commercial register number already exists");
+        }
+
+        if (storeRepository.existsStoreByNameAndStoreOwnerId(dto.getName(), storeOwnerId)) {
+            throw new ApiException("Store name already exists for this store owner");
+        }
+
+        Store store = new Store();
+        store.setName(dto.getName());
+        store.setBusinessType(dto.getBusinessType());
+        store.setCommercialRegisterNo(dto.getCommercialRegisterNo());
+        store.setCommercialRegisterVerified(false);
+        store.setStatus(StoreStatus.PENDING);
+        store.setStoreOwner(storeOwner);
+
+        storeRepository.save(store);
+
+        return mapToDTOOUT(store);
+    }
 
     public List<StoreOut> getAllStores() {
         List<Store> stores = storeRepository.findAll();
@@ -38,14 +70,21 @@ public class StoreService {
         return mapToDTOOUT(store);
     }
 
-    public StoreOut getStoreByStoreOwnerId(Integer storeOwnerId) {
-        Store store = storeRepository.findStoreByStoreOwnerId(storeOwnerId);
+    public List<StoreOut> getStoresByStoreOwnerId(Integer storeOwnerId) {
+        StoreOwner storeOwner = storeOwnerRepository.findStoreOwnerById(storeOwnerId);
 
-        if (store == null) {
-            throw new ApiException("Store not found for this store owner");
+        if (storeOwner == null) {
+            throw new ApiException("Store owner not found");
         }
 
-        return mapToDTOOUT(store);
+        List<Store> stores = storeRepository.findStoresByStoreOwnerId(storeOwnerId);
+        List<StoreOut> result = new ArrayList<>();
+
+        for (Store store : stores) {
+            result.add(mapToDTOOUT(store));
+        }
+
+        return result;
     }
 
     public StoreOut updateStore(Integer storeId, StoreIn dto) {
@@ -55,11 +94,46 @@ public class StoreService {
             throw new ApiException("Store not found");
         }
 
-        store.setName(dto.getName());
-        store.setLatitude(dto.getLatitude());
-        store.setLongitude(dto.getLongitude());
-        store.setCampaignRadiusMeters(dto.getCampaignRadiusMeters());
+        if (!store.getCommercialRegisterNo().equals(dto.getCommercialRegisterNo())
+                && storeRepository.existsStoreByCommercialRegisterNo(dto.getCommercialRegisterNo())) {
+            throw new ApiException("Commercial register number already exists");
+        }
 
+        if (!store.getName().equals(dto.getName())
+                && storeRepository.existsStoreByNameAndStoreOwnerId(dto.getName(), store.getStoreOwner().getId())) {
+            throw new ApiException("Store name already exists for this store owner");
+        }
+
+        store.setName(dto.getName());
+        store.setBusinessType(dto.getBusinessType());
+        store.setCommercialRegisterNo(dto.getCommercialRegisterNo());
+
+        storeRepository.save(store);
+
+        return mapToDTOOUT(store);
+    }
+
+    public StoreOut activateStore(Integer storeId) {
+        Store store = storeRepository.findStoreById(storeId);
+
+        if (store == null) {
+            throw new ApiException("Store not found");
+        }
+
+        store.setStatus(StoreStatus.ACTIVE);
+        storeRepository.save(store);
+
+        return mapToDTOOUT(store);
+    }
+
+    public StoreOut deactivateStore(Integer storeId) {
+        Store store = storeRepository.findStoreById(storeId);
+
+        if (store == null) {
+            throw new ApiException("Store not found");
+        }
+
+        store.setStatus(StoreStatus.INACTIVE);
         storeRepository.save(store);
 
         return mapToDTOOUT(store);
@@ -79,10 +153,12 @@ public class StoreService {
         return new StoreOut(
                 store.getId(),
                 store.getName(),
-                store.getLatitude(),
-                store.getLongitude(),
+                store.getBusinessType(),
+                store.getCommercialRegisterNo(),
+                store.getCommercialRegisterVerified(),
                 store.getStatus(),
-                store.getCampaignRadiusMeters()
+                store.getStoreOwner().getId(),
+                store.getStoreOwner().getUser().getFullName()
         );
     }
 }

@@ -68,8 +68,8 @@ public class Campaign {
     private CampaignStatus status;
 
     @ManyToOne
-    @JoinColumn(name = "store_id")
-    private Store store;
+    @JoinColumn(name = "branch_id")
+    private Branch branch;
 
     @OneToOne
     @JoinColumn(name = "campaign_suggestion_id", unique = true)

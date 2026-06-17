@@ -38,8 +38,8 @@ public class SalesRecord {
     private Integer year;
 
     @ManyToOne
-    @JoinColumn(name = "store_id", nullable = false)
-    private Store store;
+    @JoinColumn(name = "branch_id", nullable = false)
+    private Branch branch;
 
     @OneToMany(mappedBy = "salesRecord", cascade = CascadeType.ALL)
     @JsonIgnore

@@ -3,10 +3,10 @@ package com.example.fproject.Service;
 import com.example.fproject.Api.ApiException;
 import com.example.fproject.DTO.IN.MonthlyReportIn;
 import com.example.fproject.DTO.OUT.MonthlyReportOut;
+import com.example.fproject.Model.Branch;
 import com.example.fproject.Model.MonthlyReport;
-import com.example.fproject.Model.Store;
+import com.example.fproject.Repository.BranchRepository;
 import com.example.fproject.Repository.MonthlyReportRepository;
-import com.example.fproject.Repository.StoreRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -19,16 +19,16 @@ import java.util.List;
 public class MonthlyReportService {
 
     private final MonthlyReportRepository monthlyReportRepository;
-    private final StoreRepository storeRepository;
+    private final BranchRepository branchRepository;
 
-    public MonthlyReportOut generateMonthlyReport(Integer storeId, MonthlyReportIn dto) {
-        Store store = storeRepository.findStoreById(storeId);
+    public MonthlyReportOut generateMonthlyReport(Integer branchId, MonthlyReportIn dto) {
+        Branch branch = branchRepository.findBranchById(branchId);
 
-        if (store == null) {
-            throw new ApiException("Store not found");
+        if (branch == null) {
+            throw new ApiException("Branch not found");
         }
 
-        if (monthlyReportRepository.existsMonthlyReportByStoreIdAndMonthAndYear(storeId, dto.getMonth(), dto.getYear())) {
+        if (monthlyReportRepository.existsMonthlyReportByBranchIdAndMonthAndYear(branchId, dto.getMonth(), dto.getYear())) {
             throw new ApiException("Monthly report already exists for this month and year");
         }
 
@@ -36,7 +36,6 @@ public class MonthlyReportService {
         monthlyReport.setMonth(dto.getMonth());
         monthlyReport.setYear(dto.getYear());
 
-        // Temporary values until SalesRecord / AIAnalysis integration is ready
         monthlyReport.setTotalSales(0.0);
         monthlyReport.setTotalQuantity(0);
         monthlyReport.setTopProducts("Not generated yet");
@@ -47,7 +46,7 @@ public class MonthlyReportService {
         monthlyReport.setAiSummary("Monthly report generated. AI summary will be updated after sales analysis.");
         monthlyReport.setPdfUrl("Not generated yet");
         monthlyReport.setGeneratedAt(LocalDateTime.now());
-        monthlyReport.setStore(store);
+        monthlyReport.setBranch(branch);
 
         monthlyReportRepository.save(monthlyReport);
 
@@ -75,15 +74,15 @@ public class MonthlyReportService {
         return mapToDTOOUT(report);
     }
 
-    public List<MonthlyReportOut> getMonthlyReportsByStoreId(Integer storeId) {
-        Store store = storeRepository.findStoreById(storeId);
+    public List<MonthlyReportOut> getMonthlyReportsByBranchId(Integer branchId) {
+        Branch branch = branchRepository.findBranchById(branchId);
 
-        if (store == null) {
-            throw new ApiException("Store not found");
+        if (branch == null) {
+            throw new ApiException("Branch not found");
         }
 
         List<MonthlyReport> reports =
-                monthlyReportRepository.findMonthlyReportsByStoreIdOrderByYearDescMonthDesc(storeId);
+                monthlyReportRepository.findMonthlyReportsByBranchIdOrderByYearDescMonthDesc(branchId);
 
         List<MonthlyReportOut> result = new ArrayList<>();
 
@@ -94,15 +93,15 @@ public class MonthlyReportService {
         return result;
     }
 
-    public MonthlyReportOut getMonthlyReportByStoreAndDate(Integer storeId, Integer month, Integer year) {
-        Store store = storeRepository.findStoreById(storeId);
+    public MonthlyReportOut getMonthlyReportByBranchAndDate(Integer branchId, Integer month, Integer year) {
+        Branch branch = branchRepository.findBranchById(branchId);
 
-        if (store == null) {
-            throw new ApiException("Store not found");
+        if (branch == null) {
+            throw new ApiException("Branch not found");
         }
 
         MonthlyReport report =
-                monthlyReportRepository.findMonthlyReportByStoreIdAndMonthAndYear(storeId, month, year);
+                monthlyReportRepository.findMonthlyReportByBranchIdAndMonthAndYear(branchId, month, year);
 
         if (report == null) {
             throw new ApiException("Monthly report not found");
@@ -119,8 +118,8 @@ public class MonthlyReportService {
         }
 
         if (!report.getMonth().equals(dto.getMonth()) || !report.getYear().equals(dto.getYear())) {
-            boolean exists = monthlyReportRepository.existsMonthlyReportByStoreIdAndMonthAndYear(
-                    report.getStore().getId(),
+            boolean exists = monthlyReportRepository.existsMonthlyReportByBranchIdAndMonthAndYear(
+                    report.getBranch().getId(),
                     dto.getMonth(),
                     dto.getYear()
             );
@@ -164,7 +163,10 @@ public class MonthlyReportService {
                 report.getAiSummary(),
                 report.getPdfUrl(),
                 report.getGeneratedAt(),
-                report.getStore().getName()
+                report.getBranch().getId(),
+                report.getBranch().getName(),
+                report.getBranch().getStore().getId(),
+                report.getBranch().getStore().getName()
         );
     }
 }

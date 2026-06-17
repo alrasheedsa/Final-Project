@@ -13,7 +13,6 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 public class StoreOwnerOut {
 
-    // User fields
     private Integer id;
 
     private String fullName;
@@ -25,18 +24,4 @@ public class StoreOwnerOut {
     private Boolean enabled;
 
     private LocalDateTime createdAt;
-
-    // StoreOwner fields
-    private String commercialRegisterNo;
-
-    private Boolean commercialRegisterVerified;
-
-    private StoreStatus accountStatus;
-
-    private String businessType;
-
-    private Integer campaignRadiusMeters;
-
-    // Store fields
-    private StoreOut store;
 }

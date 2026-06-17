@@ -11,11 +11,11 @@ public interface MonthlyReportRepository extends JpaRepository<MonthlyReport, In
 
     MonthlyReport findMonthlyReportById(Integer id);
 
-    List<MonthlyReport> findMonthlyReportsByStoreId(Integer storeId);
+    List<MonthlyReport> findMonthlyReportsByBranchId(Integer branchId);
 
-    MonthlyReport findMonthlyReportByStoreIdAndMonthAndYear(Integer storeId, Integer month, Integer year);
+    MonthlyReport findMonthlyReportByBranchIdAndMonthAndYear(Integer branchId, Integer month, Integer year);
 
-    List<MonthlyReport> findMonthlyReportsByStoreIdOrderByYearDescMonthDesc(Integer storeId);
+    List<MonthlyReport> findMonthlyReportsByBranchIdOrderByYearDescMonthDesc(Integer branchId);
 
-    Boolean existsMonthlyReportByStoreIdAndMonthAndYear(Integer storeId, Integer month, Integer year);
+    Boolean existsMonthlyReportByBranchIdAndMonthAndYear(Integer branchId, Integer month, Integer year);
 }

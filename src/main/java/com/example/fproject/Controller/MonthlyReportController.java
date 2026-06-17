@@ -15,9 +15,9 @@ public class MonthlyReportController {
 
     private final MonthlyReportService monthlyReportService;
 
-    @PostMapping("/generate/{storeId}")
-    public ResponseEntity<?> generateMonthlyReport(@PathVariable Integer storeId, @Valid @RequestBody MonthlyReportIn dto) {
-        return ResponseEntity.status(200).body(monthlyReportService.generateMonthlyReport(storeId, dto));
+    @PostMapping("/generate/{branchId}")
+    public ResponseEntity<?> generateMonthlyReport(@PathVariable Integer branchId, @Valid @RequestBody MonthlyReportIn dto) {
+        return ResponseEntity.status(200).body(monthlyReportService.generateMonthlyReport(branchId, dto));
     }
 
     @GetMapping("/get")
@@ -30,15 +30,15 @@ public class MonthlyReportController {
         return ResponseEntity.status(200).body(monthlyReportService.getMonthlyReportById(reportId));
     }
 
-    @GetMapping("/store/{storeId}")
-    public ResponseEntity<?> getMonthlyReportsByStoreId(@PathVariable Integer storeId) {
-        return ResponseEntity.status(200).body(monthlyReportService.getMonthlyReportsByStoreId(storeId));
+    @GetMapping("/branch/{branchId}")
+    public ResponseEntity<?> getMonthlyReportsByBranchId(@PathVariable Integer branchId) {
+        return ResponseEntity.status(200).body(monthlyReportService.getMonthlyReportsByBranchId(branchId));
     }
 
-    @GetMapping("/store/{storeId}/date")
-    public ResponseEntity<?> getMonthlyReportByStoreAndDate(@PathVariable Integer storeId, @PathVariable Integer month, @PathVariable Integer year) {
+    @GetMapping("/branch/{branchId}/date")
+    public ResponseEntity<?> getMonthlyReportByBranchAndDate(@PathVariable Integer branchId, @PathVariable Integer month, @PathVariable Integer year) {
         return ResponseEntity.status(200).body(
-                monthlyReportService.getMonthlyReportByStoreAndDate(storeId, month, year)
+                monthlyReportService.getMonthlyReportByBranchAndDate(branchId, month, year)
         );
     }
 
