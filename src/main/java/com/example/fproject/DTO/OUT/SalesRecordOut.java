@@ -25,7 +25,7 @@ public class SalesRecordOut {
 
     private LocalDateTime uploadedAt;
 
-    private Integer storeId;
+    private Integer branchId;
 
     private Integer itemsCount;
 

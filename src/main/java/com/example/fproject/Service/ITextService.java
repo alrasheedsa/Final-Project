@@ -2,13 +2,10 @@ package com.example.fproject.Service;
 
 import com.example.fproject.Api.ApiException;
 import com.openhtmltopdf.pdfboxout.PdfRendererBuilder;
-import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.text.PDFTextStripper;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
-import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
@@ -16,17 +13,6 @@ import java.nio.charset.StandardCharsets;
 public class ITextService {
 
     private static final String MONTHLY_REPORT_TEMPLATE = "templates/monthly-report.html";
-
-    public String extractTextFromPdf(String pdfPath) {
-        if (pdfPath == null || pdfPath.isBlank()) {
-            throw new ApiException("PDF path is required");
-        }
-        try (PDDocument document = PDDocument.load(new File(pdfPath))) {
-            return new PDFTextStripper().getText(document);
-        } catch (IOException e) {
-            throw new ApiException("Failed to extract PDF text: " + e.getMessage());
-        }
-    }
 
     public byte[] generateMonthlyReportPdf(String storeName,
                                            String generatedAt,

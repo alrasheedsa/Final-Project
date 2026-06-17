@@ -1,6 +1,5 @@
 package com.example.fproject.DTO.IN;
 
-import com.example.fproject.Enum.CampaignStatus;
 import com.example.fproject.Enum.CampaignType;
 import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.NotEmpty;
@@ -36,9 +35,6 @@ public class CampaignRequestIn {
     @NotNull(message = "Campaign type is required")
     private CampaignType campaignType;
 
-    @NotNull(message = "Campaign status is required")
-    private CampaignStatus status;
-
     @NotNull(message = "Campaign start time is required")
     private LocalDateTime startDateTime;
 
@@ -58,8 +54,8 @@ public class CampaignRequestIn {
     @PositiveOrZero(message = "Redeemed count cannot be negative")
     private Integer redeemedCount;
 
-    @NotNull(message = "Store id is required")
-    private Integer storeId;
+    @NotNull(message = "Branch id is required")
+    private Integer branchId;
 
     private Integer campaignSuggestionId;
     private Integer aiQuestionId;

@@ -36,6 +36,7 @@ public class QRCodeService {
 
     public void addQRCode(QRCodeRequestIn dto) {
         validateQRCode(dto);
+        validateNewQRCode(dto);
         QRCode qrCode = new QRCode();
         setQRCode(qrCode, dto);
         qrCodeRepository.save(qrCode);
@@ -64,6 +65,15 @@ public class QRCodeService {
     private void validateQRCode(QRCodeRequestIn dto) {
         if (dto.getUsedCount() > dto.getMaxUsageCount()) {
             throw new ApiException("Used count cannot be greater than max usage count");
+        }
+    }
+
+    private void validateNewQRCode(QRCodeRequestIn dto) {
+        if (qrCodeRepository.existsByCampaignId(dto.getCampaignId())) {
+            throw new ApiException("Campaign already has a QR code");
+        }
+        if (qrCodeRepository.existsByCode(dto.getCode())) {
+            throw new ApiException("QR code already exists");
         }
     }
 

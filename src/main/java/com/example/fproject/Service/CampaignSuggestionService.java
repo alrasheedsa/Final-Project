@@ -222,15 +222,8 @@ public class CampaignSuggestionService {
             throw new ApiException("Offer text is required");
         }
 
-        if (campaignSuggestionIn.getCampaignType() == null || campaignSuggestionIn.getCampaignType().isBlank()) {
+        if (campaignSuggestionIn.getCampaignType() == null) {
             throw new ApiException("Campaign type is required");
-        }
-
-        if (!campaignSuggestionIn.getCampaignType().equals("DISCOUNT")
-                && !campaignSuggestionIn.getCampaignType().equals("FREE_PRODUCT")
-                && !campaignSuggestionIn.getCampaignType().equals("INTERACTIVE_QUESTION")
-                && !campaignSuggestionIn.getCampaignType().equals("SURPLUS_CLEARANCE")) {
-            throw new ApiException("Campaign type must be DISCOUNT, FREE_PRODUCT, INTERACTIVE_QUESTION, or SURPLUS_CLEARANCE");
         }
 
         if (campaignSuggestionIn.getSuggestedStartTime() == null) {

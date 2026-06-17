@@ -18,6 +18,9 @@ public class Customer {
     private Integer id;
 
     @Column(nullable = false)
+    private String locationUrl;
+
+    @Column(nullable = false)
     private Double latitude;
 
     @Column(nullable = false)

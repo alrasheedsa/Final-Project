@@ -74,6 +74,9 @@ public class CampaignResultService {
         if (dto.getConversionRate() > 100) {
             throw new ApiException("Conversion rate cannot be greater than 100");
         }
+        if (dto.getSentCount() == 0 && dto.getConversionRate() > 0) {
+            throw new ApiException("Conversion rate must be zero when sent count is zero");
+        }
     }
 
     private void linkCampaign(CampaignResult campaignResult, Integer campaignId) {

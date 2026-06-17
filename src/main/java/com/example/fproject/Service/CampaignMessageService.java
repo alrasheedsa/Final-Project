@@ -41,6 +41,7 @@ public class CampaignMessageService {
     }
 
     public void addCampaignMessage(CampaignMessageRequestIn dto) {
+        validateCampaignMessage(dto, null);
         CampaignMessage campaignMessage = new CampaignMessage();
         setCampaignMessage(campaignMessage, dto);
         campaignMessageRepository.save(campaignMessage);
@@ -48,6 +49,7 @@ public class CampaignMessageService {
 
     public void updateCampaignMessage(Integer campaignMessageId, CampaignMessageRequestIn dto) {
         CampaignMessage old = checkCampaignMessage(campaignMessageId);
+        validateCampaignMessage(dto, campaignMessageId);
         setCampaignMessage(old, dto);
         campaignMessageRepository.save(old);
     }
@@ -58,15 +60,26 @@ public class CampaignMessageService {
     }
 
     private void setCampaignMessage(CampaignMessage campaignMessage, CampaignMessageRequestIn dto) {
+        Campaign campaign = checkCampaign(dto.getCampaignId());
+        Customer customer = checkCustomer(dto.getCustomerId());
+        CustomerAnswer customerAnswer = checkCustomerAnswer(dto.getCustomerAnswerId());
+        validateLinkedCustomerAnswer(customerAnswer, campaign, customer);
         campaignMessage.setMessageText(dto.getMessageText());
         campaignMessage.setDistanceKm(dto.getDistanceKm());
         campaignMessage.setDurationMinutes(dto.getDurationMinutes());
         campaignMessage.setDistanceText(dto.getDistanceText());
         campaignMessage.setStatus(dto.getStatus());
         campaignMessage.setSentAt(dto.getSentAt());
-        campaignMessage.setCampaign(checkCampaign(dto.getCampaignId()));
-        campaignMessage.setCustomer(checkCustomer(dto.getCustomerId()));
-        campaignMessage.setCustomerAnswer(checkCustomerAnswer(dto.getCustomerAnswerId()));
+        campaignMessage.setCampaign(campaign);
+        campaignMessage.setCustomer(customer);
+        campaignMessage.setCustomerAnswer(customerAnswer);
+    }
+
+    private void validateCampaignMessage(CampaignMessageRequestIn dto, Integer campaignMessageId) {
+        Boolean exists = campaignMessageRepository.existsByCampaignIdAndCustomerId(dto.getCampaignId(), dto.getCustomerId());
+        if (Boolean.TRUE.equals(exists) && campaignMessageId == null) {
+            throw new ApiException("Campaign message already exists for this customer");
+        }
     }
 
     private CampaignMessage checkCampaignMessage(Integer campaignMessageId) {
@@ -88,6 +101,14 @@ public class CampaignMessageService {
         if (customerAnswerId == null) return null;
         return customerAnswerRepository.findById(customerAnswerId)
                 .orElseThrow(() -> new ApiException("Customer answer not found"));
+    }
+
+    private void validateLinkedCustomerAnswer(CustomerAnswer customerAnswer, Campaign campaign, Customer customer) {
+        if (customerAnswer == null) return;
+        if (!customerAnswer.getCampaign().getId().equals(campaign.getId())
+                || !customerAnswer.getCustomer().getId().equals(customer.getId())) {
+            throw new ApiException("Customer answer does not belong to this campaign message");
+        }
     }
 
     private CampaignMessageResponseOut mapCampaignMessage(CampaignMessage campaignMessage) {

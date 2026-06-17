@@ -6,4 +6,8 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface QRCodeRepository extends JpaRepository<QRCode, Integer> {
+
+    Boolean existsByCampaignId(Integer campaignId);
+
+    Boolean existsByCode(String code);
 }

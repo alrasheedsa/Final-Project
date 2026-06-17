@@ -20,6 +20,7 @@ public class AIAnalysisService {
 
     private final AIAnalysisRepository aiAnalysisRepository;
     private final SalesRecordRepository salesRecordRepository;
+    private final OpenAiService openAiService;
 
     public List<AIAnalysisOut> getAllAIAnalyses() {
         List<AIAnalysis> aiAnalyses = aiAnalysisRepository.findAll();
@@ -83,6 +84,41 @@ public class AIAnalysisService {
         aiAnalysis.setSeasonalPatterns(aiAnalysisIn.getSeasonalPatterns());
         aiAnalysis.setRecommendation(aiAnalysisIn.getRecommendation());
         aiAnalysis.setAiSummary(aiAnalysisIn.getAiSummary());
+        aiAnalysis.setAnalyzedAt(LocalDateTime.now());
+        aiAnalysis.setSalesRecord(salesRecord);
+
+        aiAnalysisRepository.save(aiAnalysis);
+    }
+
+    public void generateAIAnalysisFromSalesRecord(Integer salesRecordId, String salesData) {
+        SalesRecord salesRecord = salesRecordRepository.findSalesRecordById(salesRecordId);
+
+        if (salesRecord == null) {
+            throw new ApiException("Sales record not found");
+        }
+
+        if (salesData == null || salesData.isBlank()) {
+            throw new ApiException("Sales data is required");
+        }
+
+        Boolean exists = aiAnalysisRepository.existsBySalesRecord_Id(salesRecordId);
+
+        if (Boolean.TRUE.equals(exists)) {
+            throw new ApiException("This sales record already has AI analysis");
+        }
+
+        OpenAiService.AIAnalysisResult result = openAiService.analyzeSalesDataForAIAnalysis(salesData);
+
+        AIAnalysis aiAnalysis = new AIAnalysis();
+
+        aiAnalysis.setTopProducts(result.topProducts());
+        aiAnalysis.setLowProducts(result.lowProducts());
+        aiAnalysis.setPeakHours(result.peakHours());
+        aiAnalysis.setSlowHours(result.slowHours());
+        aiAnalysis.setSurplusProducts(result.surplusProducts());
+        aiAnalysis.setSeasonalPatterns(result.seasonalPatterns());
+        aiAnalysis.setRecommendation(result.recommendation());
+        aiAnalysis.setAiSummary(result.aiSummary());
         aiAnalysis.setAnalyzedAt(LocalDateTime.now());
         aiAnalysis.setSalesRecord(salesRecord);
 

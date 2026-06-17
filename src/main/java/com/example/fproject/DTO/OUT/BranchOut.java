@@ -14,6 +14,8 @@ public class BranchOut {
 
     private String name;
 
+    private String locationUrl;
+
     private Double latitude;
 
     private Double longitude;
