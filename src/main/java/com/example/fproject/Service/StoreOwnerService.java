@@ -1,16 +1,13 @@
 package com.example.fproject.Service;
 
 import com.example.fproject.Api.ApiException;
+
 import com.example.fproject.DTO.IN.StoreOwnerIn;
-import com.example.fproject.DTO.OUT.StoreOut;
 import com.example.fproject.DTO.OUT.StoreOwnerOut;
 import com.example.fproject.Enum.RoleType;
-import com.example.fproject.Enum.StoreStatus;
-import com.example.fproject.Model.Store;
 import com.example.fproject.Model.StoreOwner;
 import com.example.fproject.Model.User;
 import com.example.fproject.Repository.StoreOwnerRepository;
-import com.example.fproject.Repository.StoreRepository;
 import com.example.fproject.Repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -24,7 +21,6 @@ public class StoreOwnerService {
 
     private final StoreOwnerRepository storeOwnerRepository;
     private final UserRepository userRepository;
-    private final StoreRepository storeRepository;
 
     public StoreOwnerOut registerStoreOwner(StoreOwnerIn dto) {
 
@@ -34,10 +30,6 @@ public class StoreOwnerService {
 
         if (userRepository.existsUserByPhone(dto.getPhone())) {
             throw new ApiException("Phone already exists");
-        }
-
-        if (storeOwnerRepository.existsStoreOwnerByCommercialRegisterNo(dto.getCommercialRegisterNo())) {
-            throw new ApiException("Commercial register number already exists");
         }
 
         User user = new User();
@@ -52,23 +44,8 @@ public class StoreOwnerService {
 
         StoreOwner storeOwner = new StoreOwner();
         storeOwner.setUser(user);
-        storeOwner.setCommercialRegisterNo(dto.getCommercialRegisterNo());
-        storeOwner.setCommercialRegisterVerified(false);
-        storeOwner.setAccountStatus(StoreStatus.PENDING);
-        storeOwner.setBusinessType(dto.getBusinessType());
-        storeOwner.setCampaignRadiusMeters(dto.getCampaignRadiusMeters());
 
         storeOwnerRepository.save(storeOwner);
-
-        Store store = new Store();
-        store.setName(dto.getStoreName());
-        store.setLatitude(dto.getLatitude());
-        store.setLongitude(dto.getLongitude());
-        store.setStatus(StoreStatus.PENDING);
-        store.setCampaignRadiusMeters(dto.getCampaignRadiusMeters());
-        store.setStoreOwner(storeOwner);
-
-        storeRepository.save(store);
 
         return mapToDTOOUT(storeOwner);
     }
@@ -111,34 +88,12 @@ public class StoreOwnerService {
             throw new ApiException("Phone already exists");
         }
 
-        if (!storeOwner.getCommercialRegisterNo().equals(dto.getCommercialRegisterNo())
-                && storeOwnerRepository.existsStoreOwnerByCommercialRegisterNo(dto.getCommercialRegisterNo())) {
-            throw new ApiException("Commercial register number already exists");
-        }
-
         user.setFullName(dto.getFullName());
         user.setPhone(dto.getPhone());
         user.setEmail(dto.getEmail());
         user.setPassword(dto.getPassword());
 
         userRepository.save(user);
-
-        storeOwner.setCommercialRegisterNo(dto.getCommercialRegisterNo());
-        storeOwner.setBusinessType(dto.getBusinessType());
-        storeOwner.setCampaignRadiusMeters(dto.getCampaignRadiusMeters());
-
-        storeOwnerRepository.save(storeOwner);
-
-        Store store = storeRepository.findStoreByStoreOwnerId(storeOwnerId);
-
-        if (store != null) {
-            store.setName(dto.getStoreName());
-            store.setLatitude(dto.getLatitude());
-            store.setLongitude(dto.getLongitude());
-            store.setCampaignRadiusMeters(dto.getCampaignRadiusMeters());
-
-            storeRepository.save(store);
-        }
 
         return mapToDTOOUT(storeOwner);
     }
@@ -152,44 +107,18 @@ public class StoreOwnerService {
 
         User user = storeOwner.getUser();
 
-        Store store = storeRepository.findStoreByStoreOwnerId(storeOwnerId);
-        if (store != null) {
-            storeRepository.delete(store);
-        }
-
         storeOwnerRepository.delete(storeOwner);
         userRepository.delete(user);
     }
 
     private StoreOwnerOut mapToDTOOUT(StoreOwner storeOwner) {
-        Store store = storeRepository.findStoreByStoreOwnerId(storeOwner.getId());
-
-        StoreOut storeDTOOUT = null;
-
-        if (store != null) {
-            storeDTOOUT = new StoreOut(
-                    store.getId(),
-                    store.getName(),
-                    store.getLatitude(),
-                    store.getLongitude(),
-                    store.getStatus(),
-                    store.getCampaignRadiusMeters()
-            );
-        }
-
         return new StoreOwnerOut(
                 storeOwner.getId(),
                 storeOwner.getUser().getFullName(),
                 storeOwner.getUser().getPhone(),
                 storeOwner.getUser().getEmail(),
                 storeOwner.getUser().getEnabled(),
-                storeOwner.getUser().getCreatedAt(),
-                storeOwner.getCommercialRegisterNo(),
-                storeOwner.getCommercialRegisterVerified(),
-                storeOwner.getAccountStatus(),
-                storeOwner.getBusinessType(),
-                storeOwner.getCampaignRadiusMeters(),
-                storeDTOOUT
+                storeOwner.getUser().getCreatedAt()
         );
     }
 }

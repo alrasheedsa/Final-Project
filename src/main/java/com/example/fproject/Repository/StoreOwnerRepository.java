@@ -9,9 +9,6 @@ public interface StoreOwnerRepository extends JpaRepository<StoreOwner, Integer>
 
     StoreOwner findStoreOwnerById(Integer id);
 
-    StoreOwner findStoreOwnerByCommercialRegisterNo(String commercialRegisterNo);
-
     StoreOwner findStoreOwnerByUserId(Integer userId);
 
-    Boolean existsStoreOwnerByCommercialRegisterNo(String commercialRegisterNo);
 }

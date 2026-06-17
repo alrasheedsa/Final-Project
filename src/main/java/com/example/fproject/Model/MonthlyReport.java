@@ -56,8 +56,8 @@ public class MonthlyReport {
     private LocalDateTime generatedAt;
 
     @ManyToOne
-    @JoinColumn(name = "store_id")
-    private Store store;
+    @JoinColumn(name = "branch_id")
+    private Branch branch;
 
     @OneToMany(mappedBy = "monthlyReport")
     @JsonIgnore

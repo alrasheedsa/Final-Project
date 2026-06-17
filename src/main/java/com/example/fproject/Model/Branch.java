@@ -12,8 +12,8 @@ import java.util.Set;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "stores")
-public class Store {
+@Table(name = "branches")
+public class Branch {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -23,23 +23,31 @@ public class Store {
     private String name;
 
     @Column(nullable = false)
-    private String businessType;
-
-    @Column(nullable = false, unique = true)
-    private String commercialRegisterNo;
+    private Double latitude;
 
     @Column(nullable = false)
-    private Boolean commercialRegisterVerified = false;
+    private Double longitude;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private StoreStatus status;
 
-    @ManyToOne
-    @JoinColumn(name = "store_owner_id")
-    private StoreOwner storeOwner;
+    @Column(nullable = false)
+    private Integer campaignRadiusMeters;
 
-    @OneToMany(mappedBy = "store")
+    @ManyToOne
+    @JoinColumn(name = "store_id")
+    private Store store;
+
+    @OneToMany(mappedBy = "branch")
     @JsonIgnore
-    private Set<Branch> branches;
+    private Set<SalesRecord> salesRecords;
+
+    @OneToMany(mappedBy = "branch")
+    @JsonIgnore
+    private Set<Campaign> campaigns;
+
+    @OneToMany(mappedBy = "branch")
+    @JsonIgnore
+    private Set<MonthlyReport> monthlyReports;
 }
