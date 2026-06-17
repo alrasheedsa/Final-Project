@@ -1,17 +1,8 @@
 package com.example.fproject.Model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.MapsId;
-import jakarta.persistence.OneToMany;
-import jakarta.persistence.OneToOne;
-import jakarta.persistence.Table;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import jakarta.persistence.*;
+import lombok.*;
 
 import java.util.Set;
 
@@ -26,6 +17,15 @@ public class Customer {
     @Id
     private Integer id;
 
+    @Column(nullable = false)
+    private Double latitude;
+
+    @Column(nullable = false)
+    private Double longitude;
+
+    @Column(nullable = false)
+    private Boolean locationConsent;
+
     @OneToOne
     @MapsId
     @JoinColumn(name = "user_id", unique = true)
@@ -34,4 +34,8 @@ public class Customer {
     @OneToMany(mappedBy = "customer")
     @JsonIgnore
     private Set<CampaignMessage> campaignMessages;
+
+    @OneToMany(mappedBy = "customer")
+    @JsonIgnore
+    private Set<CustomerAnswer> customerAnswers;
 }

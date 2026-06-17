@@ -1,18 +1,9 @@
 package com.example.fproject.Model;
 
+import com.example.fproject.Enum.StoreStatus;
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.MapsId;
-import jakarta.persistence.OneToMany;
-import jakarta.persistence.OneToOne;
-import jakarta.persistence.Table;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import jakarta.persistence.*;
+import lombok.*;
 
 import java.util.Set;
 
@@ -31,7 +22,17 @@ public class StoreOwner {
     private String commercialRegisterNo;
 
     @Column(nullable = false)
-    private Boolean verified = false;
+    private Boolean commercialRegisterVerified = false;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private StoreStatus accountStatus;
+
+    @Column(nullable = false)
+    private String businessType;
+
+    @Column(nullable = false)
+    private Integer campaignRadiusMeters;
 
     @OneToOne
     @MapsId
