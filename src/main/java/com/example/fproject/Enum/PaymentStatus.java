@@ -1,7 +1,7 @@
 package com.example.fproject.Enum;
 
 public enum PaymentStatus {
-    SUCCESS,
-    FAILED,
-    PENDING
+    PENDING,
+    PAID,
+    FAILED
 }
