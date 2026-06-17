@@ -26,7 +26,7 @@ public class CampaignResponseOut {
     private Integer targetCustomersCount;
     private Integer sentCount;
     private Integer redeemedCount;
-    private Integer storeId;
+    private Integer branchId;
     private Integer campaignSuggestionId;
     private Integer aiQuestionId;
     private Integer qrCodeId;

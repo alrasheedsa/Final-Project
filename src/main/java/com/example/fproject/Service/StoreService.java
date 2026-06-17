@@ -6,6 +6,7 @@ import com.example.fproject.DTO.OUT.StoreOut;
 import com.example.fproject.Enum.StoreStatus;
 import com.example.fproject.Model.Store;
 import com.example.fproject.Model.StoreOwner;
+import com.example.fproject.Repository.BranchRepository;
 import com.example.fproject.Repository.StoreOwnerRepository;
 import com.example.fproject.Repository.StoreRepository;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +21,7 @@ public class StoreService {
 
     private final StoreRepository storeRepository;
     private final StoreOwnerRepository storeOwnerRepository;
+    private final BranchRepository branchRepository;
 
     public StoreOut addStore(Integer storeOwnerId, StoreIn dto) {
         StoreOwner storeOwner = storeOwnerRepository.findStoreOwnerById(storeOwnerId);
@@ -144,6 +146,10 @@ public class StoreService {
 
         if (store == null) {
             throw new ApiException("Store not found");
+        }
+
+        if (branchRepository.existsByStoreId(storeId)) {
+            throw new ApiException("Cannot delete store because it has branches");
         }
 
         storeRepository.delete(store);

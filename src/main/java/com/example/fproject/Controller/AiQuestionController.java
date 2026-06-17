@@ -32,6 +32,11 @@ public class AiQuestionController {
         return ResponseEntity.status(200).body(aiQuestionService.getAiQuestionById(aiQuestionId));
     }
 
+    @PostMapping("/generate-question")
+    public ResponseEntity<?> generateAiQuestion() {
+        return ResponseEntity.status(200).body(aiQuestionService.generateAiQuestion());
+    }
+
     @PostMapping("/add")
     public ResponseEntity<?> addAiQuestion(@RequestBody @Valid AiQuestionRequestIn aiQuestionRequestIn) {
         aiQuestionService.addAiQuestion(aiQuestionRequestIn);

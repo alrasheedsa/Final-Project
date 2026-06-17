@@ -38,9 +38,11 @@ public class QRRedemptionService {
     }
 
     public void addQRRedemption(QRRedemptionRequestIn dto) {
+        validateQRRedemption(dto);
         QRRedemption qrRedemption = new QRRedemption();
         setQRRedemption(qrRedemption, dto);
         qrRedemptionRepository.save(qrRedemption);
+        updateRedemptionCounters(qrRedemption);
     }
 
     public void updateQRRedemption(Integer qrRedemptionId, QRRedemptionRequestIn dto) {
@@ -59,6 +61,26 @@ public class QRRedemptionService {
         qrRedemption.setStatus(dto.getStatus());
         qrRedemption.setQrCode(checkQRCode(dto.getQrCodeId()));
         qrRedemption.setCampaign(checkCampaign(dto.getCampaignId()));
+    }
+
+    private void validateQRRedemption(QRRedemptionRequestIn dto) {
+        QRCode qrCode = checkQRCode(dto.getQrCodeId());
+        Campaign campaign = checkCampaign(dto.getCampaignId());
+        if (qrCode.getCampaign() == null || !qrCode.getCampaign().getId().equals(campaign.getId())) {
+            throw new ApiException("QR code does not belong to this campaign");
+        }
+        if (qrCode.getUsedCount() >= qrCode.getMaxUsageCount()) {
+            throw new ApiException("QR code usage limit has been reached");
+        }
+    }
+
+    private void updateRedemptionCounters(QRRedemption qrRedemption) {
+        QRCode qrCode = qrRedemption.getQrCode();
+        Campaign campaign = qrRedemption.getCampaign();
+        qrCode.setUsedCount(qrCode.getUsedCount() + 1);
+        campaign.setRedeemedCount(campaign.getRedeemedCount() + 1);
+        qrCodeRepository.save(qrCode);
+        campaignRepository.save(campaign);
     }
 
     private QRRedemption checkQRRedemption(Integer qrRedemptionId) {

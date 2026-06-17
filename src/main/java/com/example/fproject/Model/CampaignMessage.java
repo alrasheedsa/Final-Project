@@ -31,7 +31,7 @@ public class CampaignMessage {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String messageText;
 
     @Column(nullable = false)

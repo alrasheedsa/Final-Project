@@ -22,6 +22,7 @@ public class AiQuestionService {
     private final AiQuestionRepository aiQuestionRepository;
     private final CampaignRepository campaignRepository;
     private final ModelMapper modelMapper;
+    private final OpenAiService openAiService;
 
     public List<AiQuestionResponseOut> getAllAiQuestions() {
         List<AiQuestionResponseOut> aiQuestions = new ArrayList<>();
@@ -33,6 +34,30 @@ public class AiQuestionService {
 
     public AiQuestionResponseOut getAiQuestionById(Integer aiQuestionId) {
         return mapAiQuestion(checkAiQuestion(aiQuestionId));
+    }
+
+    public AiQuestionResponseOut generateAiQuestion() {
+        OpenAiService.AiQuestionResult result = openAiService.generateAiQuestion();
+
+        if (!isAnswerOption(result.correctOption())) {
+            throw new ApiException("Correct option must be A, B, or C");
+        }
+
+        if (result.optionA().equalsIgnoreCase(result.optionB())
+                || result.optionA().equalsIgnoreCase(result.optionC())
+                || result.optionB().equalsIgnoreCase(result.optionC())) {
+            throw new ApiException("AI question options must be different");
+        }
+
+        return new AiQuestionResponseOut(
+                null,
+                result.questionText(),
+                result.optionA(),
+                result.optionB(),
+                result.optionC(),
+                result.correctOption(),
+                null
+        );
     }
 
     public void addAiQuestion(AiQuestionRequestIn dto) {

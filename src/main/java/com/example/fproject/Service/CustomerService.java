@@ -20,6 +20,7 @@ public class CustomerService {
 
     private final CustomerRepository customerRepository;
     private final UserRepository userRepository;
+    private final GoogleMapService googleMapService;
 
     public CustomerOut registerCustomer(CustomerIn dto) {
 
@@ -43,8 +44,10 @@ public class CustomerService {
 
         Customer customer = new Customer();
         customer.setUser(user);
-        customer.setLatitude(dto.getLatitude());
-        customer.setLongitude(dto.getLongitude());
+        double[] coordinates = googleMapService.extractLocationFromLink(dto.getLocationUrl());
+        customer.setLocationUrl(dto.getLocationUrl());
+        customer.setLatitude(coordinates[0]);
+        customer.setLongitude(coordinates[1]);
         customer.setLocationConsent(dto.getLocationConsent());
 
         customerRepository.save(customer);
@@ -97,8 +100,10 @@ public class CustomerService {
 
         userRepository.save(user);
 
-        customer.setLatitude(dto.getLatitude());
-        customer.setLongitude(dto.getLongitude());
+        double[] coordinates = googleMapService.extractLocationFromLink(dto.getLocationUrl());
+        customer.setLocationUrl(dto.getLocationUrl());
+        customer.setLatitude(coordinates[0]);
+        customer.setLongitude(coordinates[1]);
         customer.setLocationConsent(dto.getLocationConsent());
 
         customerRepository.save(customer);
@@ -114,6 +119,14 @@ public class CustomerService {
         }
 
         User user = customer.getUser();
+
+        if (customer.getCampaignMessages() != null && !customer.getCampaignMessages().isEmpty()) {
+            throw new ApiException("Cannot delete customer because it has campaign messages");
+        }
+
+        if (customer.getCustomerAnswers() != null && !customer.getCustomerAnswers().isEmpty()) {
+            throw new ApiException("Cannot delete customer because it has customer answers");
+        }
 
         customerRepository.delete(customer);
         userRepository.delete(user);
@@ -138,6 +151,7 @@ public class CustomerService {
                 customer.getUser().getEmail(),
                 customer.getUser().getEnabled(),
                 customer.getUser().getCreatedAt(),
+                customer.getLocationUrl(),
                 customer.getLatitude(),
                 customer.getLongitude(),
                 customer.getLocationConsent()
