@@ -12,9 +12,13 @@ public interface StoreRepository extends JpaRepository<Store, Integer> {
 
     Store findStoreById(Integer id);
 
-    Store findStoreByStoreOwnerId(Integer storeOwnerId);
+    List<Store> findStoresByStoreOwnerId(Integer storeOwnerId);
 
     List<Store> findStoresByStatus(StoreStatus status);
 
-    Boolean existsStoreByStoreOwnerId(Integer storeOwnerId);
+    Store findStoreByCommercialRegisterNo(String commercialRegisterNo);
+
+    Boolean existsStoreByCommercialRegisterNo(String commercialRegisterNo);
+
+    Boolean existsStoreByNameAndStoreOwnerId(String name, Integer storeOwnerId);
 }

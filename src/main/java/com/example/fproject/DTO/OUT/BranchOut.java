@@ -8,21 +8,21 @@ import lombok.NoArgsConstructor;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class StoreOut {
+public class BranchOut {
 
     private Integer id;
 
     private String name;
 
-    private String businessType;
+    private Double latitude;
 
-    private String commercialRegisterNo;
-
-    private Boolean commercialRegisterVerified;
+    private Double longitude;
 
     private StoreStatus status;
 
-    private Integer storeOwnerId;
+    private Integer campaignRadiusMeters;
 
-    private String storeOwnerName;
+    private Integer storeId;
+
+    private String storeName;
 }
