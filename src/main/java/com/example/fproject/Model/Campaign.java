@@ -1,6 +1,7 @@
 package com.example.fproject.Model;
 
 import com.example.fproject.Enum.CampaignStatus;
+import com.example.fproject.Enum.CampaignType;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -38,16 +39,29 @@ public class Campaign {
     private String title;
 
     @Column(nullable = false)
-    private LocalDateTime startTime;
+    private String description;
 
     @Column(nullable = false)
-    private LocalDateTime endTime;
+    private String offerText;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private CampaignType campaignType;
 
     @Column(nullable = false)
-    private Integer maxCustomers;
+    private LocalDateTime startDateTime;
 
     @Column(nullable = false)
-    private Integer usedCount;
+    private LocalDateTime endDateTime;
+
+    @Column(nullable = false)
+    private Integer targetCustomersCount;
+
+    @Column(nullable = false)
+    private Integer sentCount;
+
+    @Column(nullable = false)
+    private Integer redeemedCount;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -69,9 +83,9 @@ public class Campaign {
     @JsonIgnore
     private Set<CampaignMessage> campaignMessages;
 
-    @OneToMany(mappedBy = "campaign")
+    @OneToOne(mappedBy = "campaign")
     @JsonIgnore
-    private Set<QRCode> qrCodes;
+    private QRCode qrCode;
 
     @OneToOne
     @JoinColumn(name = "campaign_result_id", unique = true)

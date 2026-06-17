@@ -26,13 +26,19 @@ public class AIQuestion {
     private Integer id;
 
     @Column(nullable = false)
-    private String question;
+    private String questionText;
 
     @Column(nullable = false)
-    private String correctAnswer;
+    private String optionA;
 
     @Column(nullable = false)
-    private Integer maxAttempts;
+    private String optionB;
+
+    @Column(nullable = false)
+    private String optionC;
+
+    @Column(nullable = false)
+    private String correctOption;
 
     @OneToOne(mappedBy = "aiQuestion")
     @JsonIgnore

@@ -1,7 +1,10 @@
 package com.example.fproject.Model;
 
+import com.example.fproject.Enum.MessageStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -29,6 +32,9 @@ public class CampaignMessage {
     private Integer id;
 
     @Column(nullable = false)
+    private String messageText;
+
+    @Column(nullable = false)
     private Double distanceKm;
 
     @Column(nullable = false)
@@ -36,6 +42,10 @@ public class CampaignMessage {
 
     @Column(nullable = false)
     private String distanceText;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private MessageStatus status;
 
     @Column(nullable = false)
     private LocalDateTime sentAt;
@@ -51,8 +61,4 @@ public class CampaignMessage {
     @OneToOne
     @JoinColumn(name = "customer_answer_id", unique = true)
     private CustomerAnswer customerAnswer;
-
-    @OneToOne
-    @JoinColumn(name = "qr_code_id", unique = true)
-    private QRCode qrCode;
 }
