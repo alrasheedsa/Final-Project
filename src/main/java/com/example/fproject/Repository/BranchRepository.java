@@ -17,4 +17,6 @@ public interface BranchRepository extends JpaRepository<Branch, Integer> {
     List<Branch> findBranchesByStatus(StoreStatus status);
 
     Boolean existsBranchByNameAndStoreId(String name, Integer storeId);
+
+    Boolean existsByStoreId(Integer storeId);
 }

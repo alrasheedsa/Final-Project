@@ -6,4 +6,6 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface CampaignMessageRepository extends JpaRepository<CampaignMessage, Integer> {
+
+    Boolean existsByCampaignIdAndCustomerId(Integer campaignId, Integer customerId);
 }

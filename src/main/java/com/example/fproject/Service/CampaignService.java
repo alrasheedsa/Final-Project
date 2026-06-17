@@ -3,17 +3,19 @@ package com.example.fproject.Service;
 import com.example.fproject.Api.ApiException;
 import com.example.fproject.DTO.IN.CampaignRequestIn;
 import com.example.fproject.DTO.OUT.CampaignResponseOut;
+import com.example.fproject.Enum.CampaignStatus;
 import com.example.fproject.Enum.CampaignType;
+import com.example.fproject.Enum.SuggestionStatus;
 import com.example.fproject.Model.AIQuestion;
+import com.example.fproject.Model.Branch;
 import com.example.fproject.Model.Campaign;
 import com.example.fproject.Model.CampaignResult;
 import com.example.fproject.Model.CampaignSuggestion;
-import com.example.fproject.Model.Store;
 import com.example.fproject.Repository.AiQuestionRepository;
+import com.example.fproject.Repository.BranchRepository;
 import com.example.fproject.Repository.CampaignResultRepository;
 import com.example.fproject.Repository.CampaignRepository;
 import com.example.fproject.Repository.CampaignSuggestionRepository;
-import com.example.fproject.Repository.StoreRepository;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Service;
@@ -26,7 +28,7 @@ import java.util.List;
 public class CampaignService {
 
     private final CampaignRepository campaignRepository;
-    private final StoreRepository storeRepository;
+    private final BranchRepository branchRepository;
     private final CampaignSuggestionRepository campaignSuggestionRepository;
     private final AiQuestionRepository aiQuestionRepository;
     private final CampaignResultRepository campaignResultRepository;
@@ -48,6 +50,7 @@ public class CampaignService {
         validateCampaign(dto);
         Campaign campaign = new Campaign();
         setCampaign(campaign, dto);
+        campaign.setStatus(CampaignStatus.PENDING);
         campaignRepository.save(campaign);
     }
 
@@ -60,7 +63,17 @@ public class CampaignService {
 
     public void deleteCampaign(Integer campaignId) {
         // Business note: this CRUD method exists for full coverage, but real workflow may change status instead of hard delete.
-        campaignRepository.delete(checkCampaign(campaignId));
+        Campaign campaign = checkCampaign(campaignId);
+        if (campaign.getCampaignMessages() != null && !campaign.getCampaignMessages().isEmpty()) {
+            throw new ApiException("Cannot delete campaign because it has campaign messages");
+        }
+        if (campaign.getQrCode() != null) {
+            throw new ApiException("Cannot delete campaign because it has a QR code");
+        }
+        if (campaign.getCampaignResult() != null) {
+            throw new ApiException("Cannot delete campaign because it has a campaign result");
+        }
+        campaignRepository.delete(campaign);
     }
 
     private void setCampaign(Campaign campaign, CampaignRequestIn dto) {
@@ -68,14 +81,16 @@ public class CampaignService {
         campaign.setDescription(dto.getDescription());
         campaign.setOfferText(dto.getOfferText());
         campaign.setCampaignType(dto.getCampaignType());
-        campaign.setStatus(dto.getStatus());
         campaign.setStartDateTime(dto.getStartDateTime());
         campaign.setEndDateTime(dto.getEndDateTime());
         campaign.setTargetCustomersCount(dto.getTargetCustomersCount());
         campaign.setSentCount(dto.getSentCount());
         campaign.setRedeemedCount(dto.getRedeemedCount());
-        campaign.setStore(checkStore(dto.getStoreId()));
-        campaign.setCampaignSuggestion(checkCampaignSuggestion(dto.getCampaignSuggestionId(), campaign.getId()));
+        Branch branch = checkBranch(dto.getBranchId());
+        CampaignSuggestion campaignSuggestion = checkCampaignSuggestion(dto.getCampaignSuggestionId(), campaign.getId());
+        validateCampaignSuggestion(campaignSuggestion, branch, dto.getCampaignType());
+        campaign.setBranch(branch);
+        campaign.setCampaignSuggestion(campaignSuggestion);
         campaign.setAiQuestion(checkAiQuestion(dto.getAiQuestionId(), campaign.getId(), dto.getCampaignType()));
         campaign.setCampaignResult(checkCampaignResult(dto.getCampaignResultId(), campaign.getId()));
     }
@@ -103,19 +118,36 @@ public class CampaignService {
                 .orElseThrow(() -> new ApiException("Campaign not found"));
     }
 
-    private Store checkStore(Integer storeId) {
-        return storeRepository.findById(storeId)
-                .orElseThrow(() -> new ApiException("Store not found"));
+    private Branch checkBranch(Integer branchId) {
+        Branch branch = branchRepository.findBranchById(branchId);
+        if (branch == null) {
+            throw new ApiException("Branch not found");
+        }
+        return branch;
     }
 
     private CampaignSuggestion checkCampaignSuggestion(Integer campaignSuggestionId, Integer campaignId) {
         if (campaignSuggestionId == null) return null;
         CampaignSuggestion campaignSuggestion = campaignSuggestionRepository.findById(campaignSuggestionId)
                 .orElseThrow(() -> new ApiException("Campaign suggestion not found"));
+        if (campaignSuggestion.getApprovalStatus() != SuggestionStatus.APPROVED) {
+            throw new ApiException("Campaign suggestion must be approved before creating a campaign");
+        }
         if (campaignSuggestion.getCampaign() != null && !campaignSuggestion.getCampaign().getId().equals(campaignId)) {
             throw new ApiException("Campaign suggestion is already linked to another campaign");
         }
         return campaignSuggestion;
+    }
+
+    private void validateCampaignSuggestion(CampaignSuggestion campaignSuggestion, Branch branch, CampaignType campaignType) {
+        if (campaignSuggestion == null) return;
+        Branch suggestionBranch = campaignSuggestion.getAiAnalysis().getSalesRecord().getBranch();
+        if (!suggestionBranch.getId().equals(branch.getId())) {
+            throw new ApiException("Campaign suggestion does not belong to this branch");
+        }
+        if (!campaignSuggestion.getCampaignType().equals(campaignType)) {
+            throw new ApiException("Campaign type must match campaign suggestion type");
+        }
     }
 
     private AIQuestion checkAiQuestion(Integer aiQuestionId, Integer campaignId, CampaignType campaignType) {
@@ -143,7 +175,7 @@ public class CampaignService {
 
     private CampaignResponseOut mapCampaign(Campaign campaign) {
         CampaignResponseOut out = modelMapper.map(campaign, CampaignResponseOut.class);
-        out.setStoreId(campaign.getStore() == null ? null : campaign.getStore().getId());
+        out.setBranchId(campaign.getBranch() == null ? null : campaign.getBranch().getId());
         out.setCampaignSuggestionId(campaign.getCampaignSuggestion() == null ? null : campaign.getCampaignSuggestion().getId());
         out.setAiQuestionId(campaign.getAiQuestion() == null ? null : campaign.getAiQuestion().getId());
         out.setQrCodeId(campaign.getQrCode() == null ? null : campaign.getQrCode().getId());

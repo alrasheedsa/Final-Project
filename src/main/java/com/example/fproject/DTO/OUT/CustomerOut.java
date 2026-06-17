@@ -26,6 +26,8 @@ public class CustomerOut {
     private LocalDateTime createdAt;
 
     // Customer fields
+    private String locationUrl;
+
     private Double latitude;
 
     private Double longitude;

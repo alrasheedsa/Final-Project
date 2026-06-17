@@ -108,14 +108,11 @@ public class PaymentService {
         subscription.setStatus(SubscriptionStatus.ACTIVE);
         subscriptionRepository.save(subscription);
 
-        Store store = storeRepository.findStoreByStoreOwnerId(subscription.getStoreOwner().getId());
-
-        if (store != null) {
+        List<Store> stores = storeRepository.findStoresByStoreOwnerId(subscription.getStoreOwner().getId());
+        for (Store store : stores) {
             store.setStatus(StoreStatus.ACTIVE);
             storeRepository.save(store);
         }
-
-        subscription.getStoreOwner().setAccountStatus(StoreStatus.ACTIVE);
 
         return mapToDTOOUT(payment);
     }

@@ -1,6 +1,7 @@
 package com.example.fproject.Service;
 
 import com.example.fproject.Api.ApiException;
+import com.example.fproject.DTO.IN.WhatsAppWebhookIn;
 import com.twilio.Twilio;
 import com.twilio.rest.api.v2010.account.Message;
 import com.twilio.type.PhoneNumber;
@@ -21,28 +22,161 @@ public class WhatsAppService {
     @Value("${twilio.whatsapp.number}")
     private String fromNumber;
 
+    private static final String QUESTION_MESSAGE_TEMPLATE = """
+            مرحبا
+
+            لديك فرصة للحصول على عرض من متجر %s
+
+            السؤال:
+            %s
+
+            A) %s
+
+            B) %s
+
+            C) %s
+
+            للاجابة ارسل فقط:
+            A او B او C
+
+            تنبيه:
+            لديك محاولة واحدة فقط.
+            """;
+
+    private static final String CORRECT_ANSWER_MESSAGE_TEMPLATE = """
+            مبروك
+
+            اجابتك صحيحة.
+
+            اسم المتجر:
+            %s
+
+            الفرع:
+            %s
+
+            الحملة:
+            %s
+
+            العرض:
+            %s
+
+            وقت الحملة:
+            %s
+
+            موقع الفرع:
+            %s
+
+            يبعد عنك:
+            %s
+
+            مدة الوصول:
+            %d دقائق
+
+            QR Code:
+            %s
+            """;
+
+    private static final String WRONG_ANSWER_MESSAGE = """
+            اجابتك غير صحيحة.
+
+            لكن يمكنك زيارة الفرع وقد يحالفك الحظ في عروض اخرى مستقبلا.
+            """;
+
     public String sendMessage(String phone, String messageBody) {
         validateConfiguration();
         validateText(phone, "Phone is required");
         validateText(messageBody, "Message is required");
         Twilio.init(accountSid, authToken);
         Message.creator(
-                new PhoneNumber("whatsapp:" + phone),
-                new PhoneNumber("whatsapp:" + fromNumber),
+                new PhoneNumber(toWhatsAppNumber(phone)),
+                new PhoneNumber(toWhatsAppNumber(fromNumber)),
                 messageBody
         ).create();
         return "WhatsApp message has been sent";
     }
 
-    public String sendQrCode(String phone, String qrCode) {
+    public String sendQuestionMessage(String phone, String storeName, String questionText,
+                                      String optionA, String optionB, String optionC) {
         validateText(phone, "Phone is required");
-        validateText(qrCode, "QR code is required");
-        return sendMessage(phone, qrCode);
+        validateText(storeName, "Store name is required");
+        validateText(questionText, "Question text is required");
+        validateText(optionA, "Option A is required");
+        validateText(optionB, "Option B is required");
+        validateText(optionC, "Option C is required");
+
+        String messageBody = QUESTION_MESSAGE_TEMPLATE.formatted(storeName, questionText, optionA, optionB, optionC);
+
+        return sendMessage(phone, messageBody);
     }
 
-    public String receiveWebhook(String payload) {
-        validateText(payload, "Webhook payload is required");
+    public String sendCorrectAnswerMessage(String phone, String storeName, String branchName,
+                                           String campaignTitle, String offerText, String campaignTime,
+                                           String branchLocationUrl, String distanceText,
+                                           Integer durationMinutes, String qrCode) {
+        validateText(phone, "Phone is required");
+        validateText(storeName, "Store name is required");
+        validateText(branchName, "Branch name is required");
+        validateText(campaignTitle, "Campaign title is required");
+        validateText(offerText, "Offer text is required");
+        validateText(campaignTime, "Campaign time is required");
+        validateText(branchLocationUrl, "Branch location is required");
+        validateText(distanceText, "Distance is required");
+        validateText(qrCode, "QR code is required");
+
+        if (durationMinutes == null || durationMinutes < 0) {
+            throw new ApiException("Duration must be valid");
+        }
+
+        String messageBody = CORRECT_ANSWER_MESSAGE_TEMPLATE.formatted(storeName, branchName, campaignTitle,
+                offerText, campaignTime, branchLocationUrl, distanceText, durationMinutes, qrCode);
+
+        return sendMessage(phone, messageBody);
+    }
+
+    public String sendWrongAnswerMessage(String phone) {
+        validateText(phone, "Phone is required");
+        return sendMessage(phone, WRONG_ANSWER_MESSAGE);
+    }
+
+    public String receiveWebhook(WhatsAppWebhookIn webhookIn) {
+        if (webhookIn == null) {
+            throw new ApiException("Webhook payload is required");
+        }
+
+        String phone = normalizeWhatsAppPhone(webhookIn.getFrom());
+        String selectedOption = normalizeSelectedOption(webhookIn.getBody());
+
+        validateText(phone, "Sender phone is required");
+        validateText(selectedOption, "Message body is required");
+
+        if (!isAnswerOption(selectedOption)) {
+            throw new ApiException("WhatsApp answer must be A, B, or C");
+        }
+
         return "WhatsApp webhook has been received";
+    }
+
+    private String normalizeWhatsAppPhone(String phone) {
+        validateText(phone, "Sender phone is required");
+        return phone.replace("whatsapp:", "").trim();
+    }
+
+    private String normalizeSelectedOption(String body) {
+        validateText(body, "Message body is required");
+        return body.trim().toUpperCase();
+    }
+
+    private Boolean isAnswerOption(String option) {
+        return option.equals("A") || option.equals("B") || option.equals("C");
+    }
+
+    private String toWhatsAppNumber(String phone) {
+        validateText(phone, "Phone is required");
+        String cleanPhone = phone.trim();
+        if (cleanPhone.startsWith("whatsapp:")) {
+            return cleanPhone;
+        }
+        return "whatsapp:" + cleanPhone;
     }
 
     private void validateConfiguration() {

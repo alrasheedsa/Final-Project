@@ -7,6 +7,9 @@ import com.example.fproject.Enum.StoreStatus;
 import com.example.fproject.Model.Branch;
 import com.example.fproject.Model.Store;
 import com.example.fproject.Repository.BranchRepository;
+import com.example.fproject.Repository.CampaignRepository;
+import com.example.fproject.Repository.MonthlyReportRepository;
+import com.example.fproject.Repository.SalesRecordRepository;
 import com.example.fproject.Repository.StoreRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -20,6 +23,10 @@ public class BranchService {
 
     private final BranchRepository branchRepository;
     private final StoreRepository storeRepository;
+    private final GoogleMapService googleMapService;
+    private final SalesRecordRepository salesRecordRepository;
+    private final CampaignRepository campaignRepository;
+    private final MonthlyReportRepository monthlyReportRepository;
 
     public BranchOut addBranch(Integer storeId, BranchIn dto) {
         Store store = storeRepository.findStoreById(storeId);
@@ -33,9 +40,11 @@ public class BranchService {
         }
 
         Branch branch = new Branch();
+        double[] coordinates = googleMapService.extractLocationFromLink(dto.getLocationUrl());
         branch.setName(dto.getName());
-        branch.setLatitude(dto.getLatitude());
-        branch.setLongitude(dto.getLongitude());
+        branch.setLocationUrl(dto.getLocationUrl());
+        branch.setLatitude(coordinates[0]);
+        branch.setLongitude(coordinates[1]);
         branch.setCampaignRadiusMeters(dto.getCampaignRadiusMeters());
         branch.setStatus(StoreStatus.PENDING);
         branch.setStore(store);
@@ -95,9 +104,11 @@ public class BranchService {
             throw new ApiException("Branch name already exists for this store");
         }
 
+        double[] coordinates = googleMapService.extractLocationFromLink(dto.getLocationUrl());
         branch.setName(dto.getName());
-        branch.setLatitude(dto.getLatitude());
-        branch.setLongitude(dto.getLongitude());
+        branch.setLocationUrl(dto.getLocationUrl());
+        branch.setLatitude(coordinates[0]);
+        branch.setLongitude(coordinates[1]);
         branch.setCampaignRadiusMeters(dto.getCampaignRadiusMeters());
 
         branchRepository.save(branch);
@@ -110,6 +121,18 @@ public class BranchService {
 
         if (branch == null) {
             throw new ApiException("Branch not found");
+        }
+
+        if (salesRecordRepository.existsByBranchId(branchId)) {
+            throw new ApiException("Cannot delete branch because it has sales records");
+        }
+
+        if (campaignRepository.existsByBranchId(branchId)) {
+            throw new ApiException("Cannot delete branch because it has campaigns");
+        }
+
+        if (!monthlyReportRepository.findMonthlyReportsByBranchId(branchId).isEmpty()) {
+            throw new ApiException("Cannot delete branch because it has monthly reports");
         }
 
         branchRepository.delete(branch);
@@ -145,6 +168,7 @@ public class BranchService {
         return new BranchOut(
                 branch.getId(),
                 branch.getName(),
+                branch.getLocationUrl(),
                 branch.getLatitude(),
                 branch.getLongitude(),
                 branch.getStatus(),

@@ -23,6 +23,9 @@ public class Branch {
     private String name;
 
     @Column(nullable = false)
+    private String locationUrl;
+
+    @Column(nullable = false)
     private Double latitude;
 
     @Column(nullable = false)

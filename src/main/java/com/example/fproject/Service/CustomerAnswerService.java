@@ -42,6 +42,7 @@ public class CustomerAnswerService {
     }
 
     public void addCustomerAnswer(CustomerAnswerRequestIn dto) {
+        validateDuplicateCustomerAnswer(dto, null);
         CustomerAnswer customerAnswer = new CustomerAnswer();
         setCustomerAnswer(customerAnswer, dto);
         CustomerAnswer saved = customerAnswerRepository.save(customerAnswer);
@@ -50,6 +51,7 @@ public class CustomerAnswerService {
 
     public void updateCustomerAnswer(Integer customerAnswerId, CustomerAnswerRequestIn dto) {
         CustomerAnswer old = checkCustomerAnswer(customerAnswerId);
+        validateDuplicateCustomerAnswer(dto, customerAnswerId);
         setCustomerAnswer(old, dto);
         CustomerAnswer saved = customerAnswerRepository.save(old);
         linkCampaignMessage(saved, dto.getCampaignMessageId());
@@ -62,18 +64,30 @@ public class CustomerAnswerService {
 
     private void setCustomerAnswer(CustomerAnswer customerAnswer, CustomerAnswerRequestIn dto) {
         Campaign campaign = checkCampaign(dto.getCampaignId());
+        Customer customer = checkCustomer(dto.getCustomerId());
         validateCustomerAnswer(dto, campaign);
         customerAnswer.setSelectedOption(dto.getSelectedOption());
-        customerAnswer.setCorrect(dto.getCorrect());
+        customerAnswer.setCorrect(campaign.getAiQuestion().getCorrectOption().equals(dto.getSelectedOption()));
         customerAnswer.setAttemptedAt(dto.getAttemptedAt());
-        customerAnswer.setCustomer(checkCustomer(dto.getCustomerId()));
+        customerAnswer.setCustomer(customer);
         customerAnswer.setCampaign(campaign);
+    }
+
+    private void validateDuplicateCustomerAnswer(CustomerAnswerRequestIn dto, Integer customerAnswerId) {
+        Boolean exists = customerAnswerRepository.existsByCampaignIdAndCustomerId(dto.getCampaignId(), dto.getCustomerId());
+        if (Boolean.TRUE.equals(exists) && customerAnswerId == null) {
+            throw new ApiException("Customer already answered this campaign");
+        }
     }
 
     private void linkCampaignMessage(CustomerAnswer customerAnswer, Integer campaignMessageId) {
         if (campaignMessageId == null) return;
         CampaignMessage message = campaignMessageRepository.findById(campaignMessageId)
                 .orElseThrow(() -> new ApiException("Campaign message not found"));
+        if (!message.getCampaign().getId().equals(customerAnswer.getCampaign().getId())
+                || !message.getCustomer().getId().equals(customerAnswer.getCustomer().getId())) {
+            throw new ApiException("Campaign message does not belong to this customer answer");
+        }
         message.setCustomerAnswer(customerAnswer);
         campaignMessageRepository.save(message);
     }
@@ -84,6 +98,9 @@ public class CustomerAnswerService {
         }
         if (campaign.getCampaignType() != CampaignType.QUESTION_BASED) {
             throw new ApiException("Customer answer can only be added to question based campaign");
+        }
+        if (campaign.getAiQuestion() == null) {
+            throw new ApiException("Campaign does not have an AI question");
         }
     }
 

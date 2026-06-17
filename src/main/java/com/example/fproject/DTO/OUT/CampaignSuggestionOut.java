@@ -1,5 +1,6 @@
 package com.example.fproject.DTO.OUT;
 
+import com.example.fproject.Enum.CampaignType;
 import com.example.fproject.Enum.SuggestionStatus;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -22,7 +23,7 @@ public class CampaignSuggestionOut {
 
     private String offerText;
 
-    private String campaignType;
+    private CampaignType campaignType;
 
     private LocalTime suggestedStartTime;
 

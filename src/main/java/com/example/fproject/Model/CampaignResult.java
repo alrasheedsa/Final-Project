@@ -38,7 +38,7 @@ public class CampaignResult {
     @Column(nullable = false)
     private Double conversionRate;
 
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String aiSummary;
 
     @Column(nullable = false)
