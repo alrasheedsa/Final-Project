@@ -48,4 +48,3 @@ public class SalesRecord {
     @OneToOne(mappedBy = "salesRecord", cascade = CascadeType.ALL)
     private AIAnalysis aiAnalysis;
 }
-

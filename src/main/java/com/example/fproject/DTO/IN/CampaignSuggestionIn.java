@@ -1,5 +1,6 @@
 package com.example.fproject.DTO.IN;
 
+import com.example.fproject.Enum.CampaignType;
 import com.example.fproject.Enum.SuggestionStatus;
 import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
@@ -23,8 +24,7 @@ public class CampaignSuggestionIn {
     @NotBlank(message = "Offer text is required")
     private String offerText;
 
-    @NotBlank(message = "Campaign type is required")
-    private String campaignType;
+    private CampaignType campaignType;
 
     @NotNull(message = "Suggested start time is required")
     private LocalTime suggestedStartTime;
@@ -43,8 +43,6 @@ public class CampaignSuggestionIn {
 
     @NotBlank(message = "Suggested product name is required")
     private String suggestedProductName;
-
-    private SuggestionStatus approvalStatus;
 
     @NotNull(message = "Suggestion round is required")
     @Positive(message = "Suggestion round must be greater than zero")

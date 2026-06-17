@@ -1,5 +1,6 @@
 package com.example.fproject.Model;
 
+import com.example.fproject.Enum.CampaignType;
 import com.example.fproject.Enum.SuggestionStatus;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.Column;
@@ -41,8 +42,9 @@ public class CampaignSuggestion {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String offerText;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private String campaignType;
+    private CampaignType campaignType;
 
     @Column(nullable = false)
     private LocalTime suggestedStartTime;
