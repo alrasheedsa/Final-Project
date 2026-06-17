@@ -6,6 +6,7 @@ import com.example.fproject.DTO.OUT.SalesRecordOut;
 import com.example.fproject.Model.SalesRecord;
 import com.example.fproject.Model.Store;
 import com.example.fproject.Repository.SalesRecordRepository;
+import com.example.fproject.Repository.StoreRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
