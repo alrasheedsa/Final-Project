@@ -30,6 +30,16 @@ public class CampaignSuggestionController {
         return ResponseEntity.status(200).body(campaignSuggestionService.getCampaignSuggestionsByAIAnalysisId(aiAnalysisId));
     }
 
+    @PostMapping("/generate/{aiAnalysisId}")
+    public ResponseEntity<?> generateCampaignSuggestions(@PathVariable Integer aiAnalysisId) {
+        return ResponseEntity.status(200).body(campaignSuggestionService.generateCampaignSuggestions(aiAnalysisId));
+    }
+
+    @PostMapping("/regenerate/{aiAnalysisId}")
+    public ResponseEntity<?> regenerateCampaignSuggestions(@PathVariable Integer aiAnalysisId) {
+        return ResponseEntity.status(200).body(campaignSuggestionService.regenerateCampaignSuggestions(aiAnalysisId));
+    }
+
     @PostMapping("/add")
     public ResponseEntity<?> addCampaignSuggestion(@RequestBody @Valid CampaignSuggestionIn campaignSuggestionIn) {
         campaignSuggestionService.addCampaignSuggestion(campaignSuggestionIn);

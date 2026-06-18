@@ -7,6 +7,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
+import com.example.fproject.Enum.CampaignType;
+import java.time.LocalTime;
+import java.util.ArrayList;
 
 import java.util.List;
 import java.util.Map;
@@ -35,12 +38,44 @@ public class OpenAiService {
         validateText(salesData, "Sales data is required");
 
         String prompt = """
-                Analyze this branch sales Excel data and return JSON only.
-                Required keys:
-                topProducts, lowProducts, peakHours, slowHours, surplusProducts, seasonalPatterns, recommendation, aiSummary.
-                Keep every value as a short Arabic text.
-                Sales data:
-                """ + salesData;
+            You are an AI business analyst for a smart retail platform.
+            The platform helps stores use dead hours to create smart campaigns.
+
+            Analyze the provided branch sales summary and return JSON only.
+
+            Important rules:
+            - Return valid JSON only.
+            - Do not wrap the response in markdown.
+            - Do not add explanations outside the JSON.
+            - Every value must be a short Arabic text.
+            - Base your answer only on the provided sales data.
+            - If a value is unclear, write a reasonable Arabic explanation based on the data.
+            - Focus on dead hours, weak products, high-performing products, and campaign opportunities.
+
+            Required JSON keys:
+            {
+              "topProducts": "Arabic text",
+              "lowProducts": "Arabic text",
+              "peakHours": "Arabic text",
+              "slowHours": "Arabic text",
+              "surplusProducts": "Arabic text",
+              "seasonalPatterns": "Arabic text",
+              "recommendation": "Arabic text",
+              "aiSummary": "Arabic text"
+            }
+
+            What each key means:
+            - topProducts: products with strongest sales performance.
+            - lowProducts: products with weakest sales performance.
+            - peakHours: hours with strongest sales or revenue.
+            - slowHours: dead hours or weak selling periods.
+            - surplusProducts: products that may need promotion or clearance.
+            - seasonalPatterns: repeated pattern noticed from the month or hours.
+            - recommendation: one strategic recommendation for the store owner.
+            - aiSummary: short summary of the whole analysis.
+
+            Sales summary:
+            """ + salesData;
 
         String response = sendPrompt(prompt);
         String content = extractAssistantContent(response);
@@ -61,6 +96,89 @@ public class OpenAiService {
             );
         } catch (Exception e) {
             throw new ApiException("Failed to parse AI analysis response");
+        }
+    }
+
+    public List<CampaignSuggestionResult> generateCampaignSuggestionsFromAIAnalysis(String analysisSummary, Integer suggestionRound) {
+        validateApiKey();
+        validateText(analysisSummary, "AI analysis summary is required");
+
+        String prompt = """
+            Generate exactly 3 campaign suggestions based on this AI analysis.
+
+            Return JSON only.
+            Return a JSON array with exactly 3 objects.
+            Use Arabic text for title, description, offerText, and suggestedProductName.
+            campaignType must be only DIRECT_OFFER or QUESTION_BASED.
+            suggestedStartTime and suggestedEndTime must use HH:mm format.
+            discountValue must be between 0 and 100.
+            targetCustomersCount must be positive.
+
+            JSON shape:
+            [
+              {
+                "title": "Arabic text",
+                "description": "Arabic text",
+                "offerText": "Arabic text",
+                "campaignType": "DIRECT_OFFER",
+                "suggestedStartTime": "15:00",
+                "suggestedEndTime": "17:00",
+                "targetCustomersCount": 100,
+                "discountValue": 25,
+                "suggestedProductName": "Arabic product name"
+              }
+            ]
+
+            AI analysis:
+            """ + analysisSummary;
+
+        String response = sendPrompt(prompt);
+        String content = extractAssistantContent(response);
+        String cleanContent = cleanJsonContent(content);
+
+        try {
+            JsonNode jsonNode = objectMapper.readTree(cleanContent);
+
+            if (!jsonNode.isArray() || jsonNode.size() != 3) {
+                throw new ApiException("AI must return exactly 3 campaign suggestions");
+            }
+
+            List<CampaignSuggestionResult> results = new ArrayList<>();
+
+            for (JsonNode suggestionNode : jsonNode) {
+                String title = requiredJsonText(suggestionNode, "title");
+                String description = jsonText(suggestionNode, "description");
+                String offerText = requiredJsonText(suggestionNode, "offerText");
+                String campaignTypeText = requiredJsonText(suggestionNode, "campaignType");
+                String startTimeText = requiredJsonText(suggestionNode, "suggestedStartTime");
+                String endTimeText = requiredJsonText(suggestionNode, "suggestedEndTime");
+                Integer targetCustomersCount = requiredJsonInteger(suggestionNode, "targetCustomersCount");
+                Double discountValue = requiredJsonDouble(suggestionNode, "discountValue");
+                String suggestedProductName = requiredJsonText(suggestionNode, "suggestedProductName");
+
+                CampaignType campaignType = CampaignType.valueOf(campaignTypeText);
+                LocalTime suggestedStartTime = LocalTime.parse(startTimeText);
+                LocalTime suggestedEndTime = LocalTime.parse(endTimeText);
+
+                results.add(new CampaignSuggestionResult(
+                        title,
+                        description,
+                        offerText,
+                        campaignType,
+                        suggestedStartTime,
+                        suggestedEndTime,
+                        targetCustomersCount,
+                        discountValue,
+                        suggestedProductName,
+                        suggestionRound
+                ));
+            }
+
+            return results;
+        } catch (ApiException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ApiException("Failed to parse AI campaign suggestions response");
         }
     }
 
@@ -166,6 +284,26 @@ public class OpenAiService {
         return value.asText();
     }
 
+    private Integer requiredJsonInteger(JsonNode jsonNode, String fieldName) {
+        JsonNode value = jsonNode.path(fieldName);
+
+        if (value.isMissingNode() || value.isNull()) {
+            throw new ApiException("AI response field is missing: " + fieldName);
+        }
+
+        return value.asInt();
+    }
+
+    private Double requiredJsonDouble(JsonNode jsonNode, String fieldName) {
+        JsonNode value = jsonNode.path(fieldName);
+
+        if (value.isMissingNode() || value.isNull()) {
+            throw new ApiException("AI response field is missing: " + fieldName);
+        }
+
+        return value.asDouble();
+    }
+
     private void validateApiKey() {
         if (apiKey == null || apiKey.isBlank()) {
             throw new ApiException("OpenAI API key is not configured");
@@ -187,6 +325,20 @@ public class OpenAiService {
             String seasonalPatterns,
             String recommendation,
             String aiSummary
+    ) {
+    }
+
+    public record CampaignSuggestionResult(
+            String title,
+            String description,
+            String offerText,
+            CampaignType campaignType,
+            LocalTime suggestedStartTime,
+            LocalTime suggestedEndTime,
+            Integer targetCustomersCount,
+            Double discountValue,
+            String suggestedProductName,
+            Integer suggestionRound
     ) {
     }
 
