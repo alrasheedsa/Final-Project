@@ -20,6 +20,7 @@ public class CampaignSuggestionService {
 
     private final CampaignSuggestionRepository campaignSuggestionRepository;
     private final AIAnalysisRepository aiAnalysisRepository;
+    private final OpenAiService openAiService;
 
     public List<CampaignSuggestionOut> getAllCampaignSuggestions() {
         List<CampaignSuggestion> campaignSuggestions = campaignSuggestionRepository.findAll();
@@ -59,6 +60,99 @@ public class CampaignSuggestionService {
         }
 
         return campaignSuggestionOuts;
+    }
+
+    public List<CampaignSuggestionOut> generateCampaignSuggestions(Integer aiAnalysisId) {
+        AIAnalysis aiAnalysis = aiAnalysisRepository.findAIAnalysisById(aiAnalysisId);
+
+        if (aiAnalysis == null) {
+            throw new ApiException("AI analysis not found");
+        }
+
+        List<CampaignSuggestion> oldSuggestions =
+                campaignSuggestionRepository.findAllByAiAnalysis_Id(aiAnalysisId);
+
+        if (oldSuggestions != null && !oldSuggestions.isEmpty()) {
+            throw new ApiException("Campaign suggestions already generated for this AI analysis");
+        }
+
+        return generateAndSaveSuggestions(aiAnalysis, 1);
+    }
+
+    public List<CampaignSuggestionOut> regenerateCampaignSuggestions(Integer aiAnalysisId) {
+        AIAnalysis aiAnalysis = aiAnalysisRepository.findAIAnalysisById(aiAnalysisId);
+
+        if (aiAnalysis == null) {
+            throw new ApiException("AI analysis not found");
+        }
+
+        List<CampaignSuggestion> oldSuggestions =
+                campaignSuggestionRepository.findAllByAiAnalysis_Id(aiAnalysisId);
+
+        Integer latestRound = 0;
+
+        for (CampaignSuggestion suggestion : oldSuggestions) {
+            if (suggestion.getApprovalStatus() == SuggestionStatus.APPROVED) {
+                throw new ApiException("Cannot regenerate suggestions because one suggestion is already approved");
+            }
+
+            if (suggestion.getSuggestionRound() > latestRound) {
+                latestRound = suggestion.getSuggestionRound();
+            }
+        }
+
+        if (latestRound >= 3) {
+            throw new ApiException("Maximum suggestion regeneration rounds reached");
+        }
+
+        return generateAndSaveSuggestions(aiAnalysis, latestRound + 1);
+    }
+
+    private List<CampaignSuggestionOut> generateAndSaveSuggestions(AIAnalysis aiAnalysis, Integer suggestionRound) {
+        String analysisSummary = buildAnalysisSummary(aiAnalysis);
+
+        List<OpenAiService.CampaignSuggestionResult> aiResults =
+                openAiService.generateCampaignSuggestionsFromAIAnalysis(analysisSummary, suggestionRound);
+
+        List<CampaignSuggestionOut> campaignSuggestionOuts = new ArrayList<>();
+
+        for (OpenAiService.CampaignSuggestionResult result : aiResults) {
+            CampaignSuggestion campaignSuggestion = new CampaignSuggestion();
+
+            campaignSuggestion.setTitle(result.title());
+            campaignSuggestion.setDescription(result.description());
+            campaignSuggestion.setOfferText(result.offerText());
+            campaignSuggestion.setCampaignType(result.campaignType());
+            campaignSuggestion.setSuggestedStartTime(result.suggestedStartTime());
+            campaignSuggestion.setSuggestedEndTime(result.suggestedEndTime());
+            campaignSuggestion.setTargetCustomersCount(result.targetCustomersCount());
+            campaignSuggestion.setDiscountValue(result.discountValue());
+            campaignSuggestion.setSuggestedProductName(result.suggestedProductName());
+            campaignSuggestion.setSuggestionRound(result.suggestionRound());
+            campaignSuggestion.setApprovalStatus(SuggestionStatus.PENDING);
+            campaignSuggestion.setAiAnalysis(aiAnalysis);
+
+            CampaignSuggestion savedSuggestion = campaignSuggestionRepository.save(campaignSuggestion);
+            campaignSuggestionOuts.add(convertToOut(savedSuggestion));
+        }
+
+        return campaignSuggestionOuts;
+    }
+
+    private String buildAnalysisSummary(AIAnalysis aiAnalysis) {
+        StringBuilder summary = new StringBuilder();
+
+        summary.append("AI Analysis ID: ").append(aiAnalysis.getId()).append("\n");
+        summary.append("Top products: ").append(aiAnalysis.getTopProducts()).append("\n");
+        summary.append("Low products: ").append(aiAnalysis.getLowProducts()).append("\n");
+        summary.append("Peak hours: ").append(aiAnalysis.getPeakHours()).append("\n");
+        summary.append("Slow hours: ").append(aiAnalysis.getSlowHours()).append("\n");
+        summary.append("Surplus products: ").append(aiAnalysis.getSurplusProducts()).append("\n");
+        summary.append("Seasonal patterns: ").append(aiAnalysis.getSeasonalPatterns()).append("\n");
+        summary.append("Recommendation: ").append(aiAnalysis.getRecommendation()).append("\n");
+        summary.append("AI summary: ").append(aiAnalysis.getAiSummary()).append("\n");
+
+        return summary.toString();
     }
 
     public void addCampaignSuggestion(CampaignSuggestionIn campaignSuggestionIn) {

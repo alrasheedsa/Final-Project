@@ -11,6 +11,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import com.example.fproject.Model.SalesRecordItem;
+import com.example.fproject.Repository.SalesRecordItemRepository;
+import java.nio.file.StandardCopyOption;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -26,6 +29,7 @@ import java.util.List;
 public class SalesRecordService {
 
     private final SalesRecordRepository salesRecordRepository;
+    private final SalesRecordItemRepository salesRecordItemRepository;
     private final BranchRepository branchRepository;
     private final ExcelService excelService;
     private final AIAnalysisService aiAnalysisService;
@@ -92,6 +96,7 @@ public class SalesRecordService {
         }
 
         String salesData = excelService.extractSalesData(file);
+        List<SalesRecordItem> salesRecordItems = excelService.extractSalesRecordItems(file);
         String fileUrl = saveExcelFile(file);
 
         SalesRecord salesRecord = new SalesRecord();
@@ -104,6 +109,12 @@ public class SalesRecordService {
         salesRecord.setBranch(branch);
 
         SalesRecord savedSalesRecord = salesRecordRepository.save(salesRecord);
+
+        for (SalesRecordItem salesRecordItem : salesRecordItems) {
+            salesRecordItem.setSalesRecord(savedSalesRecord);
+            salesRecordItemRepository.save(salesRecordItem);
+        }
+
         aiAnalysisService.generateAIAnalysisFromSalesRecord(savedSalesRecord.getId(), salesData);
     }
 
@@ -212,20 +223,26 @@ public class SalesRecordService {
 
     private String saveExcelFile(MultipartFile file) {
         try {
-            Files.createDirectories(SALES_RECORD_UPLOAD_DIR);
+            Path uploadDir = Paths.get(System.getProperty("user.dir"), "uploads", "sales-records");
+            Files.createDirectories(uploadDir);
 
-            String safeFileName = file.getOriginalFilename().replaceAll("[^A-Za-z0-9._-]", "_");
+            String originalFileName = file.getOriginalFilename();
+
+            if (originalFileName == null || originalFileName.isBlank()) {
+                originalFileName = "sales-record.xlsx";
+            }
+
+            String safeFileName = originalFileName.replaceAll("[^A-Za-z0-9._-]", "_");
             String storedFileName = System.currentTimeMillis() + "_" + safeFileName;
-            Path targetPath = SALES_RECORD_UPLOAD_DIR.resolve(storedFileName);
+            Path targetPath = uploadDir.resolve(storedFileName);
 
-            file.transferTo(targetPath.toFile());
+            Files.copy(file.getInputStream(), targetPath, StandardCopyOption.REPLACE_EXISTING);
 
-            return targetPath.toString().replace("\\", "/");
+            return "uploads/sales-records/" + storedFileName;
         } catch (IOException e) {
             throw new ApiException("Failed to save Excel sales file");
         }
     }
-
     private SalesRecordOut convertToOut(SalesRecord salesRecord) {
         Integer itemsCount = 0;
         Integer aiAnalysisId = null;
