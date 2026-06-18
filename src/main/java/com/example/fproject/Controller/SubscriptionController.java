@@ -40,11 +40,6 @@ public class SubscriptionController {
         return ResponseEntity.status(200).body(subscriptionService.updateSubscription(subscriptionId, dto));
     }
 
-    @PutMapping("/activate/{subscriptionId}")
-    public ResponseEntity<?> activateSubscription(@PathVariable Integer subscriptionId) {
-        return ResponseEntity.status(200).body(subscriptionService.activateSubscription(subscriptionId));
-    }
-
     @PutMapping("/cancel/{subscriptionId}")
     public ResponseEntity<?> cancelSubscription(@PathVariable Integer subscriptionId) {
         return ResponseEntity.status(200).body(subscriptionService.cancelSubscription(subscriptionId));
@@ -54,5 +49,10 @@ public class SubscriptionController {
     public ResponseEntity<?> deleteSubscription(@PathVariable Integer subscriptionId) {
         subscriptionService.deleteSubscription(subscriptionId);
         return ResponseEntity.status(200).body(new ApiResponse("Subscription deleted successfully"));
+    }
+
+    @GetMapping("/active/{storeOwnerId}")
+    public ResponseEntity<?> getActiveSubscriptionByStoreOwnerId(@PathVariable Integer storeOwnerId) {
+        return ResponseEntity.status(200).body(subscriptionService.getActiveSubscriptionByStoreOwnerId(storeOwnerId));
     }
 }

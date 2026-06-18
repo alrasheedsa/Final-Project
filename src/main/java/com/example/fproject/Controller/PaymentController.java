@@ -1,9 +1,7 @@
 package com.example.fproject.Controller;
 
 import com.example.fproject.Api.ApiResponse;
-import com.example.fproject.DTO.IN.PaymentIn;
 import com.example.fproject.Service.PaymentService;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -15,9 +13,29 @@ public class PaymentController {
 
     private final PaymentService paymentService;
 
-    @PostMapping("/add/{subscriptionId}")
-    public ResponseEntity<?> createPayment(@PathVariable Integer subscriptionId, @Valid @RequestBody PaymentIn dto) {
-        return ResponseEntity.status(200).body(paymentService.createPayment(subscriptionId, dto));
+    @GetMapping("/callback/{localPaymentId}")
+    public ResponseEntity<?> paymentCallback(
+            @PathVariable Integer localPaymentId,
+            @RequestParam String id) {
+
+        return ResponseEntity.status(200).body(
+                paymentService.verifyMoyasarPayment(localPaymentId, id)
+        );
+    }
+
+    @GetMapping("/verify/{localPaymentId}")
+    public ResponseEntity<?> verifyPayment(
+            @PathVariable Integer localPaymentId,
+            @RequestParam String id) {
+
+        return ResponseEntity.status(200).body(
+                paymentService.verifyMoyasarPayment(localPaymentId, id)
+        );
+    }
+
+    @GetMapping("/get-status/{localPaymentId}")
+    public ResponseEntity<?> getPaymentStatus(@PathVariable Integer localPaymentId) {
+        return ResponseEntity.status(200).body(paymentService.getAllPaymentsStatus(localPaymentId));
     }
 
     @GetMapping("/get")
@@ -33,11 +51,6 @@ public class PaymentController {
     @GetMapping("/subscription/{subscriptionId}")
     public ResponseEntity<?> getPaymentsBySubscriptionId(@PathVariable Integer subscriptionId) {
         return ResponseEntity.status(200).body(paymentService.getPaymentsBySubscriptionId(subscriptionId));
-    }
-
-    @PutMapping("/paid/{paymentId}")
-    public ResponseEntity<?> markPaymentAsPaid(@PathVariable Integer paymentId, @RequestParam String transactionId) {
-        return ResponseEntity.status(200).body(paymentService.markPaymentAsPaid(paymentId, transactionId));
     }
 
     @PutMapping("/failed/{paymentId}")

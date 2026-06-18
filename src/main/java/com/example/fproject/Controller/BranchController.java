@@ -54,4 +54,14 @@ public class BranchController {
         branchService.deleteBranch(branchId);
         return ResponseEntity.status(200).body("Branch deleted successfully");
     }
+
+    @GetMapping("/recommended-radius/{branchId}")
+    public ResponseEntity<?> getRecommendedRadius(@PathVariable Integer branchId) {
+        return ResponseEntity.status(200).body(branchService.getRecommendedRadius(branchId));
+    }
+
+    @PutMapping("/apply-recommended-radius/{branchId}")
+    public ResponseEntity<?> applyRecommendedRadius(@PathVariable Integer branchId) {
+        return ResponseEntity.status(200).body(branchService.applyRecommendedRadius(branchId));
+    }
 }
