@@ -2,6 +2,16 @@ package com.example.fproject.Service;
 
 import com.example.fproject.Api.ApiException;
 import com.example.fproject.DTO.IN.WhatsAppWebhookIn;
+import com.example.fproject.DTO.OUT.CustomerAnswerResponseOut;
+import com.example.fproject.Enum.MessageStatus;
+import com.example.fproject.Model.Branch;
+import com.example.fproject.Model.Campaign;
+import com.example.fproject.Model.CampaignMessage;
+import com.example.fproject.Model.Customer;
+import com.example.fproject.Model.QRCode;
+import com.example.fproject.Repository.CampaignMessageRepository;
+import com.example.fproject.Repository.CustomerRepository;
+import com.example.fproject.Repository.QRCodeRepository;
 import com.twilio.Twilio;
 import com.twilio.rest.api.v2010.account.Message;
 import com.twilio.type.PhoneNumber;
@@ -12,6 +22,11 @@ import org.springframework.stereotype.Service;
 @Service
 @RequiredArgsConstructor
 public class WhatsAppService {
+
+    private final CustomerRepository customerRepository;
+    private final CampaignMessageRepository campaignMessageRepository;
+    private final QRCodeRepository qrCodeRepository;
+    private final CustomerAnswerService customerAnswerService;
 
     @Value("${twilio.account.sid}")
     private String accountSid;
@@ -153,12 +168,69 @@ public class WhatsAppService {
             throw new ApiException("WhatsApp answer must be A, B, or C");
         }
 
-        return "WhatsApp webhook has been received";
+        Customer customer = checkCustomerByPhone(phone);
+        CampaignMessage message = getOpenMessage(customer.getId());
+        CustomerAnswerResponseOut answer = customerAnswerService.answerCampaignMessage(message.getId(), selectedOption);
+
+        if (Boolean.TRUE.equals(answer.getCorrect())) {
+            Campaign campaign = message.getCampaign();
+            Branch branch = campaign.getBranch();
+            QRCode qrCode = qrCodeRepository.findQRCodeByCampaignId(campaign.getId());
+            if (qrCode == null) {
+                throw new ApiException("Campaign QR code not found");
+            }
+            sendCorrectAnswerMessage(phone,
+                    branch.getStore().getName(),
+                    branch.getName(),
+                    campaign.getTitle(),
+                    campaign.getOfferText(),
+                    campaign.getStartDateTime() + " - " + campaign.getEndDateTime(),
+                    branch.getLocationUrl(),
+                    message.getDistanceText(),
+                    message.getDurationMinutes(),
+                    qrCode.getCode());
+        } else {
+            sendWrongAnswerMessage(phone);
+        }
+
+        return "WhatsApp webhook has been handled";
+    }
+
+    private Customer checkCustomerByPhone(String phone) {
+        String normalizedPhone = normalizeStoredPhone(phone);
+        for (Customer customer : customerRepository.findAll()) {
+            if (customer.getUser() != null
+                    && normalizeStoredPhone(customer.getUser().getPhone()).equals(normalizedPhone)) {
+                return customer;
+            }
+        }
+        throw new ApiException("Customer not found");
+    }
+
+    private CampaignMessage getOpenMessage(Integer customerId) {
+        for (CampaignMessage message : campaignMessageRepository
+                .findAllByCustomerIdAndStatusOrderBySentAtDesc(customerId, MessageStatus.SENT)) {
+            if (message.getCustomerAnswer() == null) {
+                return message;
+            }
+        }
+        throw new ApiException("No open campaign message found for this customer");
     }
 
     private String normalizeWhatsAppPhone(String phone) {
         validateText(phone, "Sender phone is required");
         return phone.replace("whatsapp:", "").trim();
+    }
+
+    private String normalizeStoredPhone(String phone) {
+        String value = phone.replace("whatsapp:", "").replaceAll("[^0-9]", "");
+        if (value.startsWith("966")) {
+            return "0" + value.substring(3);
+        }
+        if (value.startsWith("5")) {
+            return "0" + value;
+        }
+        return value;
     }
 
     private String normalizeSelectedOption(String body) {
