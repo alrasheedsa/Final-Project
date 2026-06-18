@@ -24,6 +24,12 @@ public class BranchOut {
 
     private Integer campaignRadiusMeters;
 
+    private Integer recommendedRadiusMeters;
+
+    private String openingTime;
+
+    private String closingTime;
+
     private Integer storeId;
 
     private String storeName;

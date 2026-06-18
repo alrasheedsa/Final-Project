@@ -1,6 +1,6 @@
 package com.example.fproject.Service;
 
-import com.example.fproject.Api.ApiException;
+import com.example.fproject.DTO.OUT.MoyasarPaymentOut;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
@@ -10,57 +10,34 @@ import java.util.Map;
 @Service
 public class MoyasarService {
 
-    @Value("${moyasar.api-key:}")
-    private String apiKey;
+    @Value("${moyasar.api-key}")
+    private String secretKey;
 
-    @Value("${moyasar.base-url}")
-    private String baseUrl;
+    @Value("${moyasar.base-url:https://api.moyasar.com/v1}")
+    private String moyasarBaseUrl;
 
+    @Value("${moyasar.publishable-key}")
+    private String publishableKey;
 
-    private final RestClient.Builder restClientBuilder;
+    private final RestClient restClient = RestClient.create();
 
-    public MoyasarService(RestClient.Builder restClientBuilder) {
-        this.restClientBuilder = restClientBuilder;
-    }
+    public MoyasarPaymentOut getPaymentById(String paymentId) {
 
-    public String createPayment(Double amount, String description) {
-        validateApiKey();
-        if (amount == null || amount <= 0) {
-            throw new ApiException("Payment amount must be greater than zero");
-        }
-        if (description == null || description.isBlank()) {
-            throw new ApiException("Payment description is required");
-        }
-        Map<String, Object> request = Map.of(
-                "amount", Math.round(amount * 100),
-                "currency", "SAR",
-                "description", description
-        );
-        return restClientBuilder.build()
-                .post()
-                .uri(baseUrl + "/payments")
-                .headers(headers -> headers.setBasicAuth(apiKey, ""))
-                .body(request)
+        Map response = restClient.get()
+                .uri(moyasarBaseUrl + "/payments/" + paymentId)
+                .headers(headers -> headers.setBasicAuth(secretKey, ""))
                 .retrieve()
-                .body(String.class);
+                .body(Map.class);
+
+        String id = response.get("id").toString();
+        String status = response.get("status").toString();
+        Integer amount = (Integer) response.get("amount");
+        String currency = response.get("currency").toString();
+
+        return new MoyasarPaymentOut(id, status, amount, currency);
     }
 
-    public String getPaymentStatus(String transactionId) {
-        validateApiKey();
-        if (transactionId == null || transactionId.isBlank()) {
-            throw new ApiException("Transaction id is required");
-        }
-        return restClientBuilder.build()
-                .get()
-                .uri(baseUrl + "/payments/{transactionId}", transactionId)
-                .headers(headers -> headers.setBasicAuth(apiKey, ""))
-                .retrieve()
-                .body(String.class);
-    }
-
-    private void validateApiKey() {
-        if (apiKey == null || apiKey.isBlank()) {
-            throw new ApiException("Moyasar API key is not configured");
-        }
+    public String getPublishableKey() {
+        return publishableKey;
     }
 }

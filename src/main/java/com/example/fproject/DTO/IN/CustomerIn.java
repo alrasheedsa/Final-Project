@@ -27,7 +27,6 @@ public class CustomerIn {
     @Size(min = 6, max = 100, message = "Password must be at least 6 characters")
     private String password;
 
-    // Customer fields
     @NotBlank(message = "Location URL is required")
     private String locationUrl;
 

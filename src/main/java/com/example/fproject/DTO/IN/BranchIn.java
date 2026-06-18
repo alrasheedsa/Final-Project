@@ -19,5 +19,12 @@ public class BranchIn {
 
     @NotNull(message = "Campaign radius is required")
     @Min(value = 500, message = "Campaign radius must be at least 500 meters")
+    @Max(value = 40000, message = "Campaign radius must not exceed 40000 meters")
     private Integer campaignRadiusMeters;
+
+    @NotBlank(message = "Opening time is required")
+    private String openingTime;
+
+    @NotBlank(message = "Closing time is required")
+    private String closingTime;
 }

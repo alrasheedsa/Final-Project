@@ -148,6 +148,22 @@ public class MonthlyReportService {
         monthlyReportRepository.delete(report);
     }
 
+    public String downloadMonthlyReport(Integer reportId) {
+        MonthlyReport report = monthlyReportRepository.findMonthlyReportById(reportId);
+
+        if (report == null) {
+            throw new ApiException("Monthly report not found");
+        }
+
+        if (report.getPdfUrl() == null
+                || report.getPdfUrl().isBlank()
+                || report.getPdfUrl().equalsIgnoreCase("Not generated yet")) {
+            throw new ApiException("Monthly report PDF is not generated yet");
+        }
+
+        return report.getPdfUrl();
+    }
+
     private MonthlyReportOut mapToDTOOUT(MonthlyReport report) {
         return new MonthlyReportOut(
                 report.getId(),

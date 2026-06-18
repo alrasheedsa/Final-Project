@@ -1,13 +1,14 @@
 package com.example.fproject.Service;
 
 import com.example.fproject.Api.ApiException;
-
 import com.example.fproject.DTO.IN.StoreOwnerIn;
 import com.example.fproject.DTO.OUT.StoreOwnerOut;
 import com.example.fproject.Enum.RoleType;
 import com.example.fproject.Model.StoreOwner;
 import com.example.fproject.Model.User;
 import com.example.fproject.Repository.StoreOwnerRepository;
+import com.example.fproject.Repository.StoreRepository;
+import com.example.fproject.Repository.SubscriptionRepository;
 import com.example.fproject.Repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -21,6 +22,8 @@ public class StoreOwnerService {
 
     private final StoreOwnerRepository storeOwnerRepository;
     private final UserRepository userRepository;
+    private final StoreRepository storeRepository;
+    private final SubscriptionRepository subscriptionRepository;
 
     public StoreOwnerOut registerStoreOwner(StoreOwnerIn dto) {
 
@@ -38,16 +41,23 @@ public class StoreOwnerService {
         user.setEmail(dto.getEmail());
         user.setPassword(dto.getPassword());
         user.setRole(RoleType.STORE_OWNER);
-        user.setEnabled(true);
+
+        user.setEnabled(false);
 
         userRepository.save(user);
 
-        StoreOwner storeOwner = new StoreOwner();
-        storeOwner.setUser(user);
+        try {
+            StoreOwner storeOwner = new StoreOwner();
+            storeOwner.setUser(user);
 
-        storeOwnerRepository.save(storeOwner);
+            storeOwnerRepository.save(storeOwner);
 
-        return mapToDTOOUT(storeOwner);
+            return mapToDTOOUT(storeOwner);
+
+        } catch (Exception e) {
+            userRepository.delete(user);
+            throw new ApiException("Could not register store owner: " + e.getMessage());
+        }
     }
 
     public List<StoreOwnerOut> getAllStoreOwners() {
@@ -63,6 +73,16 @@ public class StoreOwnerService {
 
     public StoreOwnerOut getStoreOwnerById(Integer storeOwnerId) {
         StoreOwner storeOwner = storeOwnerRepository.findStoreOwnerById(storeOwnerId);
+
+        if (storeOwner == null) {
+            throw new ApiException("Store owner not found");
+        }
+
+        return mapToDTOOUT(storeOwner);
+    }
+
+    public StoreOwnerOut getStoreOwnerByUserId(Integer userId) {
+        StoreOwner storeOwner = storeOwnerRepository.findStoreOwnerByUserId(userId);
 
         if (storeOwner == null) {
             throw new ApiException("Store owner not found");
@@ -103,6 +123,14 @@ public class StoreOwnerService {
 
         if (storeOwner == null) {
             throw new ApiException("Store owner not found");
+        }
+
+        if (!storeRepository.findStoresByStoreOwnerId(storeOwnerId).isEmpty()) {
+            throw new ApiException("Cannot delete store owner because it has stores");
+        }
+
+        if (!subscriptionRepository.findSubscriptionsByStoreOwnerId(storeOwnerId).isEmpty()) {
+            throw new ApiException("Cannot delete store owner because it has subscriptions");
         }
 
         User user = storeOwner.getUser();
