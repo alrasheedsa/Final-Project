@@ -5,6 +5,7 @@ import com.example.fproject.DTO.IN.QRCodeRequestIn;
 import com.example.fproject.Service.QRCodeService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -30,6 +32,21 @@ public class QRCodeController {
     @GetMapping("/get/{qrCodeId}")
     public ResponseEntity<?> getQRCodeById(@PathVariable Integer qrCodeId) {
         return ResponseEntity.status(200).body(qrCodeService.getQRCodeById(qrCodeId));
+    }
+
+    @GetMapping("/code")
+    public ResponseEntity<?> getQRCodeByCode(@RequestParam String code) {
+        return ResponseEntity.status(200).body(qrCodeService.getQRCodeByCode(code));
+    }
+
+    @GetMapping(value = "/image/{qrCodeId}", produces = MediaType.IMAGE_PNG_VALUE)
+    public ResponseEntity<?> getQRCodeImage(@PathVariable Integer qrCodeId) {
+        return ResponseEntity.status(200).contentType(MediaType.IMAGE_PNG).body(qrCodeService.getQRCodeImage(qrCodeId));
+    }
+
+    @PostMapping("/generate/{campaignId}")
+    public ResponseEntity<?> generateQRCode(@PathVariable Integer campaignId) {
+        return ResponseEntity.status(200).body(qrCodeService.generateQRCode(campaignId));
     }
 
     @PostMapping("/add")

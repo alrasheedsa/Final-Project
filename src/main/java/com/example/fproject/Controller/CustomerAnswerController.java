@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -30,6 +31,22 @@ public class CustomerAnswerController {
     @GetMapping("/get/{customerAnswerId}")
     public ResponseEntity<?> getCustomerAnswerById(@PathVariable Integer customerAnswerId) {
         return ResponseEntity.status(200).body(customerAnswerService.getCustomerAnswerById(customerAnswerId));
+    }
+
+    @GetMapping("/campaign-message/{campaignMessageId}")
+    public ResponseEntity<?> getCustomerAnswerByCampaignMessage(@PathVariable Integer campaignMessageId) {
+        return ResponseEntity.status(200).body(customerAnswerService.getCustomerAnswerByCampaignMessage(campaignMessageId));
+    }
+
+    @GetMapping("/campaign/{campaignId}")
+    public ResponseEntity<?> getAnswersByCampaign(@PathVariable Integer campaignId) {
+        return ResponseEntity.status(200).body(customerAnswerService.getAnswersByCampaign(campaignId));
+    }
+
+    @PostMapping("/answer/{campaignMessageId}")
+    public ResponseEntity<?> answerCampaignMessage(@PathVariable Integer campaignMessageId,
+                                                   @RequestParam String answer) {
+        return ResponseEntity.status(200).body(customerAnswerService.answerCampaignMessage(campaignMessageId, answer));
     }
 
     @PostMapping("/add")

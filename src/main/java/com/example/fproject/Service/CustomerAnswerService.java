@@ -16,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -39,6 +40,57 @@ public class CustomerAnswerService {
 
     public CustomerAnswerResponseOut getCustomerAnswerById(Integer customerAnswerId) {
         return mapCustomerAnswer(checkCustomerAnswer(customerAnswerId));
+    }
+
+    public CustomerAnswerResponseOut answerCampaignMessage(Integer campaignMessageId, String answer) {
+        CampaignMessage message = campaignMessageRepository.findById(campaignMessageId)
+                .orElseThrow(() -> new ApiException("Campaign message not found"));
+        Campaign campaign = message.getCampaign();
+        Customer customer = message.getCustomer();
+        String selectedOption = normalizeAnswer(answer);
+
+        if (message.getCustomerAnswer() != null) {
+            throw new ApiException("Customer already answered this campaign message");
+        }
+        if (customerAnswerRepository.existsByCampaignIdAndCustomerId(campaign.getId(), customer.getId())) {
+            throw new ApiException("Customer already answered this campaign");
+        }
+        if (campaign.getCampaignType() != CampaignType.QUESTION_BASED) {
+            throw new ApiException("Customer answer can only be added to question based campaign");
+        }
+        if (campaign.getAiQuestion() == null) {
+            throw new ApiException("Campaign does not have an AI question");
+        }
+
+        CustomerAnswer customerAnswer = new CustomerAnswer();
+        customerAnswer.setSelectedOption(selectedOption);
+        customerAnswer.setCorrect(campaign.getAiQuestion().getCorrectOption().equals(selectedOption));
+        customerAnswer.setAttemptedAt(LocalDateTime.now());
+        customerAnswer.setCustomer(customer);
+        customerAnswer.setCampaign(campaign);
+        CustomerAnswer saved = customerAnswerRepository.save(customerAnswer);
+        message.setCustomerAnswer(saved);
+        campaignMessageRepository.save(message);
+        return mapCustomerAnswer(saved);
+    }
+
+    public CustomerAnswerResponseOut getCustomerAnswerByCampaignMessage(Integer campaignMessageId) {
+        CampaignMessage message = campaignMessageRepository.findById(campaignMessageId)
+                .orElseThrow(() -> new ApiException("Campaign message not found"));
+        CustomerAnswer answer = customerAnswerRepository.findCustomerAnswerByCampaignMessageId(message.getId());
+        if (answer == null) {
+            throw new ApiException("Customer answer not found");
+        }
+        return mapCustomerAnswer(answer);
+    }
+
+    public List<CustomerAnswerResponseOut> getAnswersByCampaign(Integer campaignId) {
+        checkCampaign(campaignId);
+        List<CustomerAnswerResponseOut> answers = new ArrayList<>();
+        for (CustomerAnswer answer : customerAnswerRepository.findAllByCampaignId(campaignId)) {
+            answers.add(mapCustomerAnswer(answer));
+        }
+        return answers;
     }
 
     public void addCustomerAnswer(CustomerAnswerRequestIn dto) {
@@ -106,6 +158,17 @@ public class CustomerAnswerService {
 
     private boolean isAnswerOption(String option) {
         return option != null && (option.equals("A") || option.equals("B") || option.equals("C"));
+    }
+
+    private String normalizeAnswer(String answer) {
+        if (answer == null || answer.isBlank()) {
+            throw new ApiException("Answer is required");
+        }
+        String selectedOption = answer.trim().toUpperCase();
+        if (!isAnswerOption(selectedOption)) {
+            throw new ApiException("Selected option must be A, B, or C");
+        }
+        return selectedOption;
     }
 
     private CustomerAnswer checkCustomerAnswer(Integer customerAnswerId) {

@@ -14,6 +14,7 @@ public class QRCodeResponseOut {
 
     private Integer id;
     private String code;
+    private String qrImageBase64;
     private Integer maxUsageCount;
     private Integer usedCount;
     private QRCodeStatus status;
