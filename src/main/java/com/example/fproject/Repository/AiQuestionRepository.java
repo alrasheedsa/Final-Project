@@ -6,4 +6,6 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface AiQuestionRepository extends JpaRepository<AIQuestion, Integer> {
+
+    AIQuestion findAIQuestionByCampaignId(Integer campaignId);
 }

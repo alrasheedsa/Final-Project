@@ -2,24 +2,37 @@ package com.example.fproject.Service;
 
 import com.example.fproject.Api.ApiException;
 import com.example.fproject.DTO.IN.CampaignRequestIn;
+import com.example.fproject.DTO.OUT.CampaignDetailsOut;
 import com.example.fproject.DTO.OUT.CampaignResponseOut;
+import com.example.fproject.DTO.OUT.CampaignTimingOut;
+import com.example.fproject.DTO.OUT.ValueOut;
 import com.example.fproject.Enum.CampaignStatus;
 import com.example.fproject.Enum.CampaignType;
+import com.example.fproject.Enum.MessageStatus;
 import com.example.fproject.Enum.SuggestionStatus;
 import com.example.fproject.Model.AIQuestion;
 import com.example.fproject.Model.Branch;
 import com.example.fproject.Model.Campaign;
+import com.example.fproject.Model.CampaignMessage;
 import com.example.fproject.Model.CampaignResult;
 import com.example.fproject.Model.CampaignSuggestion;
+import com.example.fproject.Model.Customer;
+import com.example.fproject.Model.QRCode;
 import com.example.fproject.Repository.AiQuestionRepository;
 import com.example.fproject.Repository.BranchRepository;
+import com.example.fproject.Repository.CampaignMessageRepository;
 import com.example.fproject.Repository.CampaignResultRepository;
 import com.example.fproject.Repository.CampaignRepository;
 import com.example.fproject.Repository.CampaignSuggestionRepository;
+import com.example.fproject.Repository.CustomerRepository;
+import com.example.fproject.Repository.QRCodeRepository;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -32,6 +45,11 @@ public class CampaignService {
     private final CampaignSuggestionRepository campaignSuggestionRepository;
     private final AiQuestionRepository aiQuestionRepository;
     private final CampaignResultRepository campaignResultRepository;
+    private final CampaignMessageRepository campaignMessageRepository;
+    private final CustomerRepository customerRepository;
+    private final QRCodeRepository qrCodeRepository;
+    private final GoogleMapService googleMapService;
+    private final WhatsAppService whatsAppService;
     private final ModelMapper modelMapper;
 
     public List<CampaignResponseOut> getAllCampaigns() {
@@ -46,6 +64,52 @@ public class CampaignService {
         return mapCampaign(checkCampaign(campaignId));
     }
 
+    public CampaignResponseOut createCampaignFromSuggestion(Integer suggestionId, Integer branchId) {
+        CampaignSuggestion campaignSuggestion = checkCampaignSuggestion(suggestionId, null);
+        Branch branch = checkBranch(branchId);
+        validateCampaignSuggestion(campaignSuggestion, branch, campaignSuggestion.getCampaignType());
+
+        Campaign campaign = new Campaign();
+        campaign.setTitle(campaignSuggestion.getTitle());
+        campaign.setDescription(campaignSuggestion.getDescription());
+        campaign.setOfferText(campaignSuggestion.getOfferText());
+        campaign.setCampaignType(campaignSuggestion.getCampaignType());
+        campaign.setStartDateTime(buildSuggestedDateTime(campaignSuggestion.getSuggestedStartTime()));
+        campaign.setEndDateTime(buildSuggestedDateTime(campaignSuggestion.getSuggestedEndTime()));
+        if (!campaign.getEndDateTime().isAfter(campaign.getStartDateTime())) {
+            campaign.setEndDateTime(campaign.getEndDateTime().plusDays(1));
+        }
+        campaign.setTargetCustomersCount(campaignSuggestion.getTargetCustomersCount());
+        campaign.setSentCount(0);
+        campaign.setRedeemedCount(0);
+        campaign.setStatus(CampaignStatus.PENDING);
+        campaign.setBranch(branch);
+        campaign.setCampaignSuggestion(campaignSuggestion);
+
+        return mapCampaign(campaignRepository.save(campaign));
+    }
+
+    public List<CampaignResponseOut> getCampaignsByBranchId(Integer branchId) {
+        checkBranch(branchId);
+        List<CampaignResponseOut> campaigns = new ArrayList<>();
+        for (Campaign campaign : campaignRepository.findAllByBranchId(branchId)) {
+            campaigns.add(mapCampaign(campaign));
+        }
+        return campaigns;
+    }
+
+    public List<CampaignResponseOut> getActiveCampaignsByBranch(Integer branchId) {
+        return getCampaignsByBranchAndStatus(branchId, CampaignStatus.ACTIVE);
+    }
+
+    public List<CampaignResponseOut> getScheduledCampaignsByBranch(Integer branchId) {
+        return getCampaignsByBranchAndStatus(branchId, CampaignStatus.APPROVED);
+    }
+
+    public List<CampaignResponseOut> getCompletedCampaignsByBranch(Integer branchId) {
+        return getCampaignsByBranchAndStatus(branchId, CampaignStatus.COMPLETED);
+    }
+
     public void addCampaign(CampaignRequestIn dto) {
         validateCampaign(dto);
         Campaign campaign = new Campaign();
@@ -57,6 +121,11 @@ public class CampaignService {
     public void updateCampaign(Integer campaignId, CampaignRequestIn dto) {
         validateCampaign(dto);
         Campaign old = checkCampaign(campaignId);
+        if (old.getStatus() == CampaignStatus.ACTIVE || old.getStatus() == CampaignStatus.EXPIRED
+                || old.getStatus() == CampaignStatus.COMPLETED || old.getStatus() == CampaignStatus.CANCELED
+                || old.getStatus() == CampaignStatus.STOPPED) {
+            throw new ApiException("Cannot update campaign after it starts or ends");
+        }
         setCampaign(old, dto);
         campaignRepository.save(old);
     }
@@ -74,6 +143,181 @@ public class CampaignService {
             throw new ApiException("Cannot delete campaign because it has a campaign result");
         }
         campaignRepository.delete(campaign);
+    }
+
+    public void approveCampaign(Integer campaignId) {
+        Campaign campaign = checkCampaign(campaignId);
+        if (campaign.getStatus() != CampaignStatus.PENDING) {
+            throw new ApiException("Only pending campaign can be approved");
+        }
+        validateCampaignReady(campaign);
+        campaign.setStatus(CampaignStatus.APPROVED);
+        campaignRepository.save(campaign);
+    }
+
+    public void cancelCampaign(Integer campaignId) {
+        Campaign campaign = checkCampaign(campaignId);
+        if (campaign.getStatus() == CampaignStatus.EXPIRED || campaign.getStatus() == CampaignStatus.COMPLETED) {
+            throw new ApiException("Cannot cancel ended campaign");
+        }
+        campaign.setStatus(CampaignStatus.CANCELED);
+        campaignRepository.save(campaign);
+    }
+
+    public void startCampaign(Integer campaignId) {
+        Campaign campaign = checkCampaign(campaignId);
+        validateCampaignCanStart(campaign);
+        campaign.setStatus(CampaignStatus.ACTIVE);
+        campaignRepository.save(campaign);
+    }
+
+    public void completeCampaign(Integer campaignId) {
+        Campaign campaign = checkCampaign(campaignId);
+        if (campaign.getStatus() != CampaignStatus.ACTIVE && campaign.getStatus() != CampaignStatus.APPROVED) {
+            throw new ApiException("Only active or approved campaign can be completed");
+        }
+        campaign.setStatus(CampaignStatus.COMPLETED);
+        campaignRepository.save(campaign);
+    }
+
+    public void stopCampaign(Integer campaignId) {
+        Campaign campaign = checkCampaign(campaignId);
+        if (campaign.getStatus() != CampaignStatus.ACTIVE) {
+            throw new ApiException("Only active campaign can be stopped");
+        }
+        campaign.setStatus(CampaignStatus.STOPPED);
+        campaignRepository.save(campaign);
+    }
+
+    public void sendCampaign(Integer campaignId) {
+        Campaign campaign = checkCampaign(campaignId);
+        validateCampaignCanSend(campaign);
+
+        QRCode qrCode = qrCodeRepository.findQRCodeByCampaignId(campaignId);
+        if (qrCode == null) {
+            throw new ApiException("Campaign must have a QR code before sending");
+        }
+
+        Branch branch = campaign.getBranch();
+        Integer sentCount = 0;
+        for (Customer customer : customerRepository.findCustomersByLocationConsentTrue()) {
+            if (sentCount >= campaign.getTargetCustomersCount()) {
+                break;
+            }
+            if (customer.getUser() == null || customer.getUser().getPhone() == null
+                    || customer.getUser().getPhone().isBlank()) {
+                continue;
+            }
+            if (!isCustomerInsideRadius(customer, branch)) {
+                continue;
+            }
+            GoogleMapService.RouteResult route = googleMapService.calculateRoute(
+                    customer.getLatitude(), customer.getLongitude(),
+                    branch.getLatitude(), branch.getLongitude()
+            );
+            String phone = customer.getUser().getPhone();
+            String storeName = branch.getStore().getName();
+            String messageText;
+            if (campaign.getCampaignType() == CampaignType.QUESTION_BASED) {
+                AIQuestion question = campaign.getAiQuestion();
+                whatsAppService.sendQuestionMessage(phone, storeName, question.getQuestionText(),
+                        question.getOptionA(), question.getOptionB(), question.getOptionC());
+                messageText = question.getQuestionText();
+            } else {
+                whatsAppService.sendCorrectAnswerMessage(phone, storeName, branch.getName(), campaign.getTitle(),
+                        campaign.getOfferText(), buildCampaignTime(campaign), branch.getLocationUrl(),
+                        route.distanceText(), route.durationMinutes(), qrCode.getCode());
+                messageText = campaign.getOfferText();
+            }
+            CampaignMessage campaignMessage = new CampaignMessage();
+            campaignMessage.setMessageText(messageText);
+            campaignMessage.setDistanceKm(route.distanceKm());
+            campaignMessage.setDurationMinutes(route.durationMinutes());
+            campaignMessage.setDistanceText(route.distanceText());
+            campaignMessage.setStatus(MessageStatus.SENT);
+            campaignMessage.setSentAt(LocalDateTime.now());
+            campaignMessage.setCampaign(campaign);
+            campaignMessage.setCustomer(customer);
+            campaignMessageRepository.save(campaignMessage);
+            sentCount++;
+        }
+
+        if (sentCount == 0) {
+            throw new ApiException("No customers found inside branch radius");
+        }
+
+        campaign.setSentCount(campaign.getSentCount() + sentCount);
+        campaign.setStatus(CampaignStatus.ACTIVE);
+        campaignRepository.save(campaign);
+    }
+
+    public CampaignDetailsOut getCampaignDetails(Integer campaignId) {
+        Campaign campaign = checkCampaign(campaignId);
+        Branch branch = campaign.getBranch();
+        return new CampaignDetailsOut(
+                campaign.getId(),
+                campaign.getTitle(),
+                campaign.getDescription(),
+                campaign.getOfferText(),
+                campaign.getCampaignType(),
+                campaign.getStatus(),
+                campaign.getStartDateTime(),
+                campaign.getEndDateTime(),
+                campaign.getTargetCustomersCount(),
+                campaign.getSentCount(),
+                campaign.getRedeemedCount(),
+                calculateRemainingCoupons(campaign),
+                calculateUsageRate(campaign),
+                branch == null ? null : branch.getId(),
+                branch == null ? null : branch.getName(),
+                branch == null || branch.getStore() == null ? null : branch.getStore().getName(),
+                campaign.getCampaignSuggestion() == null ? null : campaign.getCampaignSuggestion().getId(),
+                campaign.getAiQuestion() == null ? null : campaign.getAiQuestion().getId(),
+                campaign.getQrCode() == null ? null : campaign.getQrCode().getId()
+        );
+    }
+
+    public ValueOut getMaxCustomers(Integer campaignId) {
+        return new ValueOut(checkCampaign(campaignId).getTargetCustomersCount());
+    }
+
+    public ValueOut getUsedCoupons(Integer campaignId) {
+        return new ValueOut(checkCampaign(campaignId).getRedeemedCount());
+    }
+
+    public ValueOut getRemainingCoupons(Integer campaignId) {
+        return new ValueOut(calculateRemainingCoupons(checkCampaign(campaignId)));
+    }
+
+    public ValueOut getUsageRate(Integer campaignId) {
+        return new ValueOut(calculateUsageRate(checkCampaign(campaignId)));
+    }
+
+    public CampaignTimingOut getCampaignTiming(Integer campaignId) {
+        Campaign campaign = checkCampaign(campaignId);
+        Duration duration = Duration.between(campaign.getStartDateTime(), campaign.getEndDateTime());
+        return new CampaignTimingOut(campaign.getStartDateTime(), campaign.getEndDateTime(),
+                duration.toHours() + " hours");
+    }
+
+    public ValueOut getCampaignType(Integer campaignId) {
+        return new ValueOut(checkCampaign(campaignId).getCampaignType());
+    }
+
+    public ValueOut getCampaignQuestion(Integer campaignId) {
+        Campaign campaign = checkCampaign(campaignId);
+        if (campaign.getCampaignType() != CampaignType.QUESTION_BASED || campaign.getAiQuestion() == null) {
+            return new ValueOut(null);
+        }
+        return new ValueOut(campaign.getAiQuestion().getQuestionText());
+    }
+
+    public ValueOut getCampaignSource(Integer campaignId) {
+        Campaign campaign = checkCampaign(campaignId);
+        if (campaign.getCampaignSuggestion() == null) {
+            return new ValueOut("Manual");
+        }
+        return new ValueOut("AI suggestion");
     }
 
     private void setCampaign(Campaign campaign, CampaignRequestIn dto) {
@@ -96,6 +340,9 @@ public class CampaignService {
     }
 
     private void validateCampaign(CampaignRequestIn dto) {
+        if (dto.getStartDateTime() == null || dto.getEndDateTime() == null) {
+            throw new ApiException("Campaign start and end time are required");
+        }
         if (!dto.getEndDateTime().isAfter(dto.getStartDateTime())) {
             throw new ApiException("Campaign end time must be after start time");
         }
@@ -111,6 +358,88 @@ public class CampaignService {
         if (dto.getCampaignType() == CampaignType.DIRECT_OFFER && dto.getAiQuestionId() != null) {
             throw new ApiException("Direct offer campaign cannot have an AI question");
         }
+    }
+
+    private List<CampaignResponseOut> getCampaignsByBranchAndStatus(Integer branchId, CampaignStatus status) {
+        checkBranch(branchId);
+        List<CampaignResponseOut> campaigns = new ArrayList<>();
+        for (Campaign campaign : campaignRepository.findAllByBranchIdAndStatus(branchId, status)) {
+            campaigns.add(mapCampaign(campaign));
+        }
+        return campaigns;
+    }
+
+    private LocalDateTime buildSuggestedDateTime(java.time.LocalTime time) {
+        LocalDateTime dateTime = LocalDate.now().atTime(time);
+        if (!dateTime.isAfter(LocalDateTime.now())) {
+            return dateTime.plusDays(1);
+        }
+        return dateTime;
+    }
+
+    private void validateCampaignReady(Campaign campaign) {
+        if (campaign.getBranch() == null) {
+            throw new ApiException("Campaign branch is required");
+        }
+        if (campaign.getCampaignType() == CampaignType.QUESTION_BASED && campaign.getAiQuestion() == null) {
+            throw new ApiException("Question based campaign must have an AI question");
+        }
+        if (campaign.getEndDateTime().isBefore(LocalDateTime.now())) {
+            throw new ApiException("Campaign end time is expired");
+        }
+    }
+
+    private void validateCampaignCanStart(Campaign campaign) {
+        if (campaign.getStatus() != CampaignStatus.APPROVED) {
+            throw new ApiException("Only approved campaign can be started");
+        }
+        validateCampaignReady(campaign);
+    }
+
+    private void validateCampaignCanSend(Campaign campaign) {
+        if (campaign.getStatus() != CampaignStatus.APPROVED && campaign.getStatus() != CampaignStatus.ACTIVE) {
+            throw new ApiException("Campaign must be approved before sending");
+        }
+        validateCampaignReady(campaign);
+        if (campaign.getSentCount() >= campaign.getTargetCustomersCount()) {
+            throw new ApiException("Campaign already reached target customers count");
+        }
+    }
+
+    private Boolean isCustomerInsideRadius(Customer customer, Branch branch) {
+        if (customer.getLatitude() == null || customer.getLongitude() == null
+                || branch.getLatitude() == null || branch.getLongitude() == null
+                || branch.getCampaignRadiusMeters() == null) {
+            return false;
+        }
+        Double distanceKm = calculateDistance(customer.getLatitude(), customer.getLongitude(),
+                branch.getLatitude(), branch.getLongitude());
+        return distanceKm * 1000 <= branch.getCampaignRadiusMeters();
+    }
+
+    private Double calculateDistance(Double lat1, Double lon1, Double lat2, Double lon2) {
+        double earthRadiusKm = 6371;
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLon = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        return earthRadiusKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    private Integer calculateRemainingCoupons(Campaign campaign) {
+        return Math.max(campaign.getTargetCustomersCount() - campaign.getRedeemedCount(), 0);
+    }
+
+    private Double calculateUsageRate(Campaign campaign) {
+        if (campaign.getTargetCustomersCount() == null || campaign.getTargetCustomersCount() == 0) {
+            return 0.0;
+        }
+        return (campaign.getRedeemedCount() * 100.0) / campaign.getTargetCustomersCount();
+    }
+
+    private String buildCampaignTime(Campaign campaign) {
+        return campaign.getStartDateTime() + " - " + campaign.getEndDateTime();
     }
 
     private Campaign checkCampaign(Integer campaignId) {

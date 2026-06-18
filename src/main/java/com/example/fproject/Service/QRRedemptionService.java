@@ -3,6 +3,9 @@ package com.example.fproject.Service;
 import com.example.fproject.Api.ApiException;
 import com.example.fproject.DTO.IN.QRRedemptionRequestIn;
 import com.example.fproject.DTO.OUT.QRRedemptionResponseOut;
+import com.example.fproject.Enum.CampaignStatus;
+import com.example.fproject.Enum.QRCodeStatus;
+import com.example.fproject.Enum.QRRedemptionStatus;
 import com.example.fproject.Model.Campaign;
 import com.example.fproject.Model.QRCode;
 import com.example.fproject.Model.QRRedemption;
@@ -13,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -23,6 +27,7 @@ public class QRRedemptionService {
     private final QRRedemptionRepository qrRedemptionRepository;
     private final QRCodeRepository qrCodeRepository;
     private final CampaignRepository campaignRepository;
+    private final CampaignResultService campaignResultService;
     private final ModelMapper modelMapper;
 
     public List<QRRedemptionResponseOut> getAllQRRedemptions() {
@@ -35,6 +40,28 @@ public class QRRedemptionService {
 
     public QRRedemptionResponseOut getQRRedemptionById(Integer qrRedemptionId) {
         return mapQRRedemption(checkQRRedemption(qrRedemptionId));
+    }
+
+    public QRRedemptionResponseOut redeemByCode(String code) {
+        validateText(code, "QR code is required");
+        QRCode qrCode = qrCodeRepository.findQRCodeByCode(code);
+        if (qrCode == null) {
+            throw new ApiException("QR code not found");
+        }
+        return redeemQRCode(qrCode);
+    }
+
+    public QRRedemptionResponseOut redeemByQRCodeId(Integer qrCodeId) {
+        return redeemQRCode(checkQRCode(qrCodeId));
+    }
+
+    public List<QRRedemptionResponseOut> getRedemptionsByCampaign(Integer campaignId) {
+        checkCampaign(campaignId);
+        List<QRRedemptionResponseOut> redemptions = new ArrayList<>();
+        for (QRRedemption redemption : qrRedemptionRepository.findAllByCampaignId(campaignId)) {
+            redemptions.add(mapQRRedemption(redemption));
+        }
+        return redemptions;
     }
 
     public void addQRRedemption(QRRedemptionRequestIn dto) {
@@ -83,6 +110,64 @@ public class QRRedemptionService {
         campaignRepository.save(campaign);
     }
 
+    private QRRedemptionResponseOut redeemQRCode(QRCode qrCode) {
+        Campaign campaign = qrCode.getCampaign();
+        validateRedeemableQRCode(qrCode, campaign);
+
+        QRRedemption qrRedemption = new QRRedemption();
+        qrRedemption.setRedeemedAt(LocalDateTime.now());
+        qrRedemption.setStatus(QRRedemptionStatus.SUCCESS);
+        qrRedemption.setQrCode(qrCode);
+        qrRedemption.setCampaign(campaign);
+        QRRedemption saved = qrRedemptionRepository.save(qrRedemption);
+
+        qrCode.setUsedCount(qrCode.getUsedCount() + 1);
+        campaign.setRedeemedCount(campaign.getRedeemedCount() + 1);
+        if (qrCode.getUsedCount() >= qrCode.getMaxUsageCount()
+                || campaign.getRedeemedCount() >= campaign.getTargetCustomersCount()) {
+            qrCode.setStatus(QRCodeStatus.EXPIRED);
+            campaign.setStatus(CampaignStatus.EXPIRED);
+        }
+        qrCodeRepository.save(qrCode);
+        campaignRepository.save(campaign);
+        if (campaign.getStatus() == CampaignStatus.EXPIRED) {
+            campaignResultService.generateCampaignResult(campaign.getId());
+        }
+        return mapQRRedemption(saved);
+    }
+
+    private void validateRedeemableQRCode(QRCode qrCode, Campaign campaign) {
+        if (campaign == null) {
+            throw new ApiException("QR code is not linked to campaign");
+        }
+        if (qrCode.getStatus() != QRCodeStatus.ACTIVE) {
+            throw new ApiException("QR code is not active");
+        }
+        if (campaign.getStatus() != CampaignStatus.ACTIVE) {
+            throw new ApiException("Campaign is not active");
+        }
+        LocalDateTime now = LocalDateTime.now();
+        if (now.isBefore(campaign.getStartDateTime()) || now.isAfter(campaign.getEndDateTime())) {
+            qrCode.setStatus(QRCodeStatus.EXPIRED);
+            campaign.setStatus(CampaignStatus.EXPIRED);
+            qrCodeRepository.save(qrCode);
+            campaignRepository.save(campaign);
+            campaignResultService.generateCampaignResult(campaign.getId());
+            throw new ApiException("Campaign is outside its active time");
+        }
+        if (qrCode.getUsedCount() >= qrCode.getMaxUsageCount()) {
+            qrCode.setStatus(QRCodeStatus.EXPIRED);
+            qrCodeRepository.save(qrCode);
+            throw new ApiException("QR code usage limit has been reached");
+        }
+        if (campaign.getRedeemedCount() >= campaign.getTargetCustomersCount()) {
+            campaign.setStatus(CampaignStatus.EXPIRED);
+            campaignRepository.save(campaign);
+            campaignResultService.generateCampaignResult(campaign.getId());
+            throw new ApiException("Campaign usage limit has been reached");
+        }
+    }
+
     private QRRedemption checkQRRedemption(Integer qrRedemptionId) {
         return qrRedemptionRepository.findById(qrRedemptionId)
                 .orElseThrow(() -> new ApiException("QR redemption not found"));
@@ -96,6 +181,12 @@ public class QRRedemptionService {
     private Campaign checkCampaign(Integer campaignId) {
         return campaignRepository.findById(campaignId)
                 .orElseThrow(() -> new ApiException("Campaign not found"));
+    }
+
+    private void validateText(String value, String message) {
+        if (value == null || value.isBlank()) {
+            throw new ApiException(message);
+        }
     }
 
     private QRRedemptionResponseOut mapQRRedemption(QRRedemption qrRedemption) {

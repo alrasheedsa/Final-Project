@@ -3,6 +3,7 @@ package com.example.fproject.Service;
 import com.example.fproject.Api.ApiException;
 import com.example.fproject.DTO.IN.CampaignMessageRequestIn;
 import com.example.fproject.DTO.OUT.CampaignMessageResponseOut;
+import com.example.fproject.Enum.MessageStatus;
 import com.example.fproject.Model.Campaign;
 import com.example.fproject.Model.CampaignMessage;
 import com.example.fproject.Model.Customer;
@@ -38,6 +39,52 @@ public class CampaignMessageService {
 
     public CampaignMessageResponseOut getCampaignMessageById(Integer campaignMessageId) {
         return mapCampaignMessage(checkCampaignMessage(campaignMessageId));
+    }
+
+    public List<CampaignMessageResponseOut> getMessagesByCampaign(Integer campaignId) {
+        checkCampaign(campaignId);
+        List<CampaignMessageResponseOut> messages = new ArrayList<>();
+        for (CampaignMessage message : campaignMessageRepository.findAllByCampaignId(campaignId)) {
+            messages.add(mapCampaignMessage(message));
+        }
+        return messages;
+    }
+
+    public List<CampaignMessageResponseOut> getMessagesByCustomer(Integer customerId) {
+        checkCustomer(customerId);
+        List<CampaignMessageResponseOut> messages = new ArrayList<>();
+        for (CampaignMessage message : campaignMessageRepository.findAllByCustomerId(customerId)) {
+            messages.add(mapCampaignMessage(message));
+        }
+        return messages;
+    }
+
+    public CampaignMessageResponseOut getOpenMessageForCustomerPhone(String phone) {
+        Customer customer = checkCustomerByPhone(phone);
+        for (CampaignMessage message : campaignMessageRepository
+                .findAllByCustomerIdAndStatusOrderBySentAtDesc(customer.getId(), MessageStatus.SENT)) {
+            if (message.getCustomerAnswer() == null) {
+                return mapCampaignMessage(message);
+            }
+        }
+        throw new ApiException("No open campaign message found for this customer");
+    }
+
+    public void markMessageAsSent(Integer campaignMessageId) {
+        CampaignMessage message = checkCampaignMessage(campaignMessageId);
+        if (message.getStatus() == MessageStatus.SENT) {
+            throw new ApiException("Campaign message is already marked as sent");
+        }
+        message.setStatus(MessageStatus.SENT);
+        campaignMessageRepository.save(message);
+    }
+
+    public void markMessageAsAnswered(Integer campaignMessageId) {
+        CampaignMessage message = checkCampaignMessage(campaignMessageId);
+        if (message.getCustomerAnswer() == null) {
+            throw new ApiException("Campaign message has no customer answer");
+        }
+        campaignMessageRepository.save(message);
     }
 
     public void addCampaignMessage(CampaignMessageRequestIn dto) {
@@ -95,6 +142,30 @@ public class CampaignMessageService {
     private Customer checkCustomer(Integer customerId) {
         return customerRepository.findById(customerId)
                 .orElseThrow(() -> new ApiException("Customer not found"));
+    }
+
+    private Customer checkCustomerByPhone(String phone) {
+        if (phone == null || phone.isBlank()) {
+            throw new ApiException("Phone is required");
+        }
+        String normalizedPhone = normalizePhone(phone);
+        for (Customer customer : customerRepository.findAll()) {
+            if (customer.getUser() != null && normalizePhone(customer.getUser().getPhone()).equals(normalizedPhone)) {
+                return customer;
+            }
+        }
+        throw new ApiException("Customer not found");
+    }
+
+    private String normalizePhone(String phone) {
+        String value = phone.replace("whatsapp:", "").replaceAll("[^0-9]", "");
+        if (value.startsWith("966")) {
+            return "0" + value.substring(3);
+        }
+        if (value.startsWith("5")) {
+            return "0" + value;
+        }
+        return value;
     }
 
     private CustomerAnswer checkCustomerAnswer(Integer customerAnswerId) {

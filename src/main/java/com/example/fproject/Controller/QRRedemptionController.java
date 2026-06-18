@@ -1,6 +1,7 @@
 package com.example.fproject.Controller;
 
 import com.example.fproject.Api.ApiResponse;
+import com.example.fproject.DTO.IN.QRRedemptionCodeIn;
 import com.example.fproject.DTO.IN.QRRedemptionRequestIn;
 import com.example.fproject.Service.QRRedemptionService;
 import jakarta.validation.Valid;
@@ -30,6 +31,21 @@ public class QRRedemptionController {
     @GetMapping("/get/{qrRedemptionId}")
     public ResponseEntity<?> getQRRedemptionById(@PathVariable Integer qrRedemptionId) {
         return ResponseEntity.status(200).body(qrRedemptionService.getQRRedemptionById(qrRedemptionId));
+    }
+
+    @GetMapping("/campaign/{campaignId}")
+    public ResponseEntity<?> getRedemptionsByCampaign(@PathVariable Integer campaignId) {
+        return ResponseEntity.status(200).body(qrRedemptionService.getRedemptionsByCampaign(campaignId));
+    }
+
+    @PostMapping("/redeem-by-code")
+    public ResponseEntity<?> redeemByCode(@RequestBody @Valid QRRedemptionCodeIn qrRedemptionCodeIn) {
+        return ResponseEntity.status(200).body(qrRedemptionService.redeemByCode(qrRedemptionCodeIn.getCode()));
+    }
+
+    @PostMapping("/redeem-by-qr/{qrCodeId}")
+    public ResponseEntity<?> redeemByQRCodeId(@PathVariable Integer qrCodeId) {
+        return ResponseEntity.status(200).body(qrRedemptionService.redeemByQRCodeId(qrCodeId));
     }
 
     @PostMapping("/add")

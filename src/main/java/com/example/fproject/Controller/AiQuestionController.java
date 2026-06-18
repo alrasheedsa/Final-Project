@@ -37,6 +37,21 @@ public class AiQuestionController {
         return ResponseEntity.status(200).body(aiQuestionService.generateAiQuestion());
     }
 
+    @PostMapping("/generate-for-campaign/{campaignId}")
+    public ResponseEntity<?> generateAiQuestionForCampaign(@PathVariable Integer campaignId) {
+        return ResponseEntity.status(200).body(aiQuestionService.generateAiQuestionForCampaign(campaignId));
+    }
+
+    @PutMapping("/regenerate/{campaignId}")
+    public ResponseEntity<?> regenerateAiQuestion(@PathVariable Integer campaignId) {
+        return ResponseEntity.status(200).body(aiQuestionService.regenerateAiQuestion(campaignId));
+    }
+
+    @GetMapping("/campaign/{campaignId}")
+    public ResponseEntity<?> getAiQuestionByCampaignId(@PathVariable Integer campaignId) {
+        return ResponseEntity.status(200).body(aiQuestionService.getAiQuestionByCampaignId(campaignId));
+    }
+
     @PostMapping("/add")
     public ResponseEntity<?> addAiQuestion(@RequestBody @Valid AiQuestionRequestIn aiQuestionRequestIn) {
         aiQuestionService.addAiQuestion(aiQuestionRequestIn);

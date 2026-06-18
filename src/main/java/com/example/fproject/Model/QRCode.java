@@ -35,6 +35,9 @@ public class QRCode {
     @Column(nullable = false, unique = true)
     private String code;
 
+    @Column(nullable = false, columnDefinition = "LONGTEXT")
+    private String qrImageBase64;
+
     @Column(nullable = false)
     private Integer maxUsageCount;
 
