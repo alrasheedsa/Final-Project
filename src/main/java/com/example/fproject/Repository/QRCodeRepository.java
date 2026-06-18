@@ -10,4 +10,8 @@ public interface QRCodeRepository extends JpaRepository<QRCode, Integer> {
     Boolean existsByCampaignId(Integer campaignId);
 
     Boolean existsByCode(String code);
+
+    QRCode findQRCodeByCode(String code);
+
+    QRCode findQRCodeByCampaignId(Integer campaignId);
 }

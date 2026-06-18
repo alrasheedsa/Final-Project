@@ -6,4 +6,6 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface CampaignResultRepository extends JpaRepository<CampaignResult, Integer> {
+
+    CampaignResult findCampaignResultByCampaignId(Integer campaignId);
 }
