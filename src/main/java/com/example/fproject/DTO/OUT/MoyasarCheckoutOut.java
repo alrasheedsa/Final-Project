@@ -23,8 +23,6 @@ public class MoyasarCheckoutOut {
 
     private String publishableKey;
 
-    private String paymentPageUrl;
-
     private String callbackUrl;
 
     private String message;

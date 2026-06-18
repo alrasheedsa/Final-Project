@@ -59,24 +59,14 @@ public class PaymentService {
             throw new ApiException("Moyasar payment id is already linked to another payment");
         }
 
-        JsonNode moyasarPayment = moyasarService.getPayment(moyasarPaymentId);
 
-        String moyasarStatus = moyasarService.extractPaymentStatus(moyasarPayment);
-        Long moyasarAmount = moyasarService.extractAmount(moyasarPayment);
-        String moyasarCurrency = moyasarService.extractCurrency(moyasarPayment);
 
-        validateMoyasarAmountAndCurrency(payment, moyasarAmount, moyasarCurrency);
+
+
+
 
         payment.setTransactionId(moyasarPaymentId);
 
-        if ("paid".equalsIgnoreCase(moyasarStatus)) {
-            return markPaymentAsPaid(payment, moyasarPaymentId);
-        }
-
-        if ("failed".equalsIgnoreCase(moyasarStatus)) {
-            paymentRepository.save(payment);
-            return markPaymentAsFailed(payment.getId());
-        }
 
         paymentRepository.save(payment);
         return mapToDTOOUT(payment);

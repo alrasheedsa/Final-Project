@@ -87,7 +87,6 @@ public class SubscriptionService {
             paymentRepository.save(payment);
 
             String description = "Subscription payment - " + planType;
-            String paymentPageUrl = "http://localhost:8080/api/v1/payment/page/" + payment.getId();
             String callbackUrl = paymentCallbackBaseUrl + "/" + payment.getId();
 
             return new MoyasarCheckoutOut(
@@ -98,7 +97,6 @@ public class SubscriptionService {
                     "SAR",
                     description,
                     moyasarService.getPublishableKey(),
-                    paymentPageUrl,
                     callbackUrl,
                     "Checkout created successfully"
             );

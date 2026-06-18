@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Payment Result</title>
+</head>
+
+<body style="font-family: Arial; padding: 40px;">
+
+<h1>Payment Result</h1>
+
+<p>
+    <strong>Local Payment ID:</strong>
+    <span th:text="${localPaymentId}"></span>
+</p>
+
+<p>
+    <strong>Moyasar Payment ID:</strong>
+    <span th:text="${paymentId}"></span>
+</p>
+
+<p>
+    <strong>Status:</strong>
+    <span th:text="${status}"></span>
+</p>
+
+<p>
+    <strong>Amount:</strong>
+    <span th:text="${amount}"></span> SAR
+</p>
+
+<p>
+    <strong>Currency:</strong>
+    <span th:text="${currency}"></span>
+</p>
+
+<p th:if="${message}">
+    <strong>Message:</strong>
+    <span th:text="${message}"></span>
+</p>
+
+<hr>
+
+<a href="/api/v1/payment/get">Back to payments</a>
+
+</body>
+</html>
