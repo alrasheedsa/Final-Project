@@ -14,9 +14,9 @@ import com.example.fproject.Repository.StoreRepository;
 import com.example.fproject.Repository.SubscriptionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -29,29 +29,29 @@ public class StoreService {
     private final WathqService wathqService;
     private final SubscriptionRepository subscriptionRepository;
 
+    @Transactional
     public StoreOut addStore(Integer storeOwnerId, StoreIn dto) {
 
-        StoreOwner storeOwner = storeOwnerRepository.findStoreOwnerById(storeOwnerId);
-
-        if (storeOwner == null) {
-            throw new ApiException("Store owner not found");
-        }
+        StoreOwner storeOwner = findStoreOwnerOrThrow(storeOwnerId);
 
         Subscription subscription = getActiveOrPendingSubscription(storeOwnerId);
 
-        Integer currentStoresCount = storeRepository.countStoresByStoreOwnerId(storeOwnerId);
-        Integer maxStores = subscription.getPlanType().getMaxStores();
+        long currentCount = countActiveOrPendingStores(storeOwnerId);
+        int maxStores = subscription.getPlanType().getMaxStores();
 
-        if (currentStoresCount >= maxStores) {
-            throw new ApiException("Your current subscription plan allows only " + maxStores + " store(s)");
+        if (currentCount >= maxStores) {
+            throw new ApiException(
+                    "Your subscription plan allows only " + maxStores + " store(s). " +
+                            "Deactivate an existing store or upgrade your plan."
+            );
         }
 
         if (storeRepository.existsStoreByCommercialRegisterNo(dto.getCommercialRegisterNo())) {
-            throw new ApiException("Commercial register number already exists");
+            throw new ApiException("Commercial register number is already used by another store");
         }
 
         if (storeRepository.existsStoreByNameAndStoreOwnerId(dto.getName(), storeOwnerId)) {
-            throw new ApiException("Store name already exists for this store owner");
+            throw new ApiException("You already have a store with this name");
         }
 
         wathqService.validateCommercialRegistration(dto.getCommercialRegisterNo());
@@ -63,87 +63,56 @@ public class StoreService {
         store.setCommercialRegisterVerified(true);
         store.setStoreOwner(storeOwner);
 
-        if (subscription.getStatus() == SubscriptionStatus.ACTIVE
-                && Boolean.TRUE.equals(store.getCommercialRegisterVerified())) {
-            store.setStatus(StoreStatus.ACTIVE);
-        } else {
-            store.setStatus(StoreStatus.PENDING);
-        }
+        store.setStatus(resolveStoreStatus(subscription));
 
         storeRepository.save(store);
 
-        return mapToDTOOUT(store);
+        return mapToOut(store);
     }
 
     public List<StoreOut> getAllStores() {
-
-        List<Store> stores = storeRepository.findAll();
-        List<StoreOut> result = new ArrayList<>();
-
-        for (Store store : stores) {
-            result.add(mapToDTOOUT(store));
-        }
-
-        return result;
+        return storeRepository.findAll()
+                .stream()
+                .map(this::mapToOut)
+                .toList();
     }
 
     public StoreOut getStoreById(Integer storeId) {
-
-        Store store = storeRepository.findStoreById(storeId);
-
-        if (store == null) {
-            throw new ApiException("Store not found");
-        }
-
-        return mapToDTOOUT(store);
+        return mapToOut(findStoreOrThrow(storeId));
     }
 
     public List<StoreOut> getStoresByStoreOwnerId(Integer storeOwnerId) {
-
-        StoreOwner storeOwner = storeOwnerRepository.findStoreOwnerById(storeOwnerId);
-
-        if (storeOwner == null) {
-            throw new ApiException("Store owner not found");
-        }
-
-        List<Store> stores = storeRepository.findStoresByStoreOwnerId(storeOwnerId);
-        List<StoreOut> result = new ArrayList<>();
-
-        for (Store store : stores) {
-            result.add(mapToDTOOUT(store));
-        }
-
-        return result;
+        findStoreOwnerOrThrow(storeOwnerId);
+        return storeRepository.findStoresByStoreOwnerId(storeOwnerId)
+                .stream()
+                .map(this::mapToOut)
+                .toList();
     }
 
+    @Transactional
     public StoreOut updateStore(Integer storeId, StoreIn dto) {
 
-        Store store = storeRepository.findStoreById(storeId);
+        Store store = findStoreOrThrow(storeId);
 
-        if (store == null) {
-            throw new ApiException("Store not found");
-        }
-
-        boolean nameChanged = !store.getName().equals(dto.getName());
-        boolean businessTypeChanged = !store.getBusinessType().equals(dto.getBusinessType());
-        boolean commercialRegisterChanged =
-                !store.getCommercialRegisterNo().equals(dto.getCommercialRegisterNo());
+        boolean nameChanged             = !store.getName().equals(dto.getName());
+        boolean businessTypeChanged     = !store.getBusinessType().equals(dto.getBusinessType());
+        boolean commercialRegisterChanged = !store.getCommercialRegisterNo().equals(dto.getCommercialRegisterNo());
 
         if (!nameChanged && !businessTypeChanged && !commercialRegisterChanged) {
             throw new ApiException("No changes detected");
         }
 
-        if (commercialRegisterChanged
-                && storeRepository.existsStoreByCommercialRegisterNo(dto.getCommercialRegisterNo())) {
-            throw new ApiException("Commercial register number already exists");
-        }
-
-        if (nameChanged
-                && storeRepository.existsStoreByNameAndStoreOwnerId(dto.getName(), store.getStoreOwner().getId())) {
-            throw new ApiException("Store name already exists for this store owner");
+        if (nameChanged &&
+                storeRepository.existsStoreByNameAndStoreOwnerId(dto.getName(), store.getStoreOwner().getId())) {
+            throw new ApiException("You already have a store with this name");
         }
 
         if (commercialRegisterChanged) {
+
+            if (storeRepository.existsStoreByCommercialRegisterNo(dto.getCommercialRegisterNo())) {
+                throw new ApiException("Commercial register number is already used by another store");
+            }
+
             wathqService.validateCommercialRegistration(dto.getCommercialRegisterNo());
 
             store.setCommercialRegisterNo(dto.getCommercialRegisterNo());
@@ -166,61 +135,64 @@ public class StoreService {
 
         storeRepository.save(store);
 
-        return mapToDTOOUT(store);
+        return mapToOut(store);
     }
 
+    @Transactional
     public StoreOut activateStore(Integer storeId) {
 
-        Store store = storeRepository.findStoreById(storeId);
+        Store store = findStoreOrThrow(storeId);
 
-        if (store == null) {
-            throw new ApiException("Store not found");
+        if (store.getStatus() == StoreStatus.ACTIVE) {
+            throw new ApiException("Store is already active");
         }
 
         if (!Boolean.TRUE.equals(store.getCommercialRegisterVerified())) {
-            throw new ApiException("Store cannot be activated before commercial register verification");
+            throw new ApiException("Store cannot be activated: commercial register is not verified");
         }
 
-        Subscription activeSubscription =
-                subscriptionRepository.findFirstByStoreOwnerIdAndStatusOrderByEndDateDesc(
+        Subscription activeSubscription = subscriptionRepository
+                .findFirstByStoreOwnerIdAndStatusOrderByEndDateDesc(
                         store.getStoreOwner().getId(),
                         SubscriptionStatus.ACTIVE
                 );
 
         if (activeSubscription == null) {
-            throw new ApiException("Store cannot be activated before active subscription payment");
+            throw new ApiException("Store cannot be activated: no active subscription found");
         }
 
         if (activeSubscription.getEndDate().isBefore(LocalDate.now())) {
-            throw new ApiException("Store cannot be activated because subscription is expired");
+            throw new ApiException("Store cannot be activated: subscription has expired");
         }
 
         store.setStatus(StoreStatus.ACTIVE);
         storeRepository.save(store);
 
-        return mapToDTOOUT(store);
+        return mapToOut(store);
     }
 
+    @Transactional
     public StoreOut deactivateStore(Integer storeId) {
 
-        Store store = storeRepository.findStoreById(storeId);
+        Store store = findStoreOrThrow(storeId);
 
-        if (store == null) {
-            throw new ApiException("Store not found");
+        if (store.getStatus() == StoreStatus.INACTIVE) {
+            throw new ApiException("Store is already inactive");
         }
 
         store.setStatus(StoreStatus.INACTIVE);
         storeRepository.save(store);
 
-        return mapToDTOOUT(store);
+        return mapToOut(store);
     }
 
+    @Transactional
     public void deleteStore(Integer storeId) {
 
-        Store store = storeRepository.findStoreById(storeId);
+        Store store = findStoreOrThrow(storeId);
 
-        if (store == null) {
-            throw new ApiException("Store not found");
+        if (store.getStatus() == StoreStatus.ACTIVE) {
+            throw new ApiException("Cannot delete an active store. Deactivate it first");
         }
 
         if (branchRepository.existsByStoreId(storeId)) {
@@ -230,26 +202,37 @@ public class StoreService {
         storeRepository.delete(store);
     }
 
+    private Store findStoreOrThrow(Integer storeId) {
+        Store store = storeRepository.findStoreById(storeId);
+        if (store == null) {
+            throw new ApiException("Store not found");
+        }
+        return store;
+    }
+
+    private StoreOwner findStoreOwnerOrThrow(Integer storeOwnerId) {
+        StoreOwner storeOwner = storeOwnerRepository.findStoreOwnerById(storeOwnerId);
+        if (storeOwner == null) {
+            throw new ApiException("Store owner not found");
+        }
+        return storeOwner;
+    }
+
+
     private Subscription getActiveOrPendingSubscription(Integer storeOwnerId) {
 
-        Subscription activeSubscription =
-                subscriptionRepository.findFirstByStoreOwnerIdAndStatusOrderByEndDateDesc(
-                        storeOwnerId,
-                        SubscriptionStatus.ACTIVE
-                );
+        Subscription active = subscriptionRepository
+                .findFirstByStoreOwnerIdAndStatusOrderByEndDateDesc(storeOwnerId, SubscriptionStatus.ACTIVE);
 
-        if (activeSubscription != null && !activeSubscription.getEndDate().isBefore(LocalDate.now())) {
-            return activeSubscription;
+        if (active != null && !active.getEndDate().isBefore(LocalDate.now())) {
+            return active;
         }
 
-        Subscription pendingSubscription =
-                subscriptionRepository.findFirstByStoreOwnerIdAndStatusOrderByEndDateDesc(
-                        storeOwnerId,
-                        SubscriptionStatus.PENDING
-                );
+        Subscription pending = subscriptionRepository
+                .findFirstByStoreOwnerIdAndStatusOrderByEndDateDesc(storeOwnerId, SubscriptionStatus.PENDING);
 
-        if (pendingSubscription != null && !pendingSubscription.getEndDate().isBefore(LocalDate.now())) {
-            return pendingSubscription;
+        if (pending != null) {
+            return pending;
         }
 
         throw new ApiException("Store owner must choose a subscription plan before adding stores");
@@ -257,18 +240,29 @@ public class StoreService {
 
     private boolean hasActiveSubscription(Integer storeOwnerId) {
 
-        Subscription activeSubscription =
-                subscriptionRepository.findFirstByStoreOwnerIdAndStatusOrderByEndDateDesc(
-                        storeOwnerId,
-                        SubscriptionStatus.ACTIVE
-                );
+        Subscription active = subscriptionRepository
+                .findFirstByStoreOwnerIdAndStatusOrderByEndDateDesc(storeOwnerId, SubscriptionStatus.ACTIVE);
 
-        return activeSubscription != null
-                && !activeSubscription.getEndDate().isBefore(LocalDate.now());
+        return active != null && !active.getEndDate().isBefore(LocalDate.now());
     }
 
-    private StoreOut mapToDTOOUT(Store store) {
 
+    private long countActiveOrPendingStores(Integer storeOwnerId) {
+        return storeRepository.findStoresByStoreOwnerId(storeOwnerId)
+                .stream()
+                .filter(s -> s.getStatus() == StoreStatus.ACTIVE
+                        || s.getStatus() == StoreStatus.PENDING)
+                .count();
+    }
+
+
+    private StoreStatus resolveStoreStatus(Subscription subscription) {
+        return subscription.getStatus() == SubscriptionStatus.ACTIVE
+                ? StoreStatus.ACTIVE
+                : StoreStatus.PENDING;
+    }
+
+    private StoreOut mapToOut(Store store) {
         return new StoreOut(
                 store.getId(),
                 store.getName(),

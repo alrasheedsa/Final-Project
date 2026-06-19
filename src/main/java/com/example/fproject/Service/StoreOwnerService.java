@@ -10,6 +10,7 @@ import com.example.fproject.Repository.StoreOwnerRepository;
 import com.example.fproject.Repository.StoreRepository;
 import com.example.fproject.Repository.SubscriptionRepository;
 import com.example.fproject.Repository.UserRepository;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -25,14 +26,16 @@ public class StoreOwnerService {
     private final StoreRepository storeRepository;
     private final SubscriptionRepository subscriptionRepository;
 
+    @Transactional
     public StoreOwnerOut registerStoreOwner(StoreOwnerIn dto) {
+
 
         if (userRepository.existsUserByEmail(dto.getEmail())) {
             throw new ApiException("Email already exists");
         }
 
         if (userRepository.existsUserByPhone(dto.getPhone())) {
-            throw new ApiException("Phone already exists");
+            throw new ApiException("Phone number already exists");
         }
 
         User user = new User();
@@ -41,71 +44,41 @@ public class StoreOwnerService {
         user.setEmail(dto.getEmail());
         user.setPassword(dto.getPassword());
         user.setRole(RoleType.STORE_OWNER);
-
         user.setEnabled(false);
-
         userRepository.save(user);
 
-        try {
-            StoreOwner storeOwner = new StoreOwner();
-            storeOwner.setUser(user);
+        StoreOwner storeOwner = new StoreOwner();
+        storeOwner.setUser(user);
+        storeOwnerRepository.save(storeOwner);
 
-            storeOwnerRepository.save(storeOwner);
+        return mapToOut(storeOwner);
 
-            return mapToDTOOUT(storeOwner);
-
-        } catch (Exception e) {
-            userRepository.delete(user);
-            throw new ApiException("Could not register store owner: " + e.getMessage());
-        }
     }
 
     public List<StoreOwnerOut> getAllStoreOwners() {
-        List<StoreOwner> storeOwners = storeOwnerRepository.findAll();
-        List<StoreOwnerOut> result = new ArrayList<>();
-
-        for (StoreOwner storeOwner : storeOwners) {
-            result.add(mapToDTOOUT(storeOwner));
-        }
-
-        return result;
+        return storeOwnerRepository.findAll()
+                .stream()
+                .map(this::mapToOut)
+                .toList();
     }
 
     public StoreOwnerOut getStoreOwnerById(Integer storeOwnerId) {
-        StoreOwner storeOwner = storeOwnerRepository.findStoreOwnerById(storeOwnerId);
-
-        if (storeOwner == null) {
-            throw new ApiException("Store owner not found");
-        }
-
-        return mapToDTOOUT(storeOwner);
+        return mapToOut(findStoreOwnerOrThrow(storeOwnerId));
     }
 
-    public StoreOwnerOut getStoreOwnerByUserId(Integer userId) {
-        StoreOwner storeOwner = storeOwnerRepository.findStoreOwnerByUserId(userId);
-
-        if (storeOwner == null) {
-            throw new ApiException("Store owner not found");
-        }
-
-        return mapToDTOOUT(storeOwner);
-    }
-
+    @Transactional
     public StoreOwnerOut updateStoreOwner(Integer storeOwnerId, StoreOwnerIn dto) {
-        StoreOwner storeOwner = storeOwnerRepository.findStoreOwnerById(storeOwnerId);
-
-        if (storeOwner == null) {
-            throw new ApiException("Store owner not found");
-        }
-
+        StoreOwner storeOwner = findStoreOwnerOrThrow(storeOwnerId);
         User user = storeOwner.getUser();
 
-        if (!user.getEmail().equals(dto.getEmail()) && userRepository.existsUserByEmail(dto.getEmail())) {
+        if (!user.getEmail().equals(dto.getEmail())
+                && userRepository.existsUserByEmail(dto.getEmail())) {
             throw new ApiException("Email already exists");
         }
 
-        if (!user.getPhone().equals(dto.getPhone()) && userRepository.existsUserByPhone(dto.getPhone())) {
-            throw new ApiException("Phone already exists");
+        if (!user.getPhone().equals(dto.getPhone())
+                && userRepository.existsUserByPhone(dto.getPhone())) {
+            throw new ApiException("Phone number already exists");
         }
 
         user.setFullName(dto.getFullName());
@@ -115,15 +88,13 @@ public class StoreOwnerService {
 
         userRepository.save(user);
 
-        return mapToDTOOUT(storeOwner);
+        return mapToOut(storeOwner);
     }
 
+    @Transactional
     public void deleteStoreOwner(Integer storeOwnerId) {
-        StoreOwner storeOwner = storeOwnerRepository.findStoreOwnerById(storeOwnerId);
 
-        if (storeOwner == null) {
-            throw new ApiException("Store owner not found");
-        }
+        StoreOwner storeOwner = findStoreOwnerOrThrow(storeOwnerId);
 
         if (!storeRepository.findStoresByStoreOwnerId(storeOwnerId).isEmpty()) {
             throw new ApiException("Cannot delete store owner because it has stores");
@@ -134,12 +105,19 @@ public class StoreOwnerService {
         }
 
         User user = storeOwner.getUser();
-
         storeOwnerRepository.delete(storeOwner);
         userRepository.delete(user);
     }
 
-    private StoreOwnerOut mapToDTOOUT(StoreOwner storeOwner) {
+    private StoreOwner findStoreOwnerOrThrow(Integer storeOwnerId) {
+        StoreOwner storeOwner = storeOwnerRepository.findStoreOwnerById(storeOwnerId);
+        if (storeOwner == null) {
+            throw new ApiException("Store owner not found");
+        }
+        return storeOwner;
+    }
+
+    private StoreOwnerOut mapToOut(StoreOwner storeOwner) {
         return new StoreOwnerOut(
                 storeOwner.getId(),
                 storeOwner.getUser().getFullName(),

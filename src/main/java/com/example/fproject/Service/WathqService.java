@@ -9,8 +9,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
+
+
 @Service
 public class WathqService {
+
 
     @Value("${wathq.api-key}")
     private String apiKey;

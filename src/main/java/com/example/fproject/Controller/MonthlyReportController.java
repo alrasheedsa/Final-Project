@@ -22,6 +22,12 @@ public class MonthlyReportController {
         return ResponseEntity.status(200).body(monthlyReportService.generateMonthlyReport(branchId, dto));
     }
 
+
+    @PutMapping("/regenerate/{reportId}")
+    public ResponseEntity<?> regenerateMonthlyReport(@PathVariable Integer reportId) {
+        return ResponseEntity.status(200).body(monthlyReportService.regenerateMonthlyReport(reportId));
+    }
+
     @GetMapping("/get")
     public ResponseEntity<?> getAllMonthlyReports() {
         return ResponseEntity.status(200).body(monthlyReportService.getAllMonthlyReports());
@@ -39,15 +45,9 @@ public class MonthlyReportController {
 
     @GetMapping("/branch/{branchId}/date")
     public ResponseEntity<?> getMonthlyReportByBranchAndDate(@PathVariable Integer branchId, @RequestParam Integer month, @RequestParam Integer year) {
-        return ResponseEntity.status(200).body(
-                monthlyReportService.getMonthlyReportByBranchAndDate(branchId, month, year)
-        );
+        return ResponseEntity.status(200).body(monthlyReportService.getMonthlyReportByBranchAndDate(branchId, month, year));
     }
 
-    @PutMapping("/update/{reportId}")
-    public ResponseEntity<?> updateMonthlyReport(@PathVariable Integer reportId, @Valid @RequestBody MonthlyReportIn dto) {
-        return ResponseEntity.status(200).body(monthlyReportService.updateMonthlyReport(reportId, dto));
-    }
 
     @DeleteMapping("/delete/{reportId}")
     public ResponseEntity<?> deleteMonthlyReport(@PathVariable Integer reportId) {
@@ -55,11 +55,15 @@ public class MonthlyReportController {
         return ResponseEntity.status(200).body(new ApiResponse("Monthly report deleted successfully"));
     }
 
+
     @GetMapping("/download/{reportId}")
     public ResponseEntity<byte[]> downloadMonthlyReport(@PathVariable Integer reportId) {
-        return ResponseEntity.ok()
+        return ResponseEntity.status(200)
                 .contentType(MediaType.APPLICATION_PDF)
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=monthly-report-" + reportId + ".pdf")
+                .header(
+                        HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=monthly-report-" + reportId + ".pdf"
+                )
                 .body(monthlyReportService.downloadMonthlyReport(reportId));
     }
 }
