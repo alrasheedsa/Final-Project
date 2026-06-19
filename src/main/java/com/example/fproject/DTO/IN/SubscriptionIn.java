@@ -1,16 +1,13 @@
 package com.example.fproject.DTO.IN;
 
-import com.example.fproject.Enum.SubscriptionPlanType;
-import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Data;
-import lombok.NoArgsConstructor;
 
 @Data
 @AllArgsConstructor
-@NoArgsConstructor
 public class SubscriptionIn {
 
-    @NotNull(message = "Plan type is required")
-    private SubscriptionPlanType planType;
+    @NotBlank(message = "Plan type is required")
+    private String planType;
 }

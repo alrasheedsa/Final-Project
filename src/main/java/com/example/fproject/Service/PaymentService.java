@@ -1,21 +1,15 @@
 package com.example.fproject.Service;
 
 import com.example.fproject.Api.ApiException;
-import com.example.fproject.DTO.IN.PaymentIn;
 import com.example.fproject.DTO.OUT.PaymentOut;
 import com.example.fproject.Enum.PaymentStatus;
-import com.example.fproject.Enum.StoreStatus;
-import com.example.fproject.Enum.SubscriptionStatus;
 import com.example.fproject.Model.Payment;
-import com.example.fproject.Model.Store;
 import com.example.fproject.Model.Subscription;
 import com.example.fproject.Repository.PaymentRepository;
-import com.example.fproject.Repository.StoreRepository;
 import com.example.fproject.Repository.SubscriptionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -25,31 +19,9 @@ public class PaymentService {
 
     private final PaymentRepository paymentRepository;
     private final SubscriptionRepository subscriptionRepository;
-    private final StoreRepository storeRepository;
-
-    public PaymentOut createPayment(Integer subscriptionId, PaymentIn dto) {
-        Subscription subscription = subscriptionRepository.findSubscriptionById(subscriptionId);
-
-        if (subscription == null) {
-            throw new ApiException("Subscription not found");
-        }
-
-        if (subscription.getStatus() != SubscriptionStatus.PENDING) {
-            throw new ApiException("Payment can only be created for pending subscription");
-        }
-
-        Payment payment = new Payment();
-        payment.setAmount(dto.getAmount());
-        payment.setPaymentProvider(dto.getPaymentProvider());
-        payment.setStatus(PaymentStatus.PENDING);
-        payment.setSubscription(subscription);
-
-        paymentRepository.save(payment);
-
-        return mapToDTOOUT(payment);
-    }
 
     public List<PaymentOut> getAllPayments() {
+
         List<Payment> payments = paymentRepository.findAll();
         List<PaymentOut> result = new ArrayList<>();
 
@@ -61,6 +33,7 @@ public class PaymentService {
     }
 
     public PaymentOut getPaymentById(Integer paymentId) {
+
         Payment payment = paymentRepository.findPaymentById(paymentId);
 
         if (payment == null) {
@@ -71,6 +44,7 @@ public class PaymentService {
     }
 
     public List<PaymentOut> getPaymentsBySubscriptionId(Integer subscriptionId) {
+
         Subscription subscription = subscriptionRepository.findSubscriptionById(subscriptionId);
 
         if (subscription == null) {
@@ -87,41 +61,32 @@ public class PaymentService {
         return result;
     }
 
-    public PaymentOut markPaymentAsPaid(Integer paymentId, String transactionId) {
-        Payment payment = paymentRepository.findPaymentById(paymentId);
+    public List<PaymentOut> getPaymentsByStatus(PaymentStatus status) {
 
-        if (payment == null) {
-            throw new ApiException("Payment not found");
+        List<Payment> payments = paymentRepository.findPaymentsByStatus(status);
+        List<PaymentOut> result = new ArrayList<>();
+
+        for (Payment payment : payments) {
+            result.add(mapToDTOOUT(payment));
         }
 
-        if (paymentRepository.existsPaymentByTransactionId(transactionId)) {
-            throw new ApiException("Transaction id already exists");
-        }
-
-        payment.setStatus(PaymentStatus.PAID);
-        payment.setTransactionId(transactionId);
-        payment.setPaidAt(LocalDateTime.now());
-
-        paymentRepository.save(payment);
-
-        Subscription subscription = payment.getSubscription();
-        subscription.setStatus(SubscriptionStatus.ACTIVE);
-        subscriptionRepository.save(subscription);
-
-        List<Store> stores = storeRepository.findStoresByStoreOwnerId(subscription.getStoreOwner().getId());
-        for (Store store : stores) {
-            store.setStatus(StoreStatus.ACTIVE);
-            storeRepository.save(store);
-        }
-
-        return mapToDTOOUT(payment);
+        return result;
     }
 
     public PaymentOut markPaymentAsFailed(Integer paymentId) {
+
         Payment payment = paymentRepository.findPaymentById(paymentId);
 
         if (payment == null) {
             throw new ApiException("Payment not found");
+        }
+
+        if (payment.getStatus() == PaymentStatus.PAID) {
+            throw new ApiException("Paid payment cannot be marked as failed");
+        }
+
+        if (payment.getStatus() == PaymentStatus.FAILED) {
+            return mapToDTOOUT(payment);
         }
 
         payment.setStatus(PaymentStatus.FAILED);
@@ -131,16 +96,28 @@ public class PaymentService {
     }
 
     public void deletePayment(Integer paymentId) {
+
         Payment payment = paymentRepository.findPaymentById(paymentId);
 
         if (payment == null) {
             throw new ApiException("Payment not found");
         }
 
+        if (payment.getStatus() == PaymentStatus.PAID) {
+            throw new ApiException("Cannot delete paid payment");
+        }
+
         paymentRepository.delete(payment);
     }
 
     private PaymentOut mapToDTOOUT(Payment payment) {
+
+        Integer subscriptionId = null;
+
+        if (payment.getSubscription() != null) {
+            subscriptionId = payment.getSubscription().getId();
+        }
+
         return new PaymentOut(
                 payment.getId(),
                 payment.getAmount(),
@@ -148,7 +125,7 @@ public class PaymentService {
                 payment.getPaymentProvider(),
                 payment.getStatus(),
                 payment.getPaidAt(),
-                payment.getSubscription().getId()
+                subscriptionId
         );
     }
 }

@@ -5,6 +5,8 @@ import com.example.fproject.DTO.IN.MonthlyReportIn;
 import com.example.fproject.Service.MonthlyReportService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -36,7 +38,7 @@ public class MonthlyReportController {
     }
 
     @GetMapping("/branch/{branchId}/date")
-    public ResponseEntity<?> getMonthlyReportByBranchAndDate(@PathVariable Integer branchId, @PathVariable Integer month, @PathVariable Integer year) {
+    public ResponseEntity<?> getMonthlyReportByBranchAndDate(@PathVariable Integer branchId, @RequestParam Integer month, @RequestParam Integer year) {
         return ResponseEntity.status(200).body(
                 monthlyReportService.getMonthlyReportByBranchAndDate(branchId, month, year)
         );
@@ -51,5 +53,13 @@ public class MonthlyReportController {
     public ResponseEntity<?> deleteMonthlyReport(@PathVariable Integer reportId) {
         monthlyReportService.deleteMonthlyReport(reportId);
         return ResponseEntity.status(200).body(new ApiResponse("Monthly report deleted successfully"));
+    }
+
+    @GetMapping("/download/{reportId}")
+    public ResponseEntity<byte[]> downloadMonthlyReport(@PathVariable Integer reportId) {
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=monthly-report-" + reportId + ".pdf")
+                .body(monthlyReportService.downloadMonthlyReport(reportId));
     }
 }

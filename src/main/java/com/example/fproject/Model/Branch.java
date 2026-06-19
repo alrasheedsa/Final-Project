@@ -38,6 +38,15 @@ public class Branch {
     @Column(nullable = false)
     private Integer campaignRadiusMeters;
 
+    @Column
+    private Integer recommendedRadiusMeters;
+
+    @Column(nullable = false)
+    private String openingTime;
+
+    @Column(nullable = false)
+    private String closingTime;
+
     @ManyToOne
     @JoinColumn(name = "store_id")
     private Store store;

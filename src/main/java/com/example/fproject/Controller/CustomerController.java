@@ -45,4 +45,14 @@ public class CustomerController {
         customerService.deleteCustomer(customerId);
         return ResponseEntity.status(200).body(new ApiResponse("Customer deleted successfully"));
     }
+
+    @GetMapping("/get-by-phone")
+    public ResponseEntity<?> getCustomerByPhone(@RequestParam String phone) {
+        return ResponseEntity.status(200).body(customerService.getCustomerByPhone(phone));
+    }
+
+    @GetMapping("/inside-radius/{branchId}")
+    public ResponseEntity<?> getCustomersInsideRadius(@PathVariable Integer branchId) {
+        return ResponseEntity.status(200).body(customerService.getCustomersInsideRadius(branchId));
+    }
 }

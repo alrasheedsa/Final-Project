@@ -1,53 +1,35 @@
 package com.example.fproject.Controller;
 
 import com.example.fproject.Api.ApiResponse;
-import com.example.fproject.DTO.IN.PaymentIn;
-import com.example.fproject.Service.PaymentService;
-import jakarta.validation.Valid;
+import com.example.fproject.Service.LemonSqueezyService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/payment")
 @RequiredArgsConstructor
 public class PaymentController {
 
-    private final PaymentService paymentService;
+    private final LemonSqueezyService lemonSqueezyService;
 
-    @PostMapping("/add/{subscriptionId}")
-    public ResponseEntity<?> createPayment(@PathVariable Integer subscriptionId, @Valid @RequestBody PaymentIn dto) {
-        return ResponseEntity.status(200).body(paymentService.createPayment(subscriptionId, dto));
+    @PostMapping("/subscribe/{planType}/{storeOwnerId}")
+    public ResponseEntity<?> createSubscriptionCheckout(@PathVariable String planType, @PathVariable Integer storeOwnerId) {
+        String checkoutUrl = lemonSqueezyService.createSubscriptionCheckout(planType, storeOwnerId);
+        return ResponseEntity.status(200).body(Map.of("message", checkoutUrl));
     }
 
-    @GetMapping("/get")
-    public ResponseEntity<?> getAllPayments() {
-        return ResponseEntity.status(200).body(paymentService.getAllPayments());
+    @GetMapping("/subscription/{storeOwnerId}")
+    public ResponseEntity<?> getSubscription(@PathVariable Integer storeOwnerId) {
+        return ResponseEntity.status(200).body(lemonSqueezyService.getSubscription(storeOwnerId));
     }
 
-    @GetMapping("/get/{paymentId}")
-    public ResponseEntity<?> getPaymentById(@PathVariable Integer paymentId) {
-        return ResponseEntity.status(200).body(paymentService.getPaymentById(paymentId));
-    }
-
-    @GetMapping("/subscription/{subscriptionId}")
-    public ResponseEntity<?> getPaymentsBySubscriptionId(@PathVariable Integer subscriptionId) {
-        return ResponseEntity.status(200).body(paymentService.getPaymentsBySubscriptionId(subscriptionId));
-    }
-
-    @PutMapping("/paid/{paymentId}")
-    public ResponseEntity<?> markPaymentAsPaid(@PathVariable Integer paymentId, @RequestParam String transactionId) {
-        return ResponseEntity.status(200).body(paymentService.markPaymentAsPaid(paymentId, transactionId));
-    }
-
-    @PutMapping("/failed/{paymentId}")
-    public ResponseEntity<?> markPaymentAsFailed(@PathVariable Integer paymentId) {
-        return ResponseEntity.status(200).body(paymentService.markPaymentAsFailed(paymentId));
-    }
-
-    @DeleteMapping("/delete/{paymentId}")
-    public ResponseEntity<?> deletePayment(@PathVariable Integer paymentId) {
-        paymentService.deletePayment(paymentId);
-        return ResponseEntity.status(200).body(new ApiResponse("Payment deleted successfully"));
+    @PostMapping("/webhook")
+    public ResponseEntity<?> webhook(@RequestHeader HttpHeaders headers, @RequestBody String rawBody) {
+        lemonSqueezyService.processWebhook(headers, rawBody);
+        return ResponseEntity.status(200).body(new ApiResponse("Webhook processed successfully"));
     }
 }

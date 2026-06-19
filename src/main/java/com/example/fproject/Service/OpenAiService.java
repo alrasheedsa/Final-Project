@@ -235,6 +235,177 @@ public class OpenAiService {
         }
     }
 
+    public BranchRadiusAIResult recommendBranchRadius(
+            String branchName,
+            Double branchLatitude,
+            Double branchLongitude,
+            Integer currentCampaignRadiusMeters,
+            Integer customersWithin500,
+            Integer customersWithin1500,
+            Integer customersWithin3000,
+            Integer customersWithin5000,
+            Integer customersWithin7000,
+            Integer customersWithin10000,
+            Integer customersWithin20000,
+            Integer customersWithin40000
+    ) {
+        validateApiKey();
+
+        String prompt = """
+            You are an AI location and marketing analyst for a smart retail campaign platform.
+
+            Your task:
+            Recommend the best campaign radius in meters for a store branch.
+
+            Return JSON only.
+            Do not use markdown.
+            Do not add any explanation outside JSON.
+
+            Rules:
+            - recommendedRadiusMeters must be one of these exact values only:
+              500, 1500, 3000, 5000, 7000, 10000, 20000, 40000
+            - Use Arabic text for reason.
+            - Choose the radius based on customer density and campaign relevance.
+            - Do not always choose the biggest radius.
+            - If many customers are close to the branch, choose a smaller radius.
+            - If few customers are close, choose a wider radius.
+            - The result must be practical for a local retail campaign.
+
+            Required JSON shape:
+            {
+              "recommendedRadiusMeters": 3000,
+              "reason": "Arabic reason"
+            }
+
+            Branch data:
+            Branch name: %s
+            Branch latitude: %s
+            Branch longitude: %s
+            Current campaign radius meters: %s
+
+            Customer counts by radius:
+            Within 500 meters: %s
+            Within 1500 meters: %s
+            Within 3000 meters: %s
+            Within 5000 meters: %s
+            Within 7000 meters: %s
+            Within 10000 meters: %s
+            Within 20000 meters: %s
+            Within 40000 meters: %s
+            """.formatted(
+                branchName,
+                branchLatitude,
+                branchLongitude,
+                currentCampaignRadiusMeters,
+                customersWithin500,
+                customersWithin1500,
+                customersWithin3000,
+                customersWithin5000,
+                customersWithin7000,
+                customersWithin10000,
+                customersWithin20000,
+                customersWithin40000
+        );
+
+        String response = sendPrompt(prompt);
+        String content = extractAssistantContent(response);
+        String cleanContent = cleanJsonContent(content);
+
+        try {
+            JsonNode jsonNode = objectMapper.readTree(cleanContent);
+
+            Integer recommendedRadiusMeters =
+                    requiredJsonInteger(jsonNode, "recommendedRadiusMeters");
+
+            String reason =
+                    requiredJsonText(jsonNode, "reason");
+
+            if (!isAllowedRadius(recommendedRadiusMeters)) {
+                throw new ApiException("AI returned invalid recommended radius");
+            }
+
+            return new BranchRadiusAIResult(recommendedRadiusMeters, reason);
+
+        } catch (ApiException e) {
+            throw e;
+
+        } catch (Exception e) {
+            throw new ApiException("Failed to parse AI branch radius response");
+        }
+    }
+
+    public String generateMonthlyReportSummary(
+            String storeName,
+            String branchName,
+            Integer month,
+            Integer year,
+            Double totalSales,
+            Integer totalQuantity,
+            String topProducts,
+            String lowProducts,
+            String surplusProducts,
+            String peakHours,
+            String slowHours
+    ) {
+        validateApiKey();
+        validateText(storeName, "Store name is required");
+        validateText(branchName, "Branch name is required");
+
+        String prompt = """
+                أنت محلل أعمال لمنصة تجزئة سعودية.
+                حلل بيانات التقرير الشهري التالية واكتب ملخصا تنفيذيا باللغة العربية لصاحب المتجر.
+
+                القواعد:
+                - اعتمد فقط على البيانات المقدمة، ولا تخترع أرقاما أو معلومات.
+                - اكتب فقرة واضحة من 3 إلى 5 جمل.
+                - اذكر أداء المبيعات، المنتجات الأقوى والأضعف، وساعات الذروة والركود.
+                - اختم بتوصية عملية واحدة أو اثنتين لتحسين المبيعات.
+                - أعد النص العربي فقط، بدون JSON وبدون Markdown.
+
+                المتجر: %s
+                الفرع: %s
+                الشهر: %s
+                السنة: %s
+                إجمالي المبيعات بالريال: %.2f
+                إجمالي الكمية المباعة: %s
+                أعلى المنتجات: %s
+                أقل المنتجات: %s
+                المنتجات المقترحة للترويج: %s
+                ساعة الذروة: %s
+                ساعة الركود: %s
+                """.formatted(
+                storeName,
+                branchName,
+                month,
+                year,
+                totalSales,
+                totalQuantity,
+                topProducts,
+                lowProducts,
+                surplusProducts,
+                peakHours,
+                slowHours
+        );
+
+        String summary = extractAssistantContent(sendPrompt(prompt)).trim();
+        validateText(summary, "OpenAI returned an empty monthly report summary");
+        return summary;
+    }
+
+    private boolean isAllowedRadius(Integer radiusMeters) {
+
+        return radiusMeters != null && (
+                radiusMeters.equals(500)
+                        || radiusMeters.equals(1500)
+                        || radiusMeters.equals(3000)
+                        || radiusMeters.equals(5000)
+                        || radiusMeters.equals(7000)
+                        || radiusMeters.equals(10000)
+                        || radiusMeters.equals(20000)
+                        || radiusMeters.equals(40000)
+        );
+    }
+
     private String sendPrompt(String prompt) {
         Map<String, Object> request = Map.of(
                 "model", model,
@@ -365,4 +536,11 @@ public class OpenAiService {
             String correctOption
     ) {
     }
+
+    public record BranchRadiusAIResult(
+            Integer recommendedRadiusMeters,
+            String reason
+    ) {
+    }
+
 }

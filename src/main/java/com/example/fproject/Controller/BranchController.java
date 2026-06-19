@@ -7,6 +7,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("/api/v1/branch")
 @RequiredArgsConstructor
@@ -53,5 +55,22 @@ public class BranchController {
     public ResponseEntity<?> deleteBranch(@PathVariable Integer branchId) {
         branchService.deleteBranch(branchId);
         return ResponseEntity.status(200).body("Branch deleted successfully");
+    }
+
+    @GetMapping("/recommended-radius/{branchId}")
+    public ResponseEntity<?> getRecommendedRadius(@PathVariable Integer branchId) {
+        return ResponseEntity.status(200).body(branchService.getRecommendedRadius(branchId));
+    }
+
+    @PutMapping("/apply-recommended-radius/{branchId}")
+    public ResponseEntity<?> applyRecommendedRadius(@PathVariable Integer branchId) {
+        return ResponseEntity.status(200).body(branchService.applyRecommendedRadius(branchId));
+    }
+
+    @GetMapping("/subscribed/{branchId}")
+    public ResponseEntity<?> isBranchSubscribed(@PathVariable Integer branchId) {
+        return ResponseEntity.status(200).body(
+                Map.of("subscribed", branchService.isBranchSubscribed(branchId))
+        );
     }
 }

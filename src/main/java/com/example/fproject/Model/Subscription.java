@@ -35,6 +35,16 @@ public class Subscription {
     @Column(nullable = false)
     private SubscriptionStatus status;
 
+    private String lemonSubscriptionId;
+
+    private String variantId;
+
+    private String productName;
+
+    private String lemonStatus;
+
+    private String renewsAt;
+
     @ManyToOne
     @JoinColumn(name = "store_owner_id")
     private StoreOwner storeOwner;
