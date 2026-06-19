@@ -19,4 +19,5 @@ public class QRRedemptionResponseOut {
     private QRRedemptionStatus status;
     private Integer qrCodeId;
     private Integer campaignId;
+    private Integer customerId;
 }

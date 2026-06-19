@@ -26,4 +26,7 @@ public class QRRedemptionRequestIn {
 
     @NotNull(message = "Campaign id is required")
     private Integer campaignId;
+
+    @NotNull(message = "Customer id is required")
+    private Integer customerId;
 }
