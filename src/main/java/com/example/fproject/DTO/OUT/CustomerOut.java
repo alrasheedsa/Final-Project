@@ -12,7 +12,6 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 public class CustomerOut {
 
-    // User fields
     private Integer id;
 
     private String fullName;
@@ -21,11 +20,8 @@ public class CustomerOut {
 
     private String email;
 
-    private Boolean enabled;
-
     private LocalDateTime createdAt;
 
-    // Customer fields
     private String locationUrl;
 
     private Double latitude;

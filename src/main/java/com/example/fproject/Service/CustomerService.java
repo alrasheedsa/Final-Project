@@ -212,7 +212,6 @@ public class CustomerService {
                 customer.getUser().getFullName(),
                 customer.getUser().getPhone(),
                 customer.getUser().getEmail(),
-                customer.getUser().getEnabled(),
                 customer.getUser().getCreatedAt(),
                 customer.getLocationUrl(),
                 customer.getLatitude(),

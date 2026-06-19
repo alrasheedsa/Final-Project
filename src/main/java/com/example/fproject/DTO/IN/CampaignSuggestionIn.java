@@ -8,6 +8,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.LocalDate;
 import java.time.LocalTime;
 
 @Getter
@@ -32,6 +33,12 @@ public class CampaignSuggestionIn {
 
     @NotNull(message = "Suggested end time is required")
     private LocalTime suggestedEndTime;
+
+    @NotNull(message = "Suggested start date is required")
+    private LocalDate suggestedStartDate;
+
+    @NotNull(message = "Suggested end date is required")
+    private LocalDate suggestedEndDate;
 
     @NotNull(message = "Target customers count is required")
     @PositiveOrZero(message = "Target customers count must be zero or greater")
@@ -60,5 +67,14 @@ public class CampaignSuggestionIn {
             return true;
         }
         return suggestedEndTime.isAfter(suggestedStartTime);
+    }
+
+    @AssertTrue(message = "Suggested end date must not be before suggested start date")
+    public boolean isSuggestedEndDateValid() {
+        if (suggestedStartDate == null || suggestedEndDate == null) {
+            return true;
+        }
+
+        return !suggestedEndDate.isBefore(suggestedStartDate);
     }
 }

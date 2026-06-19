@@ -19,6 +19,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.LocalDate;
 import java.time.LocalTime;
 
 @Getter
@@ -51,6 +52,12 @@ public class CampaignSuggestion {
 
     @Column(nullable = false)
     private LocalTime suggestedEndTime;
+
+    @Column(nullable = false)
+    private LocalDate suggestedStartDate;
+
+    @Column(nullable = false)
+    private LocalDate suggestedEndDate;
 
     @Column(nullable = false)
     private Integer targetCustomersCount;

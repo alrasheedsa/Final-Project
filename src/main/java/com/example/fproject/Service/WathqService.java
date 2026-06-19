@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 
 @Service
@@ -14,16 +15,24 @@ public class WathqService {
     @Value("${wathq.api-key}")
     private String apiKey;
 
+    @Value("${wathq.base-url:https://api.wathq.sa}")
+    private String baseUrl;
+
     public void validateCommercialRegistration(String commercialRegisterNo) {
         try {
             if (commercialRegisterNo == null || commercialRegisterNo.isBlank()) {
                 throw new ApiException("Commercial register number is required");
             }
 
+            String normalizedCommercialRegisterNo = commercialRegisterNo.trim();
+            if (!normalizedCommercialRegisterNo.matches("\\d{10}")) {
+                throw new ApiException("Commercial register number must be exactly 10 digits");
+            }
+
             RestTemplate restTemplate = new RestTemplate();
 
-            String url = "https://api.wathq.sa/sandbox/commercial-registration/status/"
-                    + commercialRegisterNo
+            String url = baseUrl + "/sandbox/commercial-registration/status/"
+                    + normalizedCommercialRegisterNo
                     + "?language=ar";
 
             HttpHeaders headers = new HttpHeaders();
@@ -54,14 +63,16 @@ public class WathqService {
                 throw new ApiException("Wathq response does not contain commercial register status");
             }
 
-            String status = json.get("name").asText();
-
-            System.out.println("CR Status from Wathq: " + status);
+            String status = json.get("name").asText().trim();
 
             if (!"نشط".equals(status)) {
                 throw new ApiException("Commercial Registration is not active: " + status);
             }
 
+        } catch (HttpClientErrorException.NotFound e) {
+            throw new ApiException("Commercial register number was not found in Wathq");
+        } catch (HttpClientErrorException e) {
+            throw new ApiException("Wathq API rejected the request: " + e.getStatusCode());
         } catch (ApiException e) {
             throw e;
         } catch (Exception e) {

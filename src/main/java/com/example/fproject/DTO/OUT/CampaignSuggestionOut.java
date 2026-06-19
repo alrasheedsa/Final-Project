@@ -7,6 +7,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.LocalDate;
 import java.time.LocalTime;
 
 @Getter
@@ -28,6 +29,10 @@ public class CampaignSuggestionOut {
     private LocalTime suggestedStartTime;
 
     private LocalTime suggestedEndTime;
+
+    private LocalDate suggestedStartDate;
+
+    private LocalDate suggestedEndDate;
 
     private Integer targetCustomersCount;
 

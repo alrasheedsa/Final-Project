@@ -11,7 +11,10 @@ public enum SubscriptionPlanType {
     private final Integer maxBranchesPerStore;
     private final Integer durationMonths;
 
-    SubscriptionPlanType(Double price, Integer maxStores, Integer maxBranchesPerStore, Integer durationMonths) {
+    SubscriptionPlanType(Double price,
+                         Integer maxStores,
+                         Integer maxBranchesPerStore,
+                         Integer durationMonths) {
         this.price = price;
         this.maxStores = maxStores;
         this.maxBranchesPerStore = maxBranchesPerStore;
