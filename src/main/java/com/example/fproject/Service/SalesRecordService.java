@@ -3,16 +3,18 @@ package com.example.fproject.Service;
 import com.example.fproject.Api.ApiException;
 import com.example.fproject.DTO.IN.SalesRecordIn;
 import com.example.fproject.DTO.OUT.SalesRecordOut;
+import com.example.fproject.Enum.StoreStatus;
+import com.example.fproject.Enum.SubscriptionStatus;
 import com.example.fproject.Model.Branch;
 import com.example.fproject.Model.SalesRecord;
-import com.example.fproject.Repository.BranchRepository;
-import com.example.fproject.Repository.SalesRecordRepository;
+import com.example.fproject.Model.Subscription;
+import com.example.fproject.Repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import com.example.fproject.Model.SalesRecordItem;
-import com.example.fproject.Repository.SalesRecordItemRepository;
+
 import java.nio.file.StandardCopyOption;
 
 import java.io.IOException;
@@ -31,6 +33,8 @@ public class SalesRecordService {
     private final SalesRecordRepository salesRecordRepository;
     private final SalesRecordItemRepository salesRecordItemRepository;
     private final BranchRepository branchRepository;
+    private final SubscriptionRepository subscriptionRepository;
+    private final AIAnalysisRepository aiAnalysisRepository;
     private final ExcelService excelService;
     private final AIAnalysisService aiAnalysisService;
 
@@ -76,46 +80,54 @@ public class SalesRecordService {
 
     @Transactional
     public void addSalesRecord(MultipartFile file, SalesRecordIn salesRecordIn) {
-        validateSalesRecordIn(salesRecordIn);
-        excelService.validateExcelFile(file);
+        String fileUrl = null;
 
-        Branch branch = branchRepository.findBranchById(salesRecordIn.getBranchId());
+        try {
+            validateSalesRecordIn(salesRecordIn);
+            excelService.validateExcelFile(file);
 
-        if (branch == null) {
-            throw new ApiException("Branch not found");
+            Branch branch = validateBranchReadyForSalesRecord(salesRecordIn.getBranchId());
+
+            Boolean exists = salesRecordRepository.existsByBranch_IdAndMonthAndYear(
+                    salesRecordIn.getBranchId(),
+                    salesRecordIn.getMonth(),
+                    salesRecordIn.getYear()
+            );
+
+            if (Boolean.TRUE.equals(exists)) {
+                throw new ApiException("Sales record already exists for this branch in the same month and year");
+            }
+
+            String salesData = excelService.extractSalesData(file);
+            List<SalesRecordItem> salesRecordItems = excelService.extractSalesRecordItems(file);
+
+            fileUrl = saveExcelFile(file);
+
+            SalesRecord salesRecord = new SalesRecord();
+
+            salesRecord.setFileName(file.getOriginalFilename());
+            salesRecord.setFileUrl(fileUrl);
+            salesRecord.setMonth(salesRecordIn.getMonth());
+            salesRecord.setYear(salesRecordIn.getYear());
+            salesRecord.setUploadedAt(LocalDateTime.now());
+            salesRecord.setBranch(branch);
+
+            SalesRecord savedSalesRecord = salesRecordRepository.save(salesRecord);
+
+            for (SalesRecordItem salesRecordItem : salesRecordItems) {
+                salesRecordItem.setSalesRecord(savedSalesRecord);
+                salesRecordItemRepository.save(salesRecordItem);
+            }
+
+            aiAnalysisService.generateAIAnalysisFromSalesRecord(savedSalesRecord.getId(), salesData);
+
+        } catch (ApiException e) {
+            deleteSavedExcelFile(fileUrl);
+            throw e;
+        } catch (Exception e) {
+            deleteSavedExcelFile(fileUrl);
+            throw new ApiException("Failed to add sales record");
         }
-
-        Boolean exists = salesRecordRepository.existsByBranch_IdAndMonthAndYear(
-                salesRecordIn.getBranchId(),
-                salesRecordIn.getMonth(),
-                salesRecordIn.getYear()
-        );
-
-        if (Boolean.TRUE.equals(exists)) {
-            throw new ApiException("Sales record already exists for this branch in the same month and year");
-        }
-
-        String salesData = excelService.extractSalesData(file);
-        List<SalesRecordItem> salesRecordItems = excelService.extractSalesRecordItems(file);
-        String fileUrl = saveExcelFile(file);
-
-        SalesRecord salesRecord = new SalesRecord();
-
-        salesRecord.setFileName(file.getOriginalFilename());
-        salesRecord.setFileUrl(fileUrl);
-        salesRecord.setMonth(salesRecordIn.getMonth());
-        salesRecord.setYear(salesRecordIn.getYear());
-        salesRecord.setUploadedAt(LocalDateTime.now());
-        salesRecord.setBranch(branch);
-
-        SalesRecord savedSalesRecord = salesRecordRepository.save(salesRecord);
-
-        for (SalesRecordItem salesRecordItem : salesRecordItems) {
-            salesRecordItem.setSalesRecord(savedSalesRecord);
-            salesRecordItemRepository.save(salesRecordItem);
-        }
-
-        aiAnalysisService.generateAIAnalysisFromSalesRecord(savedSalesRecord.getId(), salesData);
     }
 
     @Transactional
@@ -128,7 +140,7 @@ public class SalesRecordService {
             throw new ApiException("Sales record not found");
         }
 
-        if (oldSalesRecord.getAiAnalysis() != null) {
+        if (Boolean.TRUE.equals(aiAnalysisRepository.existsBySalesRecord_Id(id))) {
             throw new ApiException("Cannot update sales record because it already has AI analysis");
         }
 
@@ -136,11 +148,7 @@ public class SalesRecordService {
             excelService.validateExcelFile(file);
         }
 
-        Branch branch = branchRepository.findBranchById(salesRecordIn.getBranchId());
-
-        if (branch == null) {
-            throw new ApiException("Branch not found");
-        }
+        Branch branch = validateBranchReadyForSalesRecord(salesRecordIn.getBranchId());
 
         Boolean changedBranch = !oldSalesRecord.getBranch().getId().equals(salesRecordIn.getBranchId());
         Boolean changedMonth = !oldSalesRecord.getMonth().equals(salesRecordIn.getMonth());
@@ -177,12 +185,12 @@ public class SalesRecordService {
             throw new ApiException("Sales record not found");
         }
 
-        if (salesRecord.getItems() != null && !salesRecord.getItems().isEmpty()) {
-            throw new ApiException("Cannot delete sales record because it has sales record items");
+        if (Boolean.TRUE.equals(aiAnalysisRepository.existsBySalesRecord_Id(id))) {
+            throw new ApiException("Cannot delete sales record because it has AI analysis");
         }
 
-        if (salesRecord.getAiAnalysis() != null) {
-            throw new ApiException("Cannot delete sales record because it has AI analysis");
+        if (salesRecord.getItems() != null && !salesRecord.getItems().isEmpty()) {
+            throw new ApiException("Cannot delete sales record because it has sales record items");
         }
 
         salesRecordRepository.delete(salesRecord);
@@ -221,6 +229,48 @@ public class SalesRecordService {
         }
     }
 
+    private Branch validateBranchReadyForSalesRecord(Integer branchId) {
+        Branch branch = branchRepository.findBranchById(branchId);
+
+        if (branch == null) {
+            throw new ApiException("Branch not found");
+        }
+
+        if (branch.getStatus() != StoreStatus.ACTIVE) {
+            throw new ApiException("Branch must be active before uploading sales record");
+        }
+
+        if (branch.getStore() == null) {
+            throw new ApiException("Branch store not found");
+        }
+
+        if (branch.getStore().getStatus() != StoreStatus.ACTIVE) {
+            throw new ApiException("Store must be active before uploading sales record");
+        }
+
+        if (branch.getStore().getStoreOwner() == null) {
+            throw new ApiException("Store owner not found for this branch");
+        }
+
+        Integer storeOwnerId = branch.getStore().getStoreOwner().getId();
+
+        Subscription activeSubscription =
+                subscriptionRepository.findFirstByStoreOwnerIdAndStatusOrderByEndDateDesc(
+                        storeOwnerId,
+                        SubscriptionStatus.ACTIVE
+                );
+
+        if (activeSubscription == null) {
+            throw new ApiException("Branch does not have an active subscription");
+        }
+
+        if (activeSubscription.getEndDate().isBefore(LocalDate.now())) {
+            throw new ApiException("Branch subscription is expired");
+        }
+
+        return branch;
+    }
+
     private String saveExcelFile(MultipartFile file) {
         try {
             Path uploadDir = Paths.get(System.getProperty("user.dir"), "uploads", "sales-records");
@@ -243,6 +293,19 @@ public class SalesRecordService {
             throw new ApiException("Failed to save Excel sales file");
         }
     }
+
+    private void deleteSavedExcelFile(String fileUrl) {
+        if (fileUrl == null || fileUrl.isBlank()) {
+            return;
+        }
+
+        try {
+            Path filePath = Paths.get(System.getProperty("user.dir"), fileUrl);
+            Files.deleteIfExists(filePath);
+        } catch (IOException e) {
+        }
+    }
+
     private SalesRecordOut convertToOut(SalesRecord salesRecord) {
         Integer itemsCount = 0;
         Integer aiAnalysisId = null;

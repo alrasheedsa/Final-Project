@@ -365,6 +365,293 @@ public class AIAnalysisService {
         aiAnalysisRepository.save(oldAIAnalysis);
     }
 
+    public String getPeakHours(Integer analysisId) {
+        AIAnalysis aiAnalysis = getAIAnalysisEntity(analysisId);
+        return aiAnalysis.getPeakHours();
+    }
+
+    public String getSlowHours(Integer analysisId) {
+        AIAnalysis aiAnalysis = getAIAnalysisEntity(analysisId);
+        return aiAnalysis.getSlowHours();
+    }
+
+    public String getConfidence(Integer analysisId) {
+        AIAnalysis aiAnalysis = getAIAnalysisEntity(analysisId);
+        List<SalesRecordItem> items = getAnalysisItems(aiAnalysis);
+
+        if (items.size() >= 20) {
+            return "95%";
+        }
+
+        if (items.size() >= 10) {
+            return "88%";
+        }
+
+        if (items.size() >= 5) {
+            return "75%";
+        }
+
+        return "60%";
+    }
+
+    public List<Map<String, Object>> getSalesChart(Integer analysisId) {
+        AIAnalysis aiAnalysis = getAIAnalysisEntity(analysisId);
+        List<SalesRecordItem> items = getAnalysisItems(aiAnalysis);
+
+        Map<Integer, Double> salesByHour = new HashMap<>();
+
+        for (SalesRecordItem item : items) {
+            if (item.getSaleTime() != null) {
+                Integer hour = item.getSaleTime().getHour();
+
+                Double oldTotal = salesByHour.get(hour);
+                if (oldTotal == null) {
+                    oldTotal = 0.0;
+                }
+
+                salesByHour.put(hour, oldTotal + item.getTotalPrice());
+            }
+        }
+
+        List<Map<String, Object>> chart = new ArrayList<>();
+
+        for (Integer hour : salesByHour.keySet()) {
+            Map<String, Object> row = new HashMap<>();
+            row.put("hour", formatHour(hour));
+            row.put("totalSales", salesByHour.get(hour));
+            chart.add(row);
+        }
+
+        return chart;
+    }
+
+    public String getRecommendations(Integer analysisId) {
+        AIAnalysis aiAnalysis = getAIAnalysisEntity(analysisId);
+        return aiAnalysis.getRecommendation();
+    }
+
+    public String getTopProducts(Integer analysisId) {
+        AIAnalysis aiAnalysis = getAIAnalysisEntity(analysisId);
+        return aiAnalysis.getTopProducts();
+    }
+
+    public String getLowProducts(Integer analysisId) {
+        AIAnalysis aiAnalysis = getAIAnalysisEntity(analysisId);
+        return aiAnalysis.getLowProducts();
+    }
+
+    public String getBestRecommendation(Integer analysisId) {
+        AIAnalysis aiAnalysis = getAIAnalysisEntity(analysisId);
+
+        if (aiAnalysis.getRecommendation() != null && !aiAnalysis.getRecommendation().isBlank()) {
+            return aiAnalysis.getRecommendation();
+        }
+
+        return aiAnalysis.getAiSummary();
+    }
+
+    public Double getTotalSales(Integer analysisId) {
+        AIAnalysis aiAnalysis = getAIAnalysisEntity(analysisId);
+        List<SalesRecordItem> items = getAnalysisItems(aiAnalysis);
+
+        Double totalSales = 0.0;
+
+        for (SalesRecordItem item : items) {
+            if (item.getTotalPrice() != null) {
+                totalSales = totalSales + item.getTotalPrice();
+            }
+        }
+
+        return totalSales;
+    }
+
+    public List<Map<String, Object>> getProductDetails(Integer analysisId) {
+        AIAnalysis aiAnalysis = getAIAnalysisEntity(analysisId);
+        List<SalesRecordItem> items = getAnalysisItems(aiAnalysis);
+
+        Map<String, Integer> quantityByProduct = new HashMap<>();
+        Map<String, Double> salesByProduct = new HashMap<>();
+
+        for (SalesRecordItem item : items) {
+            String productName = item.getProductName();
+
+            if (productName == null || productName.isBlank()) {
+                continue;
+            }
+
+            Integer quantity = item.getQuantity();
+            if (quantity == null) {
+                quantity = 0;
+            }
+
+            Double totalPrice = item.getTotalPrice();
+            if (totalPrice == null) {
+                totalPrice = 0.0;
+            }
+
+            Integer oldQuantity = quantityByProduct.get(productName);
+            if (oldQuantity == null) {
+                oldQuantity = 0;
+            }
+
+            Double oldSales = salesByProduct.get(productName);
+            if (oldSales == null) {
+                oldSales = 0.0;
+            }
+
+            quantityByProduct.put(productName, oldQuantity + quantity);
+            salesByProduct.put(productName, oldSales + totalPrice);
+        }
+
+        List<Map<String, Object>> productDetails = new ArrayList<>();
+
+        for (String productName : quantityByProduct.keySet()) {
+            Map<String, Object> row = new HashMap<>();
+            row.put("productName", productName);
+            row.put("quantity", quantityByProduct.get(productName));
+            row.put("totalSales", salesByProduct.get(productName));
+
+            productDetails.add(row);
+        }
+
+        return productDetails;
+    }
+
+    private AIAnalysis getAIAnalysisEntity(Integer analysisId) {
+        AIAnalysis aiAnalysis = aiAnalysisRepository.findAIAnalysisById(analysisId);
+
+        if (aiAnalysis == null) {
+            throw new ApiException("AI analysis not found");
+        }
+
+        return aiAnalysis;
+    }
+
+    private List<SalesRecordItem> getAnalysisItems(AIAnalysis aiAnalysis) {
+        List<SalesRecordItem> items =
+                salesRecordItemRepository.findAllBySalesRecord_Id(aiAnalysis.getSalesRecord().getId());
+
+        if (items == null || items.isEmpty()) {
+            throw new ApiException("Sales record items not found for this analysis");
+        }
+
+        return items;
+    }
+
+    private String safeText(String value) {
+        if (value == null || value.isBlank()) {
+            return "غير متوفر";
+        }
+
+        return value;
+    }
+
+    public String getAnalysisSummary(Integer analysisId) {
+        AIAnalysis aiAnalysis = getAIAnalysisEntity(analysisId);
+
+        return "تحليل مبيعات فرع " + getAnalysisBranchName(analysisId)
+                + " لشهر " + aiAnalysis.getSalesRecord().getMonth()
+                + " سنة " + aiAnalysis.getSalesRecord().getYear()
+                + ". " + safeText(aiAnalysis.getAiSummary());
+    }
+
+    public String getSurplusProducts(Integer analysisId) {
+        AIAnalysis aiAnalysis = getAIAnalysisEntity(analysisId);
+        return aiAnalysis.getSurplusProducts();
+    }
+
+    public String getSeasonalPatterns(Integer analysisId) {
+        AIAnalysis aiAnalysis = getAIAnalysisEntity(analysisId);
+
+        if (aiAnalysis.getSeasonalPatterns() == null || aiAnalysis.getSeasonalPatterns().isBlank()) {
+            return "لا توجد أنماط موسمية واضحة في سجل المبيعات الحالي";
+        }
+
+        return aiAnalysis.getSeasonalPatterns();
+    }
+
+    public String getAiSummary(Integer analysisId) {
+        AIAnalysis aiAnalysis = getAIAnalysisEntity(analysisId);
+        return aiAnalysis.getAiSummary();
+    }
+
+    public Boolean isSuggestedCampaignReady(Integer analysisId) {
+        AIAnalysis aiAnalysis = getAIAnalysisEntity(analysisId);
+
+        if (aiAnalysis.getRecommendation() == null || aiAnalysis.getRecommendation().isBlank()) {
+            return false;
+        }
+
+        if (aiAnalysis.getSlowHours() == null || aiAnalysis.getSlowHours().isBlank()) {
+            return false;
+        }
+
+        if (aiAnalysis.getLowProducts() == null || aiAnalysis.getLowProducts().isBlank()) {
+            return false;
+        }
+
+        return true;
+    }
+
+    public LocalDateTime getAnalysisGeneratedAt(Integer analysisId) {
+        AIAnalysis aiAnalysis = getAIAnalysisEntity(analysisId);
+        return aiAnalysis.getAnalyzedAt();
+    }
+
+    public String getAnalysisBranchName(Integer analysisId) {
+        AIAnalysis aiAnalysis = getAIAnalysisEntity(analysisId);
+
+        if (aiAnalysis.getSalesRecord() == null
+                || aiAnalysis.getSalesRecord().getBranch() == null) {
+            throw new ApiException("Branch not found for this analysis");
+        }
+
+        return aiAnalysis.getSalesRecord().getBranch().getName();
+    }
+
+    public Map<String, Object> getAnalysisSalesRecordInfo(Integer analysisId) {
+        AIAnalysis aiAnalysis = getAIAnalysisEntity(analysisId);
+
+        if (aiAnalysis.getSalesRecord() == null) {
+            throw new ApiException("Sales record not found for this analysis");
+        }
+
+        Map<String, Object> info = new HashMap<>();
+
+        info.put("salesRecordId", aiAnalysis.getSalesRecord().getId());
+        info.put("fileName", aiAnalysis.getSalesRecord().getFileName());
+        info.put("month", aiAnalysis.getSalesRecord().getMonth());
+        info.put("year", aiAnalysis.getSalesRecord().getYear());
+        info.put("uploadedAt", aiAnalysis.getSalesRecord().getUploadedAt());
+        info.put("branchName", getAnalysisBranchName(analysisId));
+
+        return info;
+    }
+
+    public String getAnalysisMainOpportunity(Integer analysisId) {
+        AIAnalysis aiAnalysis = getAIAnalysisEntity(analysisId);
+
+        return "أفضل فرصة حالية هي استهداف فترة الركود: "
+                + safeText(aiAnalysis.getSlowHours())
+                + " مع التركيز على المنتجات الأقل مبيعًا: "
+                + safeText(aiAnalysis.getLowProducts());
+    }
+
+    public String getAnalysisRiskNote(Integer analysisId) {
+        AIAnalysis aiAnalysis = getAIAnalysisEntity(analysisId);
+        Double totalSales = getTotalSales(analysisId);
+
+        if (totalSales < 1000) {
+            return "تنبيه: إجمالي المبيعات منخفض، لذلك يفضّل استخدام حملة خفيفة التكلفة ومحدودة الوقت";
+        }
+
+        if (aiAnalysis.getSlowHours() == null || aiAnalysis.getSlowHours().isBlank()) {
+            return "تنبيه: لم يتم اكتشاف وقت ركود واضح، لذلك يفضّل مراجعة بيانات المبيعات قبل إطلاق حملة كبيرة";
+        }
+
+        return "لا توجد مخاطر عالية واضحة، لكن يفضّل متابعة أداء الحملة بعد الإطلاق";
+    }
+
     public void deleteAIAnalysis(Integer id) {
         AIAnalysis aiAnalysis = aiAnalysisRepository.findAIAnalysisById(id);
 
@@ -435,4 +722,6 @@ public class AIAnalysisService {
                 campaignSuggestionsCount
         );
     }
+
+
 }

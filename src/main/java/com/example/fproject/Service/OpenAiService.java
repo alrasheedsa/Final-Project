@@ -8,6 +8,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import com.example.fproject.Enum.CampaignType;
+
+import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
 
@@ -110,7 +112,10 @@ public class OpenAiService {
             Return a JSON array with exactly 3 objects.
             Use Arabic text for title, description, offerText, and suggestedProductName.
             campaignType must be only DIRECT_OFFER or QUESTION_BASED.
+            suggestedStartDate and suggestedEndDate must use yyyy-MM-dd format.
             suggestedStartTime and suggestedEndTime must use HH:mm format.
+            suggestedStartDate must not be in the past.
+            suggestedEndDate must be same day or after suggestedStartDate.
             discountValue must be between 0 and 100.
             targetCustomersCount must be positive.
 
@@ -121,6 +126,8 @@ public class OpenAiService {
                 "description": "Arabic text",
                 "offerText": "Arabic text",
                 "campaignType": "DIRECT_OFFER",
+                "suggestedStartDate": "2026-06-20",
+                "suggestedEndDate": "2026-06-20",
                 "suggestedStartTime": "15:00",
                 "suggestedEndTime": "17:00",
                 "targetCustomersCount": 100,
@@ -150,6 +157,8 @@ public class OpenAiService {
                 String description = jsonText(suggestionNode, "description");
                 String offerText = requiredJsonText(suggestionNode, "offerText");
                 String campaignTypeText = requiredJsonText(suggestionNode, "campaignType");
+                String startDateText = requiredJsonText(suggestionNode, "suggestedStartDate");
+                String endDateText = requiredJsonText(suggestionNode, "suggestedEndDate");
                 String startTimeText = requiredJsonText(suggestionNode, "suggestedStartTime");
                 String endTimeText = requiredJsonText(suggestionNode, "suggestedEndTime");
                 Integer targetCustomersCount = requiredJsonInteger(suggestionNode, "targetCustomersCount");
@@ -157,6 +166,8 @@ public class OpenAiService {
                 String suggestedProductName = requiredJsonText(suggestionNode, "suggestedProductName");
 
                 CampaignType campaignType = CampaignType.valueOf(campaignTypeText);
+                LocalDate suggestedStartDate = LocalDate.parse(startDateText);
+                LocalDate suggestedEndDate = LocalDate.parse(endDateText);
                 LocalTime suggestedStartTime = LocalTime.parse(startTimeText);
                 LocalTime suggestedEndTime = LocalTime.parse(endTimeText);
 
@@ -165,6 +176,8 @@ public class OpenAiService {
                         description,
                         offerText,
                         campaignType,
+                        suggestedStartDate,
+                        suggestedEndDate,
                         suggestedStartTime,
                         suggestedEndTime,
                         targetCustomersCount,
@@ -333,6 +346,8 @@ public class OpenAiService {
             String description,
             String offerText,
             CampaignType campaignType,
+            LocalDate suggestedStartDate,
+            LocalDate suggestedEndDate,
             LocalTime suggestedStartTime,
             LocalTime suggestedEndTime,
             Integer targetCustomersCount,
