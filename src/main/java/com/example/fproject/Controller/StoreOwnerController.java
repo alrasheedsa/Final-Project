@@ -30,11 +30,6 @@ public class StoreOwnerController {
         return ResponseEntity.status(200).body(storeOwnerService.getStoreOwnerById(storeOwnerId));
     }
 
-    @GetMapping("/user/{userId}")
-    public ResponseEntity<?> getStoreOwnerByUserId(@PathVariable Integer userId) {
-        return ResponseEntity.status(200).body(storeOwnerService.getStoreOwnerByUserId(userId));
-    }
-
     @PutMapping("/update/{storeOwnerId}")
     public ResponseEntity<?> updateStoreOwner(@PathVariable Integer storeOwnerId, @Valid @RequestBody StoreOwnerIn dto) {
         return ResponseEntity.status(200).body(storeOwnerService.updateStoreOwner(storeOwnerId, dto));

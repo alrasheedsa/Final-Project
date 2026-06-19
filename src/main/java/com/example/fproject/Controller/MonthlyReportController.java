@@ -5,6 +5,8 @@ import com.example.fproject.DTO.IN.MonthlyReportIn;
 import com.example.fproject.Service.MonthlyReportService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -54,7 +56,10 @@ public class MonthlyReportController {
     }
 
     @GetMapping("/download/{reportId}")
-    public ResponseEntity<?> downloadMonthlyReport(@PathVariable Integer reportId) {
-        return ResponseEntity.status(200).body(monthlyReportService.downloadMonthlyReport(reportId));
+    public ResponseEntity<byte[]> downloadMonthlyReport(@PathVariable Integer reportId) {
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=monthly-report-" + reportId + ".pdf")
+                .body(monthlyReportService.downloadMonthlyReport(reportId));
     }
 }

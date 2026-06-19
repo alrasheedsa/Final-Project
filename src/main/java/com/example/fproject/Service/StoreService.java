@@ -15,6 +15,7 @@ import com.example.fproject.Repository.SubscriptionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -29,10 +30,20 @@ public class StoreService {
     private final SubscriptionRepository subscriptionRepository;
 
     public StoreOut addStore(Integer storeOwnerId, StoreIn dto) {
+
         StoreOwner storeOwner = storeOwnerRepository.findStoreOwnerById(storeOwnerId);
 
         if (storeOwner == null) {
             throw new ApiException("Store owner not found");
+        }
+
+        Subscription subscription = getActiveOrPendingSubscription(storeOwnerId);
+
+        Integer currentStoresCount = storeRepository.countStoresByStoreOwnerId(storeOwnerId);
+        Integer maxStores = subscription.getPlanType().getMaxStores();
+
+        if (currentStoresCount >= maxStores) {
+            throw new ApiException("Your current subscription plan allows only " + maxStores + " store(s)");
         }
 
         if (storeRepository.existsStoreByCommercialRegisterNo(dto.getCommercialRegisterNo())) {
@@ -50,8 +61,14 @@ public class StoreService {
         store.setBusinessType(dto.getBusinessType());
         store.setCommercialRegisterNo(dto.getCommercialRegisterNo());
         store.setCommercialRegisterVerified(true);
-        store.setStatus(StoreStatus.PENDING);
         store.setStoreOwner(storeOwner);
+
+        if (subscription.getStatus() == SubscriptionStatus.ACTIVE
+                && Boolean.TRUE.equals(store.getCommercialRegisterVerified())) {
+            store.setStatus(StoreStatus.ACTIVE);
+        } else {
+            store.setStatus(StoreStatus.PENDING);
+        }
 
         storeRepository.save(store);
 
@@ -59,6 +76,7 @@ public class StoreService {
     }
 
     public List<StoreOut> getAllStores() {
+
         List<Store> stores = storeRepository.findAll();
         List<StoreOut> result = new ArrayList<>();
 
@@ -70,6 +88,7 @@ public class StoreService {
     }
 
     public StoreOut getStoreById(Integer storeId) {
+
         Store store = storeRepository.findStoreById(storeId);
 
         if (store == null) {
@@ -80,6 +99,7 @@ public class StoreService {
     }
 
     public List<StoreOut> getStoresByStoreOwnerId(Integer storeOwnerId) {
+
         StoreOwner storeOwner = storeOwnerRepository.findStoreOwnerById(storeOwnerId);
 
         if (storeOwner == null) {
@@ -97,6 +117,7 @@ public class StoreService {
     }
 
     public StoreOut updateStore(Integer storeId, StoreIn dto) {
+
         Store store = storeRepository.findStoreById(storeId);
 
         if (store == null) {
@@ -128,9 +149,7 @@ public class StoreService {
             store.setCommercialRegisterNo(dto.getCommercialRegisterNo());
             store.setCommercialRegisterVerified(true);
 
-            boolean hasActiveSubscription = hasActiveSubscription(store.getStoreOwner().getId());
-
-            if (hasActiveSubscription) {
+            if (hasActiveSubscription(store.getStoreOwner().getId())) {
                 store.setStatus(StoreStatus.ACTIVE);
             } else {
                 store.setStatus(StoreStatus.PENDING);
@@ -150,18 +169,8 @@ public class StoreService {
         return mapToDTOOUT(store);
     }
 
-    private boolean hasActiveSubscription(Integer storeOwnerId) {
-        Subscription activeSubscription =
-                subscriptionRepository.findFirstByStoreOwnerIdAndStatusOrderByEndDateDesc(
-                        storeOwnerId,
-                        SubscriptionStatus.ACTIVE
-                );
-
-        return activeSubscription != null
-                && !activeSubscription.getEndDate().isBefore(java.time.LocalDate.now());
-    }
-
     public StoreOut activateStore(Integer storeId) {
+
         Store store = storeRepository.findStoreById(storeId);
 
         if (store == null) {
@@ -182,7 +191,7 @@ public class StoreService {
             throw new ApiException("Store cannot be activated before active subscription payment");
         }
 
-        if (activeSubscription.getEndDate().isBefore(java.time.LocalDate.now())) {
+        if (activeSubscription.getEndDate().isBefore(LocalDate.now())) {
             throw new ApiException("Store cannot be activated because subscription is expired");
         }
 
@@ -193,6 +202,7 @@ public class StoreService {
     }
 
     public StoreOut deactivateStore(Integer storeId) {
+
         Store store = storeRepository.findStoreById(storeId);
 
         if (store == null) {
@@ -206,6 +216,7 @@ public class StoreService {
     }
 
     public void deleteStore(Integer storeId) {
+
         Store store = storeRepository.findStoreById(storeId);
 
         if (store == null) {
@@ -219,7 +230,45 @@ public class StoreService {
         storeRepository.delete(store);
     }
 
+    private Subscription getActiveOrPendingSubscription(Integer storeOwnerId) {
+
+        Subscription activeSubscription =
+                subscriptionRepository.findFirstByStoreOwnerIdAndStatusOrderByEndDateDesc(
+                        storeOwnerId,
+                        SubscriptionStatus.ACTIVE
+                );
+
+        if (activeSubscription != null && !activeSubscription.getEndDate().isBefore(LocalDate.now())) {
+            return activeSubscription;
+        }
+
+        Subscription pendingSubscription =
+                subscriptionRepository.findFirstByStoreOwnerIdAndStatusOrderByEndDateDesc(
+                        storeOwnerId,
+                        SubscriptionStatus.PENDING
+                );
+
+        if (pendingSubscription != null && !pendingSubscription.getEndDate().isBefore(LocalDate.now())) {
+            return pendingSubscription;
+        }
+
+        throw new ApiException("Store owner must choose a subscription plan before adding stores");
+    }
+
+    private boolean hasActiveSubscription(Integer storeOwnerId) {
+
+        Subscription activeSubscription =
+                subscriptionRepository.findFirstByStoreOwnerIdAndStatusOrderByEndDateDesc(
+                        storeOwnerId,
+                        SubscriptionStatus.ACTIVE
+                );
+
+        return activeSubscription != null
+                && !activeSubscription.getEndDate().isBefore(LocalDate.now());
+    }
+
     private StoreOut mapToDTOOUT(Store store) {
+
         return new StoreOut(
                 store.getId(),
                 store.getName(),

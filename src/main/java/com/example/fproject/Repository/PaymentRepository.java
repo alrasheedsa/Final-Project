@@ -18,7 +18,4 @@ public interface PaymentRepository extends JpaRepository<Payment, Integer> {
 
     List<Payment> findPaymentsByStatus(PaymentStatus status);
 
-    Boolean existsPaymentByTransactionId(String transactionId);
-
-    Boolean existsPaymentBySubscriptionIdAndStatus(Integer subscriptionId, PaymentStatus status);
 }

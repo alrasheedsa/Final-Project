@@ -15,9 +15,9 @@ public class SubscriptionController {
 
     private final SubscriptionService subscriptionService;
 
-    @PostMapping("/add/{storeOwnerId}")
-    public ResponseEntity<?> createSubscription(@PathVariable Integer storeOwnerId, @Valid @RequestBody SubscriptionIn dto) {
-        return ResponseEntity.status(200).body(subscriptionService.createSubscription(storeOwnerId, dto));
+    @GetMapping("/plans")
+    public ResponseEntity<?> getSubscriptionPlans() {
+        return ResponseEntity.status(200).body(subscriptionService.getSubscriptionPlans());
     }
 
     @GetMapping("/get")
@@ -31,28 +31,24 @@ public class SubscriptionController {
     }
 
     @GetMapping("/store-owner/{storeOwnerId}")
-    public ResponseEntity<?> getSubscriptionsByStoreOwnerId(@PathVariable Integer storeOwnerId) {
-        return ResponseEntity.status(200).body(subscriptionService.getSubscriptionsByStoreOwnerId(storeOwnerId));
+    public ResponseEntity<?> getSubscriptionsByStoreOwner(@PathVariable Integer storeOwnerId) {
+        return ResponseEntity.status(200).body(subscriptionService.getSubscriptionsByStoreOwner(storeOwnerId));
     }
 
-    @PutMapping("/update/{subscriptionId}")
-    public ResponseEntity<?> updateSubscription(@PathVariable Integer subscriptionId, @Valid @RequestBody SubscriptionIn dto) {
-        return ResponseEntity.status(200).body(subscriptionService.updateSubscription(subscriptionId, dto));
+    @GetMapping("/active/{storeOwnerId}")
+    public ResponseEntity<?> getActiveSubscription(@PathVariable Integer storeOwnerId) {
+        return ResponseEntity.status(200).body(subscriptionService.getActiveSubscription(storeOwnerId));
     }
 
     @PutMapping("/cancel/{subscriptionId}")
     public ResponseEntity<?> cancelSubscription(@PathVariable Integer subscriptionId) {
-        return ResponseEntity.status(200).body(subscriptionService.cancelSubscription(subscriptionId));
+        subscriptionService.cancelSubscription(subscriptionId);
+        return ResponseEntity.status(200).body(new ApiResponse("Subscription cancelled successfully"));
     }
 
-    @DeleteMapping("/delete/{subscriptionId}")
-    public ResponseEntity<?> deleteSubscription(@PathVariable Integer subscriptionId) {
-        subscriptionService.deleteSubscription(subscriptionId);
-        return ResponseEntity.status(200).body(new ApiResponse("Subscription deleted successfully"));
-    }
-
-    @GetMapping("/active/{storeOwnerId}")
-    public ResponseEntity<?> getActiveSubscriptionByStoreOwnerId(@PathVariable Integer storeOwnerId) {
-        return ResponseEntity.status(200).body(subscriptionService.getActiveSubscriptionByStoreOwnerId(storeOwnerId));
+    @PutMapping("/expire/{subscriptionId}")
+    public ResponseEntity<?> expireSubscription(@PathVariable Integer subscriptionId) {
+        subscriptionService.expireSubscription(subscriptionId);
+        return ResponseEntity.status(200).body(new ApiResponse("Subscription expired successfully"));
     }
 }

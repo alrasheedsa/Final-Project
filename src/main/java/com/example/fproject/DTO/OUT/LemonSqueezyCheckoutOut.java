@@ -7,7 +7,7 @@ import lombok.NoArgsConstructor;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class MoyasarCheckoutOut {
+public class LemonSqueezyCheckoutOut {
 
     private Integer localPaymentId;
 
@@ -15,15 +15,15 @@ public class MoyasarCheckoutOut {
 
     private Double amount;
 
-    private Long amountInHalalas;
+    private Long amountInCents;
 
     private String currency;
 
     private String description;
 
-    private String publishableKey;
+    private String checkoutId;
 
-    private String callbackUrl;
+    private String checkoutUrl;
 
     private String message;
 }

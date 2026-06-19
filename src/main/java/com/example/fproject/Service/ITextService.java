@@ -38,6 +38,65 @@ public class ITextService {
         return generateMonthlyReportPdf("على دربك", "غير محدد", row, reportContent);
     }
 
+    public byte[] generateSalesMonthlyReportPdf(String storeName,
+                                                String branchName,
+                                                Integer month,
+                                                Integer year,
+                                                Double totalSales,
+                                                Integer totalQuantity,
+                                                String topProducts,
+                                                String lowProducts,
+                                                String peakHours,
+                                                String slowHours,
+                                                String summary) {
+        String html = """
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                    <meta charset="UTF-8"/>
+                    <style>
+                        @page { size: A4; margin: 20mm; }
+                        body { font-family: Arial, sans-serif; color: #222; line-height: 1.6; }
+                        h1 { color: #6d28d9; }
+                        table { width: 100%%; border-collapse: collapse; margin: 18px 0; }
+                        td { padding: 10px; border: 1px solid #ddd; }
+                        td:first-child { font-weight: bold; width: 35%%; background: #f7f4ff; }
+                    </style>
+                </head>
+                <body>
+                    <h1>Monthly Sales Report</h1>
+                    <p><strong>Store:</strong> %s</p>
+                    <p><strong>Branch:</strong> %s</p>
+                    <p><strong>Period:</strong> %02d/%d</p>
+                    <table>
+                        <tr><td>Total sales</td><td>%.2f SAR</td></tr>
+                        <tr><td>Total quantity</td><td>%d</td></tr>
+                        <tr><td>Top products</td><td>%s</td></tr>
+                        <tr><td>Low products</td><td>%s</td></tr>
+                        <tr><td>Peak hour</td><td>%s</td></tr>
+                        <tr><td>Slow hour</td><td>%s</td></tr>
+                    </table>
+                    <h2>Summary</h2>
+                    <p>%s</p>
+                </body>
+                </html>
+                """.formatted(
+                escapeHtml(storeName),
+                escapeHtml(branchName),
+                month,
+                year,
+                totalSales,
+                totalQuantity,
+                escapeHtml(topProducts),
+                escapeHtml(lowProducts),
+                escapeHtml(peakHours),
+                escapeHtml(slowHours),
+                escapeHtml(summary)
+        );
+
+        return renderHtmlToPdf(html);
+    }
+
     public String buildCampaignRow(String campaignName,
                                    String totalSent,
                                    String qrUsed,

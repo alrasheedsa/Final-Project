@@ -14,7 +14,5 @@ public interface SubscriptionRepository extends JpaRepository<Subscription, Inte
 
     List<Subscription> findSubscriptionsByStoreOwnerId(Integer storeOwnerId);
 
-    List<Subscription> findSubscriptionsByStoreOwnerIdAndStatus(Integer storeOwnerId, SubscriptionStatus status);
-
     Subscription findFirstByStoreOwnerIdAndStatusOrderByEndDateDesc(Integer storeOwnerId, SubscriptionStatus status);
 }

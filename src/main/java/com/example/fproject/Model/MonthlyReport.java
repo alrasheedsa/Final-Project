@@ -59,7 +59,4 @@ public class MonthlyReport {
     @JoinColumn(name = "branch_id")
     private Branch branch;
 
-    @OneToMany(mappedBy = "monthlyReport")
-    @JsonIgnore
-    private Set<CampaignResult> campaignResults;
 }
