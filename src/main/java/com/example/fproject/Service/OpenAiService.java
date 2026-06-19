@@ -114,6 +114,11 @@ public class OpenAiService {
             campaignType must be only DIRECT_OFFER or QUESTION_BASED.
             suggestedStartDate and suggestedEndDate must use yyyy-MM-dd format.
             suggestedStartTime and suggestedEndTime must use HH:mm format.
+            Branch opening and closing times are included in the AI analysis.
+            All suggested campaign times must be inside branch working hours.
+            suggestedStartTime must be same as or after branch opening time.
+            suggestedEndTime must be same as or before branch closing time.
+            Never suggest campaigns before opening time or after closing time.
             suggestedStartDate must not be in the past.
             suggestedEndDate must be same day or after suggestedStartDate.
             discountValue must be between 0 and 100.

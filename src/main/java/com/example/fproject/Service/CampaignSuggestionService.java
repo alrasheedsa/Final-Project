@@ -16,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -131,6 +132,8 @@ public class CampaignSuggestionService {
         List<CampaignSuggestionOut> campaignSuggestionOuts = new ArrayList<>();
 
         for (OpenAiService.CampaignSuggestionResult result : aiResults) {
+            validateGeneratedSuggestionTime(aiAnalysis, result);
+
             CampaignSuggestion campaignSuggestion = new CampaignSuggestion();
 
             campaignSuggestion.setTitle(result.title());
@@ -159,6 +162,24 @@ public class CampaignSuggestionService {
         StringBuilder summary = new StringBuilder();
 
         summary.append("AI Analysis ID: ").append(aiAnalysis.getId()).append("\n");
+
+        if (aiAnalysis.getSalesRecord() != null && aiAnalysis.getSalesRecord().getBranch() != null) {
+            summary.append("Branch name: ")
+                    .append(aiAnalysis.getSalesRecord().getBranch().getName())
+                    .append("\n");
+
+            summary.append("Branch opening time: ")
+                    .append(aiAnalysis.getSalesRecord().getBranch().getOpeningTime())
+                    .append("\n");
+
+            summary.append("Branch closing time: ")
+                    .append(aiAnalysis.getSalesRecord().getBranch().getClosingTime())
+                    .append("\n");
+
+            summary.append("Important rule: Campaign suggestions must be scheduled only inside branch working hours.\n");
+            summary.append("Do not suggest campaigns before opening time or after closing time.\n");
+        }
+
         summary.append("Top products: ").append(aiAnalysis.getTopProducts()).append("\n");
         summary.append("Low products: ").append(aiAnalysis.getLowProducts()).append("\n");
         summary.append("Peak hours: ").append(aiAnalysis.getPeakHours()).append("\n");
@@ -169,6 +190,43 @@ public class CampaignSuggestionService {
         summary.append("AI summary: ").append(aiAnalysis.getAiSummary()).append("\n");
 
         return summary.toString();
+    }
+
+    private void validateGeneratedSuggestionTime(AIAnalysis aiAnalysis, OpenAiService.CampaignSuggestionResult result) {
+        if (aiAnalysis.getSalesRecord() == null || aiAnalysis.getSalesRecord().getBranch() == null) {
+            throw new ApiException("Branch not found for this AI analysis");
+        }
+
+        String openingTimeText = aiAnalysis.getSalesRecord().getBranch().getOpeningTime();
+        String closingTimeText = aiAnalysis.getSalesRecord().getBranch().getClosingTime();
+
+        if (openingTimeText == null || openingTimeText.isBlank()) {
+            throw new ApiException("Branch opening time is missing");
+        }
+
+        if (closingTimeText == null || closingTimeText.isBlank()) {
+            throw new ApiException("Branch closing time is missing");
+        }
+
+        LocalTime openingTime = LocalTime.parse(openingTimeText.trim());
+        LocalTime closingTime = LocalTime.parse(closingTimeText.trim());
+
+        if (result.suggestedStartDate().isBefore(LocalDate.now())) {
+            throw new ApiException("AI suggested campaign start date cannot be in the past");
+        }
+
+        if (result.suggestedEndDate().isBefore(result.suggestedStartDate())) {
+            throw new ApiException("AI suggested campaign end date cannot be before start date");
+        }
+
+        if (!result.suggestedEndTime().isAfter(result.suggestedStartTime())) {
+            throw new ApiException("AI suggested campaign end time must be after start time");
+        }
+
+        if (result.suggestedStartTime().isBefore(openingTime)
+                || result.suggestedEndTime().isAfter(closingTime)) {
+            throw new ApiException("AI suggested campaign time is outside branch working hours");
+        }
     }
 
     private void validateAIAnalysisReadyForSuggestion(AIAnalysis aiAnalysis) {
