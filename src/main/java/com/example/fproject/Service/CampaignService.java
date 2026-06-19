@@ -9,7 +9,9 @@ import com.example.fproject.DTO.OUT.ValueOut;
 import com.example.fproject.Enum.CampaignStatus;
 import com.example.fproject.Enum.CampaignType;
 import com.example.fproject.Enum.MessageStatus;
+import com.example.fproject.Enum.StoreStatus;
 import com.example.fproject.Enum.SuggestionStatus;
+import com.example.fproject.Enum.SubscriptionStatus;
 import com.example.fproject.Model.AIQuestion;
 import com.example.fproject.Model.Branch;
 import com.example.fproject.Model.Campaign;
@@ -18,6 +20,7 @@ import com.example.fproject.Model.CampaignResult;
 import com.example.fproject.Model.CampaignSuggestion;
 import com.example.fproject.Model.Customer;
 import com.example.fproject.Model.QRCode;
+import com.example.fproject.Model.Subscription;
 import com.example.fproject.Repository.AiQuestionRepository;
 import com.example.fproject.Repository.BranchRepository;
 import com.example.fproject.Repository.CampaignMessageRepository;
@@ -29,6 +32,7 @@ import com.example.fproject.Repository.QRCodeRepository;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.LocalDate;
@@ -50,6 +54,7 @@ public class CampaignService {
     private final QRCodeRepository qrCodeRepository;
     private final GoogleMapService googleMapService;
     private final WhatsAppService whatsAppService;
+    private final CampaignResultService campaignResultService;
     private final ModelMapper modelMapper;
 
     public List<CampaignResponseOut> getAllCampaigns() {
@@ -64,10 +69,12 @@ public class CampaignService {
         return mapCampaign(checkCampaign(campaignId));
     }
 
+    @Transactional
     public CampaignResponseOut createCampaignFromSuggestion(Integer suggestionId, Integer branchId) {
         CampaignSuggestion campaignSuggestion = checkCampaignSuggestion(suggestionId, null);
         Branch branch = checkBranch(branchId);
         validateCampaignSuggestion(campaignSuggestion, branch, campaignSuggestion.getCampaignType());
+        validateCampaignSuggestionTime(campaignSuggestion);
 
         Campaign campaign = new Campaign();
         campaign.setTitle(campaignSuggestion.getTitle());
@@ -189,6 +196,7 @@ public class CampaignService {
         campaignRepository.save(campaign);
     }
 
+    @Transactional
     public void sendCampaign(Integer campaignId) {
         Campaign campaign = checkCampaign(campaignId);
         validateCampaignCanSend(campaign);
@@ -211,6 +219,9 @@ public class CampaignService {
             if (!isCustomerInsideRadius(customer, branch)) {
                 continue;
             }
+            if (Boolean.TRUE.equals(campaignMessageRepository.existsByCampaignIdAndCustomerId(campaign.getId(), customer.getId()))) {
+                continue;
+            }
             GoogleMapService.RouteResult route = googleMapService.calculateRoute(
                     customer.getLatitude(), customer.getLongitude(),
                     branch.getLatitude(), branch.getLongitude()
@@ -224,7 +235,7 @@ public class CampaignService {
                         question.getOptionA(), question.getOptionB(), question.getOptionC());
                 messageText = question.getQuestionText();
             } else {
-                whatsAppService.sendCorrectAnswerMessage(phone, storeName, branch.getName(), campaign.getTitle(),
+                whatsAppService.sendDirectOfferMessage(phone, storeName, branch.getName(), campaign.getTitle(),
                         campaign.getOfferText(), buildCampaignTime(campaign), branch.getLocationUrl(),
                         route.distanceText(), route.durationMinutes(), qrCode.getCode());
                 messageText = campaign.getOfferText();
@@ -249,6 +260,17 @@ public class CampaignService {
         campaign.setSentCount(campaign.getSentCount() + sentCount);
         campaign.setStatus(CampaignStatus.ACTIVE);
         campaignRepository.save(campaign);
+    }
+
+    @Transactional
+    public void expireFinishedCampaigns() {
+        for (Campaign campaign : campaignRepository.findAllByStatus(CampaignStatus.ACTIVE)) {
+            if (campaign.getEndDateTime() != null && campaign.getEndDateTime().isBefore(LocalDateTime.now())) {
+                campaign.setStatus(CampaignStatus.EXPIRED);
+                campaignRepository.save(campaign);
+                campaignResultService.generateCampaignResult(campaign.getId());
+            }
+        }
     }
 
     public CampaignDetailsOut getCampaignDetails(Integer campaignId) {
@@ -381,8 +403,12 @@ public class CampaignService {
         if (campaign.getBranch() == null) {
             throw new ApiException("Campaign branch is required");
         }
+        validateBranchReady(campaign.getBranch());
         if (campaign.getCampaignType() == CampaignType.QUESTION_BASED && campaign.getAiQuestion() == null) {
             throw new ApiException("Question based campaign must have an AI question");
+        }
+        if (qrCodeRepository.findQRCodeByCampaignId(campaign.getId()) == null) {
+            throw new ApiException("Campaign must have a QR code before approval");
         }
         if (campaign.getEndDateTime().isBefore(LocalDateTime.now())) {
             throw new ApiException("Campaign end time is expired");
@@ -404,6 +430,41 @@ public class CampaignService {
         if (campaign.getSentCount() >= campaign.getTargetCustomersCount()) {
             throw new ApiException("Campaign already reached target customers count");
         }
+    }
+
+    private void validateBranchReady(Branch branch) {
+        if (branch.getStatus() != StoreStatus.ACTIVE) {
+            throw new ApiException("Branch must be active before sending campaign");
+        }
+        if (branch.getLatitude() == null || branch.getLongitude() == null) {
+            throw new ApiException("Branch latitude and longitude are required");
+        }
+        if (branch.getCampaignRadiusMeters() == null || branch.getCampaignRadiusMeters() <= 0) {
+            throw new ApiException("Branch campaign radius is required");
+        }
+        if (branch.getStore() == null) {
+            throw new ApiException("Branch store is required");
+        }
+        if (branch.getStore().getStatus() != StoreStatus.ACTIVE) {
+            throw new ApiException("Store must be active before sending campaign");
+        }
+        validateActiveSubscription(branch);
+    }
+
+    private void validateActiveSubscription(Branch branch) {
+        if (branch.getStore().getStoreOwner() == null
+                || branch.getStore().getStoreOwner().getSubscriptions() == null
+                || branch.getStore().getStoreOwner().getSubscriptions().isEmpty()) {
+            throw new ApiException("Store owner must have an active subscription");
+        }
+        for (Subscription subscription : branch.getStore().getStoreOwner().getSubscriptions()) {
+            if (subscription.getStatus() == SubscriptionStatus.ACTIVE
+                    && subscription.getEndDate() != null
+                    && !subscription.getEndDate().isBefore(LocalDate.now())) {
+                return;
+            }
+        }
+        throw new ApiException("Store owner must have an active subscription");
     }
 
     private Boolean isCustomerInsideRadius(Customer customer, Branch branch) {
@@ -470,12 +531,23 @@ public class CampaignService {
 
     private void validateCampaignSuggestion(CampaignSuggestion campaignSuggestion, Branch branch, CampaignType campaignType) {
         if (campaignSuggestion == null) return;
+        if (campaignSuggestion.getAiAnalysis() == null
+                || campaignSuggestion.getAiAnalysis().getSalesRecord() == null
+                || campaignSuggestion.getAiAnalysis().getSalesRecord().getBranch() == null) {
+            throw new ApiException("Campaign suggestion must be linked to a branch sales analysis");
+        }
         Branch suggestionBranch = campaignSuggestion.getAiAnalysis().getSalesRecord().getBranch();
         if (!suggestionBranch.getId().equals(branch.getId())) {
             throw new ApiException("Campaign suggestion does not belong to this branch");
         }
         if (!campaignSuggestion.getCampaignType().equals(campaignType)) {
             throw new ApiException("Campaign type must match campaign suggestion type");
+        }
+    }
+
+    private void validateCampaignSuggestionTime(CampaignSuggestion campaignSuggestion) {
+        if (campaignSuggestion.getSuggestedStartTime() == null || campaignSuggestion.getSuggestedEndTime() == null) {
+            throw new ApiException("Campaign suggestion time is required");
         }
     }
 

@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -40,12 +41,23 @@ public class QRRedemptionController {
 
     @PostMapping("/redeem-by-code")
     public ResponseEntity<?> redeemByCode(@RequestBody @Valid QRRedemptionCodeIn qrRedemptionCodeIn) {
-        return ResponseEntity.status(200).body(qrRedemptionService.redeemByCode(qrRedemptionCodeIn.getCode()));
+        return ResponseEntity.status(200).body(qrRedemptionService.redeemByCode(qrRedemptionCodeIn.getCode(),
+                qrRedemptionCodeIn.getCustomerPhone()));
     }
 
     @PostMapping("/redeem-by-qr/{qrCodeId}")
-    public ResponseEntity<?> redeemByQRCodeId(@PathVariable Integer qrCodeId) {
-        return ResponseEntity.status(200).body(qrRedemptionService.redeemByQRCodeId(qrCodeId));
+    public ResponseEntity<?> redeemByQRCodeId(@PathVariable Integer qrCodeId, @RequestParam String customerPhone) {
+        return ResponseEntity.status(200).body(qrRedemptionService.redeemByQRCodeId(qrCodeId, customerPhone));
+    }
+
+    @PostMapping("/cashier/redeem-code")
+    public ResponseEntity<?> cashierRedeemByCode(@RequestBody @Valid QRRedemptionCodeIn qrRedemptionCodeIn) {
+        return ResponseEntity.status(200).body(qrRedemptionService.cashierRedeemByCode(qrRedemptionCodeIn));
+    }
+
+    @PostMapping("/cashier/check-code/{code}")
+    public ResponseEntity<?> checkQRCodeForCashier(@PathVariable String code) {
+        return ResponseEntity.status(200).body(new ApiResponse(qrRedemptionService.checkQRCodeForCashier(code)));
     }
 
     @PostMapping("/add")
