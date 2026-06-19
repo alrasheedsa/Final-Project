@@ -5,10 +5,12 @@ import com.example.fproject.DTO.IN.SalesRecordItemIn;
 import com.example.fproject.DTO.OUT.SalesRecordItemOut;
 import com.example.fproject.Model.SalesRecord;
 import com.example.fproject.Model.SalesRecordItem;
+import com.example.fproject.Repository.AIAnalysisRepository;
 import com.example.fproject.Repository.SalesRecordItemRepository;
 import com.example.fproject.Repository.SalesRecordRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -20,6 +22,7 @@ public class SalesRecordItemService {
 
     private final SalesRecordItemRepository salesRecordItemRepository;
     private final SalesRecordRepository salesRecordRepository;
+    private final AIAnalysisRepository aiAnalysisRepository;
 
     public List<SalesRecordItemOut> getAllSalesRecordItems() {
         List<SalesRecordItem> salesRecordItems = salesRecordItemRepository.findAll();
@@ -59,6 +62,7 @@ public class SalesRecordItemService {
         return salesRecordItemOuts;
     }
 
+    @Transactional
     public void addSalesRecordItem(SalesRecordItemIn salesRecordItemIn) {
         validateSalesRecordItemIn(salesRecordItemIn);
 
@@ -68,6 +72,7 @@ public class SalesRecordItemService {
             throw new ApiException("Sales record not found");
         }
 
+        validateSalesRecordCanBeEdited(salesRecord.getId());
         validateSaleDateWithSalesRecordMonth(salesRecordItemIn, salesRecord);
 
         SalesRecordItem salesRecordItem = new SalesRecordItem();
@@ -86,6 +91,7 @@ public class SalesRecordItemService {
         salesRecordItemRepository.save(salesRecordItem);
     }
 
+    @Transactional
     public void updateSalesRecordItem(Integer id, SalesRecordItemIn salesRecordItemIn) {
         validateSalesRecordItemIn(salesRecordItemIn);
 
@@ -95,12 +101,15 @@ public class SalesRecordItemService {
             throw new ApiException("Sales record item not found");
         }
 
+        validateSalesRecordCanBeEdited(oldSalesRecordItem.getSalesRecord().getId());
+
         SalesRecord salesRecord = salesRecordRepository.findSalesRecordById(salesRecordItemIn.getSalesRecordId());
 
         if (salesRecord == null) {
             throw new ApiException("Sales record not found");
         }
 
+        validateSalesRecordCanBeEdited(salesRecord.getId());
         validateSaleDateWithSalesRecordMonth(salesRecordItemIn, salesRecord);
 
         oldSalesRecordItem.setProductName(salesRecordItemIn.getProductName());
@@ -117,6 +126,7 @@ public class SalesRecordItemService {
         salesRecordItemRepository.save(oldSalesRecordItem);
     }
 
+    @Transactional
     public void deleteSalesRecordItem(Integer id) {
         SalesRecordItem salesRecordItem = salesRecordItemRepository.findSalesRecordItemById(id);
 
@@ -124,6 +134,7 @@ public class SalesRecordItemService {
             throw new ApiException("Sales record item not found");
         }
 
+        validateSalesRecordCanBeEdited(salesRecordItem.getSalesRecord().getId());
         salesRecordItemRepository.delete(salesRecordItem);
     }
 
@@ -171,6 +182,12 @@ public class SalesRecordItemService {
 
         if (!itemMonth.equals(salesRecord.getMonth()) || !itemYear.equals(salesRecord.getYear())) {
             throw new ApiException("Sale date must be within the same month and year of the sales record");
+        }
+    }
+
+    private void validateSalesRecordCanBeEdited(Integer salesRecordId) {
+        if (Boolean.TRUE.equals(aiAnalysisRepository.existsBySalesRecord_Id(salesRecordId))) {
+            throw new ApiException("Cannot modify sales record items because sales record already has AI analysis");
         }
     }
 

@@ -398,7 +398,7 @@ public class AIAnalysisService {
         AIAnalysis aiAnalysis = getAIAnalysisEntity(analysisId);
         List<SalesRecordItem> items = getAnalysisItems(aiAnalysis);
 
-        Map<Integer, Double> salesByHour = new HashMap<>();
+        Map<Integer, Double> salesByHour = new java.util.TreeMap<>();
 
         for (SalesRecordItem item : items) {
             if (item.getSaleTime() != null) {
