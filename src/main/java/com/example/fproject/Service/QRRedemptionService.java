@@ -1,20 +1,24 @@
 package com.example.fproject.Service;
 
 import com.example.fproject.Api.ApiException;
+import com.example.fproject.DTO.IN.QRRedemptionCodeIn;
 import com.example.fproject.DTO.IN.QRRedemptionRequestIn;
 import com.example.fproject.DTO.OUT.QRRedemptionResponseOut;
 import com.example.fproject.Enum.CampaignStatus;
 import com.example.fproject.Enum.QRCodeStatus;
 import com.example.fproject.Enum.QRRedemptionStatus;
 import com.example.fproject.Model.Campaign;
+import com.example.fproject.Model.Customer;
 import com.example.fproject.Model.QRCode;
 import com.example.fproject.Model.QRRedemption;
 import com.example.fproject.Repository.CampaignRepository;
+import com.example.fproject.Repository.CustomerRepository;
 import com.example.fproject.Repository.QRCodeRepository;
 import com.example.fproject.Repository.QRRedemptionRepository;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -27,6 +31,7 @@ public class QRRedemptionService {
     private final QRRedemptionRepository qrRedemptionRepository;
     private final QRCodeRepository qrCodeRepository;
     private final CampaignRepository campaignRepository;
+    private final CustomerRepository customerRepository;
     private final CampaignResultService campaignResultService;
     private final ModelMapper modelMapper;
 
@@ -42,17 +47,34 @@ public class QRRedemptionService {
         return mapQRRedemption(checkQRRedemption(qrRedemptionId));
     }
 
-    public QRRedemptionResponseOut redeemByCode(String code) {
+    @Transactional
+    public QRRedemptionResponseOut redeemByCode(String code, String customerPhone) {
         validateText(code, "QR code is required");
         QRCode qrCode = qrCodeRepository.findQRCodeByCode(code);
         if (qrCode == null) {
             throw new ApiException("QR code not found");
         }
-        return redeemQRCode(qrCode);
+        return redeemQRCode(qrCode, checkCustomerByPhone(customerPhone));
     }
 
-    public QRRedemptionResponseOut redeemByQRCodeId(Integer qrCodeId) {
-        return redeemQRCode(checkQRCode(qrCodeId));
+    @Transactional
+    public QRRedemptionResponseOut redeemByQRCodeId(Integer qrCodeId, String customerPhone) {
+        return redeemQRCode(checkQRCode(qrCodeId), checkCustomerByPhone(customerPhone));
+    }
+
+    @Transactional
+    public QRRedemptionResponseOut cashierRedeemByCode(QRRedemptionCodeIn dto) {
+        return redeemByCode(dto.getCode(), dto.getCustomerPhone());
+    }
+
+    public String checkQRCodeForCashier(String code) {
+        validateText(code, "QR code is required");
+        QRCode qrCode = qrCodeRepository.findQRCodeByCode(code);
+        if (qrCode == null) {
+            throw new ApiException("QR code not found");
+        }
+        validateRedeemableQRCode(qrCode, qrCode.getCampaign());
+        return "QR code is valid";
     }
 
     public List<QRRedemptionResponseOut> getRedemptionsByCampaign(Integer campaignId) {
@@ -64,6 +86,7 @@ public class QRRedemptionService {
         return redemptions;
     }
 
+    @Transactional
     public void addQRRedemption(QRRedemptionRequestIn dto) {
         validateQRRedemption(dto);
         QRRedemption qrRedemption = new QRRedemption();
@@ -88,14 +111,17 @@ public class QRRedemptionService {
         qrRedemption.setStatus(dto.getStatus());
         qrRedemption.setQrCode(checkQRCode(dto.getQrCodeId()));
         qrRedemption.setCampaign(checkCampaign(dto.getCampaignId()));
+        qrRedemption.setCustomer(checkCustomer(dto.getCustomerId()));
     }
 
     private void validateQRRedemption(QRRedemptionRequestIn dto) {
         QRCode qrCode = checkQRCode(dto.getQrCodeId());
         Campaign campaign = checkCampaign(dto.getCampaignId());
+        Customer customer = checkCustomer(dto.getCustomerId());
         if (qrCode.getCampaign() == null || !qrCode.getCampaign().getId().equals(campaign.getId())) {
             throw new ApiException("QR code does not belong to this campaign");
         }
+        validateCustomerCanRedeem(campaign, customer);
         if (qrCode.getUsedCount() >= qrCode.getMaxUsageCount()) {
             throw new ApiException("QR code usage limit has been reached");
         }
@@ -110,15 +136,17 @@ public class QRRedemptionService {
         campaignRepository.save(campaign);
     }
 
-    private QRRedemptionResponseOut redeemQRCode(QRCode qrCode) {
+    private QRRedemptionResponseOut redeemQRCode(QRCode qrCode, Customer customer) {
         Campaign campaign = qrCode.getCampaign();
         validateRedeemableQRCode(qrCode, campaign);
+        validateCustomerCanRedeem(campaign, customer);
 
         QRRedemption qrRedemption = new QRRedemption();
         qrRedemption.setRedeemedAt(LocalDateTime.now());
         qrRedemption.setStatus(QRRedemptionStatus.SUCCESS);
         qrRedemption.setQrCode(qrCode);
         qrRedemption.setCampaign(campaign);
+        qrRedemption.setCustomer(customer);
         QRRedemption saved = qrRedemptionRepository.save(qrRedemption);
 
         qrCode.setUsedCount(qrCode.getUsedCount() + 1);
@@ -168,6 +196,18 @@ public class QRRedemptionService {
         }
     }
 
+    private void validateCustomerCanRedeem(Campaign campaign, Customer customer) {
+        if (campaign == null) {
+            throw new ApiException("Campaign is required");
+        }
+        if (customer == null) {
+            throw new ApiException("Customer is required");
+        }
+        if (Boolean.TRUE.equals(qrRedemptionRepository.existsByCampaignIdAndCustomerId(campaign.getId(), customer.getId()))) {
+            throw new ApiException("Customer already used this QR code for this campaign");
+        }
+    }
+
     private QRRedemption checkQRRedemption(Integer qrRedemptionId) {
         return qrRedemptionRepository.findById(qrRedemptionId)
                 .orElseThrow(() -> new ApiException("QR redemption not found"));
@@ -183,6 +223,35 @@ public class QRRedemptionService {
                 .orElseThrow(() -> new ApiException("Campaign not found"));
     }
 
+    private Customer checkCustomer(Integer customerId) {
+        return customerRepository.findById(customerId)
+                .orElseThrow(() -> new ApiException("Customer not found"));
+    }
+
+    private Customer checkCustomerByPhone(String phone) {
+        validateText(phone, "Customer phone is required");
+        String normalizedPhone = normalizeStoredPhone(phone);
+        for (Customer customer : customerRepository.findAll()) {
+            if (customer.getUser() != null
+                    && customer.getUser().getPhone() != null
+                    && normalizeStoredPhone(customer.getUser().getPhone()).equals(normalizedPhone)) {
+                return customer;
+            }
+        }
+        throw new ApiException("Customer not found");
+    }
+
+    private String normalizeStoredPhone(String phone) {
+        String value = phone.replace("whatsapp:", "").replaceAll("[^0-9]", "");
+        if (value.startsWith("966")) {
+            return "0" + value.substring(3);
+        }
+        if (value.startsWith("5")) {
+            return "0" + value;
+        }
+        return value;
+    }
+
     private void validateText(String value, String message) {
         if (value == null || value.isBlank()) {
             throw new ApiException(message);
@@ -193,6 +262,7 @@ public class QRRedemptionService {
         QRRedemptionResponseOut out = modelMapper.map(qrRedemption, QRRedemptionResponseOut.class);
         out.setQrCodeId(qrRedemption.getQrCode() == null ? null : qrRedemption.getQrCode().getId());
         out.setCampaignId(qrRedemption.getCampaign() == null ? null : qrRedemption.getCampaign().getId());
+        out.setCustomerId(qrRedemption.getCustomer() == null ? null : qrRedemption.getCustomer().getId());
         return out;
     }
 }

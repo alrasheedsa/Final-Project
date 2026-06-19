@@ -15,4 +15,6 @@ public interface CampaignRepository extends JpaRepository<Campaign, Integer> {
     List<Campaign> findAllByBranchId(Integer branchId);
 
     List<Campaign> findAllByBranchIdAndStatus(Integer branchId, CampaignStatus status);
+
+    List<Campaign> findAllByStatus(CampaignStatus status);
 }

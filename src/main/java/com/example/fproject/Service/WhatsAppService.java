@@ -18,6 +18,7 @@ import com.twilio.type.PhoneNumber;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -91,10 +92,48 @@ public class WhatsAppService {
             %s
             """;
 
+    private static final String DIRECT_OFFER_MESSAGE_TEMPLATE = """
+            مرحبا
+
+            لديك عرض من متجر %s
+
+            الفرع:
+            %s
+
+            الحملة:
+            %s
+
+            العرض:
+            %s
+
+            وقت الحملة:
+            %s
+
+            موقع الفرع:
+            %s
+
+            يبعد عنك:
+            %s
+
+            مدة الوصول:
+            %d دقائق
+
+            QR Code:
+            %s
+            """;
+
     private static final String WRONG_ANSWER_MESSAGE = """
             اجابتك غير صحيحة.
 
             لكن يمكنك زيارة الفرع وقد يحالفك الحظ في عروض اخرى مستقبلا.
+            """;
+
+    private static final String INVALID_ANSWER_MESSAGE = """
+            الرجاء إرسال A أو B أو C فقط.
+            """;
+
+    private static final String NO_OPEN_CAMPAIGN_MESSAGE = """
+            لا يوجد لديك عرض أو سؤال نشط حالياً.
             """;
 
     public String sendMessage(String phone, String messageBody) {
@@ -128,21 +167,23 @@ public class WhatsAppService {
                                            String campaignTitle, String offerText, String campaignTime,
                                            String branchLocationUrl, String distanceText,
                                            Integer durationMinutes, String qrCode) {
-        validateText(phone, "Phone is required");
-        validateText(storeName, "Store name is required");
-        validateText(branchName, "Branch name is required");
-        validateText(campaignTitle, "Campaign title is required");
-        validateText(offerText, "Offer text is required");
-        validateText(campaignTime, "Campaign time is required");
-        validateText(branchLocationUrl, "Branch location is required");
-        validateText(distanceText, "Distance is required");
-        validateText(qrCode, "QR code is required");
-
-        if (durationMinutes == null || durationMinutes < 0) {
-            throw new ApiException("Duration must be valid");
-        }
+        validateOfferMessage(phone, storeName, branchName, campaignTitle, offerText, campaignTime,
+                branchLocationUrl, distanceText, durationMinutes, qrCode);
 
         String messageBody = CORRECT_ANSWER_MESSAGE_TEMPLATE.formatted(storeName, branchName, campaignTitle,
+                offerText, campaignTime, branchLocationUrl, distanceText, durationMinutes, qrCode);
+
+        return sendMessage(phone, messageBody);
+    }
+
+    public String sendDirectOfferMessage(String phone, String storeName, String branchName,
+                                         String campaignTitle, String offerText, String campaignTime,
+                                         String branchLocationUrl, String distanceText,
+                                         Integer durationMinutes, String qrCode) {
+        validateOfferMessage(phone, storeName, branchName, campaignTitle, offerText, campaignTime,
+                branchLocationUrl, distanceText, durationMinutes, qrCode);
+
+        String messageBody = DIRECT_OFFER_MESSAGE_TEMPLATE.formatted(storeName, branchName, campaignTitle,
                 offerText, campaignTime, branchLocationUrl, distanceText, durationMinutes, qrCode);
 
         return sendMessage(phone, messageBody);
@@ -153,6 +194,17 @@ public class WhatsAppService {
         return sendMessage(phone, WRONG_ANSWER_MESSAGE);
     }
 
+    public String sendInvalidAnswerMessage(String phone) {
+        validateText(phone, "Phone is required");
+        return sendMessage(phone, INVALID_ANSWER_MESSAGE);
+    }
+
+    public String sendNoOpenCampaignMessage(String phone) {
+        validateText(phone, "Phone is required");
+        return sendMessage(phone, NO_OPEN_CAMPAIGN_MESSAGE);
+    }
+
+    @Transactional
     public String receiveWebhook(WhatsAppWebhookIn webhookIn) {
         if (webhookIn == null) {
             throw new ApiException("Webhook payload is required");
@@ -165,11 +217,22 @@ public class WhatsAppService {
         validateText(selectedOption, "Message body is required");
 
         if (!isAnswerOption(selectedOption)) {
-            throw new ApiException("WhatsApp answer must be A, B, or C");
+            sendInvalidAnswerMessage(phone);
+            return "Invalid WhatsApp answer message has been sent";
         }
 
-        Customer customer = checkCustomerByPhone(phone);
-        CampaignMessage message = getOpenMessage(customer.getId());
+        Customer customer = findCustomerByPhone(phone);
+        if (customer == null) {
+            sendNoOpenCampaignMessage(phone);
+            return "No open campaign message has been sent";
+        }
+
+        CampaignMessage message = findOpenMessage(customer.getId());
+        if (message == null) {
+            sendNoOpenCampaignMessage(phone);
+            return "No open campaign message has been sent";
+        }
+
         CustomerAnswerResponseOut answer = customerAnswerService.answerCampaignMessage(message.getId(), selectedOption);
 
         if (Boolean.TRUE.equals(answer.getCorrect())) {
@@ -196,25 +259,26 @@ public class WhatsAppService {
         return "WhatsApp webhook has been handled";
     }
 
-    private Customer checkCustomerByPhone(String phone) {
+    private Customer findCustomerByPhone(String phone) {
         String normalizedPhone = normalizeStoredPhone(phone);
         for (Customer customer : customerRepository.findAll()) {
             if (customer.getUser() != null
+                    && customer.getUser().getPhone() != null
                     && normalizeStoredPhone(customer.getUser().getPhone()).equals(normalizedPhone)) {
                 return customer;
             }
         }
-        throw new ApiException("Customer not found");
+        return null;
     }
 
-    private CampaignMessage getOpenMessage(Integer customerId) {
+    private CampaignMessage findOpenMessage(Integer customerId) {
         for (CampaignMessage message : campaignMessageRepository
                 .findAllByCustomerIdAndStatusOrderBySentAtDesc(customerId, MessageStatus.SENT)) {
             if (message.getCustomerAnswer() == null) {
                 return message;
             }
         }
-        throw new ApiException("No open campaign message found for this customer");
+        return null;
     }
 
     private String normalizeWhatsAppPhone(String phone) {
@@ -249,6 +313,25 @@ public class WhatsAppService {
             return cleanPhone;
         }
         return "whatsapp:" + cleanPhone;
+    }
+
+    private void validateOfferMessage(String phone, String storeName, String branchName,
+                                      String campaignTitle, String offerText, String campaignTime,
+                                      String branchLocationUrl, String distanceText,
+                                      Integer durationMinutes, String qrCode) {
+        validateText(phone, "Phone is required");
+        validateText(storeName, "Store name is required");
+        validateText(branchName, "Branch name is required");
+        validateText(campaignTitle, "Campaign title is required");
+        validateText(offerText, "Offer text is required");
+        validateText(campaignTime, "Campaign time is required");
+        validateText(branchLocationUrl, "Branch location is required");
+        validateText(distanceText, "Distance is required");
+        validateText(qrCode, "QR code is required");
+
+        if (durationMinutes == null || durationMinutes < 0) {
+            throw new ApiException("Duration must be valid");
+        }
     }
 
     private void validateConfiguration() {

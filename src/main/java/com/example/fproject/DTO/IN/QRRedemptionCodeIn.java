@@ -16,4 +16,7 @@ public class QRRedemptionCodeIn {
     @NotEmpty(message = "QR code is required")
     @Pattern(regexp = "^[A-Za-z0-9._\\-]+$", message = "QR code contains invalid characters")
     private String code;
+
+    @NotEmpty(message = "Customer phone is required")
+    private String customerPhone;
 }

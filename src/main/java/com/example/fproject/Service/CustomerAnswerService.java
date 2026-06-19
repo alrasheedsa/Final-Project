@@ -15,6 +15,7 @@ import com.example.fproject.Repository.CustomerRepository;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -42,6 +43,7 @@ public class CustomerAnswerService {
         return mapCustomerAnswer(checkCustomerAnswer(customerAnswerId));
     }
 
+    @Transactional
     public CustomerAnswerResponseOut answerCampaignMessage(Integer campaignMessageId, String answer) {
         CampaignMessage message = campaignMessageRepository.findById(campaignMessageId)
                 .orElseThrow(() -> new ApiException("Campaign message not found"));

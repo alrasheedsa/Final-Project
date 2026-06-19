@@ -18,6 +18,7 @@ import com.example.fproject.Repository.QRRedemptionRepository;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -48,6 +49,7 @@ public class CampaignResultService {
         return mapCampaignResult(checkCampaignResult(campaignResultId));
     }
 
+    @Transactional
     public CampaignResultResponseOut generateCampaignResult(Integer campaignId) {
         Campaign campaign = checkCampaign(campaignId);
         CampaignResult campaignResult = campaignResultRepository.findCampaignResultByCampaignId(campaignId);
