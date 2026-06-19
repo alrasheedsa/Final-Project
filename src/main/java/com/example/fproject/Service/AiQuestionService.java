@@ -12,6 +12,7 @@ import com.example.fproject.Repository.CampaignRepository;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -61,6 +62,7 @@ public class AiQuestionService {
         );
     }
 
+    @Transactional
     public AiQuestionResponseOut generateAiQuestionForCampaign(Integer campaignId) {
         Campaign campaign = checkCampaign(campaignId);
         validateCampaignCanGenerateQuestion(campaign);
@@ -74,6 +76,7 @@ public class AiQuestionService {
         return mapAiQuestion(saved);
     }
 
+    @Transactional
     public AiQuestionResponseOut regenerateAiQuestion(Integer campaignId) {
         Campaign campaign = checkCampaign(campaignId);
         validateCampaignCanGenerateQuestion(campaign);

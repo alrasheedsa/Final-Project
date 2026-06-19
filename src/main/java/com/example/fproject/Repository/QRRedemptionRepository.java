@@ -12,4 +12,6 @@ public interface QRRedemptionRepository extends JpaRepository<QRRedemption, Inte
     List<QRRedemption> findAllByCampaignId(Integer campaignId);
 
     Integer countByCampaignId(Integer campaignId);
+
+    Boolean existsByCampaignIdAndCustomerId(Integer campaignId, Integer customerId);
 }

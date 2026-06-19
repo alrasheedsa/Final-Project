@@ -16,6 +16,7 @@ import com.google.zxing.qrcode.QRCodeWriter;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.io.ByteArrayOutputStream;
 import java.util.Base64;
@@ -43,6 +44,7 @@ public class QRCodeService {
         return mapQRCode(checkQRCode(qrCodeId));
     }
 
+    @Transactional
     public QRCodeResponseOut generateQRCode(Integer campaignId) {
         Campaign campaign = checkCampaign(campaignId);
         if (qrCodeRepository.existsByCampaignId(campaignId)) {

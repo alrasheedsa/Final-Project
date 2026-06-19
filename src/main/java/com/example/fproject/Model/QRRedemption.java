@@ -44,4 +44,8 @@ public class QRRedemption {
     @ManyToOne
     @JoinColumn(name = "campaign_id")
     private Campaign campaign;
+
+    @ManyToOne
+    @JoinColumn(name = "customer_id")
+    private Customer customer;
 }
