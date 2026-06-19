@@ -191,101 +191,95 @@ public class LemonSqueezyService {
 
     private void handleOrderCreated(JsonNode root) {
 
-        JsonNode customData = root.path("meta").path("custom_data");
+        try {
+            JsonNode customData = root.path("meta").path("custom_data");
 
-        if (customData.isMissingNode() || customData.isNull()) {
-            throw new ApiException("Missing custom_data in order_created webhook");
-        }
+            if (customData.isMissingNode() || customData.isNull()) {
+                throw new ApiException("Missing custom data in order_created webhook");
+            }
 
-        int storeOwnerId  = customData.path("store_owner_id").asInt();
-        int subscriptionId = customData.path("subscription_id").asInt();
-        int localPaymentId = customData.path("local_payment_id").asInt();
+            Integer storeOwnerId   = customData.path("store_owner_id").asInt();
+            Integer subscriptionId = customData.path("subscription_id").asInt();
+            Integer localPaymentId = customData.path("local_payment_id").asInt();
 
-        if (storeOwnerId == 0)  throw new ApiException("Missing store_owner_id in webhook");
-        if (subscriptionId == 0) throw new ApiException("Missing subscription_id in webhook");
-        if (localPaymentId == 0) throw new ApiException("Missing local_payment_id in webhook");
+            if (storeOwnerId == null || storeOwnerId == 0) {
+                throw new ApiException("Missing store owner id in webhook payload");
+            }
 
-        JsonNode attributes = root.path("data").path("attributes");
+            if (subscriptionId == null || subscriptionId == 0) {
+                throw new ApiException("Missing subscription id in webhook payload");
+            }
 
-        String orderStatus  = attributes.path("status").asText();
-        String orderNumber  = attributes.path("order_number").asText();
-        long   totalPaid    = attributes.path("total").asLong();
-        String currency     = attributes.path("currency").asText();
+            if (localPaymentId == null || localPaymentId == 0) {
+                throw new ApiException("Missing local payment id in webhook payload");
+            }
 
-        String paidVariantId = attributes.path("first_order_item")
-                .path("variant_id").asText();
+            String status      = root.path("data").path("attributes").path("status").asText();
+            String orderNumber = root.path("data").path("attributes").path("order_number").asText();
+            Long   total       = root.path("data").path("attributes").path("total").asLong();
 
-        if (orderNumber == null || orderNumber.isBlank()) {
-            throw new ApiException("Missing order_number in webhook");
-        }
+            if (orderNumber == null || orderNumber.isBlank()) {
+                throw new ApiException("Missing Lemon Squeezy order number");
+            }
 
-        if (!"paid".equalsIgnoreCase(orderStatus)) {
-            return;
-        }
+            if (!"paid".equalsIgnoreCase(status)) {
+                throw new ApiException("Order is not paid");
+            }
 
-        if (!"SAR".equalsIgnoreCase(currency)) {
-            throw new ApiException("Unexpected currency in webhook: " + currency);
-        }
+            StoreOwner storeOwner = storeOwnerRepository.findStoreOwnerById(storeOwnerId);
+            if (storeOwner == null) {
+                throw new ApiException("Store owner not found");
+            }
 
-        findStoreOwnerOrThrow(storeOwnerId);
+            Subscription subscription = subscriptionRepository.findSubscriptionById(subscriptionId);
+            if (subscription == null) {
+                throw new ApiException("Subscription not found");
+            }
 
-        Subscription subscription = subscriptionRepository.findSubscriptionById(subscriptionId);
-        if (subscription == null) throw new ApiException("Subscription not found");
+            Payment payment = paymentRepository.findPaymentById(localPaymentId);
+            if (payment == null) {
+                throw new ApiException("Payment not found");
+            }
 
-        Payment payment = paymentRepository.findPaymentById(localPaymentId);
-        if (payment == null) throw new ApiException("Payment not found");
+            // منع ربط نفس orderNumber بدفعة ثانية
+            Payment existingPayment = paymentRepository.findPaymentByTransactionId(orderNumber);
+            if (existingPayment != null && !existingPayment.getId().equals(payment.getId())) {
+                throw new ApiException("Lemon Squeezy transaction id is already linked to another payment");
+            }
 
-        if (!payment.getSubscription().getId().equals(subscriptionId) ||
-                !subscription.getStoreOwner().getId().equals(storeOwnerId)) {
-            throw new ApiException("Webhook data mismatch: payment, subscription, and store owner do not match");
-        }
-
-        if (payment.getStatus() == PaymentStatus.PAID) {
-            if (orderNumber.equals(payment.getTransactionId())) {
+            // لو الدفع مكتمل مسبقاً بنفس الـ orderNumber نتجاهل (idempotency)
+            if (payment.getStatus() == PaymentStatus.PAID
+                    && orderNumber.equals(payment.getTransactionId())) {
                 return;
             }
-            throw new ApiException("Payment already paid with a different order number");
+
+            // المبلغ الفعلي من Lemon Squeezy — لو جاي صح نستخدمه، وإلا نحتفظ بمبلغ الباقة
+            Double amount = total != null && total > 0
+                    ? total / 100.0
+                    : subscription.getPlanType().getPrice();
+
+            // تحديث الدفع
+            payment.setAmount(amount);
+            payment.setTransactionId(orderNumber);
+            payment.setStatus(PaymentStatus.PAID);
+            payment.setPaidAt(LocalDateTime.now());
+            payment.setPaymentProvider("LEMON_SQUEEZY");
+            payment.setSubscription(subscription);
+            paymentRepository.save(payment);
+
+            // تفعيل الاشتراك
+            subscription.setStatus(SubscriptionStatus.ACTIVE);
+            subscriptionRepository.save(subscription);
+
+            // تفعيل الحساب والمتاجر والفروع
+            activateAccountStoresAndBranches(subscription);
+
+        } catch (ApiException e) {
+            throw e;
+
+        } catch (Exception e) {
+            throw new ApiException("Unexpected error while processing order: " + e.getMessage());
         }
-
-        if (payment.getStatus() != PaymentStatus.PENDING) {
-            throw new ApiException("Payment is not in PENDING status");
-        }
-
-        if (subscription.getStatus() != SubscriptionStatus.PENDING) {
-            throw new ApiException("Subscription is not in PENDING status");
-        }
-
-        Payment existingByOrderNumber = paymentRepository.findPaymentByTransactionId(orderNumber);
-        if (existingByOrderNumber != null && !existingByOrderNumber.getId().equals(payment.getId())) {
-            throw new ApiException("Order number already linked to another payment");
-        }
-
-
-        SubscriptionPlanType actualPlanType = resolvePlanTypeFromVariantId(paidVariantId);
-
-        long expectedCents = Math.round(actualPlanType.getPrice() * 100);
-        if (totalPaid != expectedCents) {
-            throw new ApiException(
-                    "Amount mismatch: expected " + expectedCents + " halalas for plan "
-                            + actualPlanType.name() + " but received " + totalPaid
-            );
-        }
-
-        subscription.setPlanType(actualPlanType);
-        subscription.setVariantId(paidVariantId);
-        subscription.setStartDate(LocalDate.now());
-        subscription.setEndDate(LocalDate.now().plusMonths(actualPlanType.getDurationMonths()));
-        subscription.setStatus(SubscriptionStatus.ACTIVE);
-        subscriptionRepository.save(subscription);
-
-        payment.setAmount(actualPlanType.getPrice());
-        payment.setTransactionId(orderNumber);
-        payment.setStatus(PaymentStatus.PAID);
-        payment.setPaidAt(LocalDateTime.now());
-        payment.setPaymentProvider("LEMON_SQUEEZY");
-        paymentRepository.save(payment);
-
-        activateAccountStoresAndBranches(subscription);
     }
 
     private void handleSubscriptionCreated(JsonNode root) {
