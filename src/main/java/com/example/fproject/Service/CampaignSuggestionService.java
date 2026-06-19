@@ -3,14 +3,20 @@ package com.example.fproject.Service;
 import com.example.fproject.Api.ApiException;
 import com.example.fproject.DTO.IN.CampaignSuggestionIn;
 import com.example.fproject.DTO.OUT.CampaignSuggestionOut;
+import com.example.fproject.Enum.StoreStatus;
+import com.example.fproject.Enum.SubscriptionStatus;
 import com.example.fproject.Enum.SuggestionStatus;
 import com.example.fproject.Model.AIAnalysis;
 import com.example.fproject.Model.CampaignSuggestion;
+import com.example.fproject.Model.Subscription;
 import com.example.fproject.Repository.AIAnalysisRepository;
 import com.example.fproject.Repository.CampaignSuggestionRepository;
+import com.example.fproject.Repository.SubscriptionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -20,6 +26,7 @@ public class CampaignSuggestionService {
 
     private final CampaignSuggestionRepository campaignSuggestionRepository;
     private final AIAnalysisRepository aiAnalysisRepository;
+    private final SubscriptionRepository subscriptionRepository;
     private final OpenAiService openAiService;
 
     public List<CampaignSuggestionOut> getAllCampaignSuggestions() {
@@ -69,6 +76,8 @@ public class CampaignSuggestionService {
             throw new ApiException("AI analysis not found");
         }
 
+        validateAIAnalysisReadyForSuggestion(aiAnalysis);
+
         List<CampaignSuggestion> oldSuggestions =
                 campaignSuggestionRepository.findAllByAiAnalysis_Id(aiAnalysisId);
 
@@ -86,6 +95,8 @@ public class CampaignSuggestionService {
             throw new ApiException("AI analysis not found");
         }
 
+        validateAIAnalysisReadyForSuggestion(aiAnalysis);
+
         List<CampaignSuggestion> oldSuggestions =
                 campaignSuggestionRepository.findAllByAiAnalysis_Id(aiAnalysisId);
 
@@ -99,6 +110,10 @@ public class CampaignSuggestionService {
             if (suggestion.getSuggestionRound() > latestRound) {
                 latestRound = suggestion.getSuggestionRound();
             }
+        }
+
+        if (latestRound == 0) {
+            throw new ApiException("Generate campaign suggestions before regenerating");
         }
 
         if (latestRound >= 3) {
@@ -117,12 +132,16 @@ public class CampaignSuggestionService {
         List<CampaignSuggestionOut> campaignSuggestionOuts = new ArrayList<>();
 
         for (OpenAiService.CampaignSuggestionResult result : aiResults) {
+            validateGeneratedSuggestionTime(aiAnalysis, result);
+
             CampaignSuggestion campaignSuggestion = new CampaignSuggestion();
 
             campaignSuggestion.setTitle(result.title());
             campaignSuggestion.setDescription(result.description());
             campaignSuggestion.setOfferText(result.offerText());
             campaignSuggestion.setCampaignType(result.campaignType());
+            campaignSuggestion.setSuggestedStartDate(result.suggestedStartDate());
+            campaignSuggestion.setSuggestedEndDate(result.suggestedEndDate());
             campaignSuggestion.setSuggestedStartTime(result.suggestedStartTime());
             campaignSuggestion.setSuggestedEndTime(result.suggestedEndTime());
             campaignSuggestion.setTargetCustomersCount(result.targetCustomersCount());
@@ -143,6 +162,24 @@ public class CampaignSuggestionService {
         StringBuilder summary = new StringBuilder();
 
         summary.append("AI Analysis ID: ").append(aiAnalysis.getId()).append("\n");
+
+        if (aiAnalysis.getSalesRecord() != null && aiAnalysis.getSalesRecord().getBranch() != null) {
+            summary.append("Branch name: ")
+                    .append(aiAnalysis.getSalesRecord().getBranch().getName())
+                    .append("\n");
+
+            summary.append("Branch opening time: ")
+                    .append(aiAnalysis.getSalesRecord().getBranch().getOpeningTime())
+                    .append("\n");
+
+            summary.append("Branch closing time: ")
+                    .append(aiAnalysis.getSalesRecord().getBranch().getClosingTime())
+                    .append("\n");
+
+            summary.append("Important rule: Campaign suggestions must be scheduled only inside branch working hours.\n");
+            summary.append("Do not suggest campaigns before opening time or after closing time.\n");
+        }
+
         summary.append("Top products: ").append(aiAnalysis.getTopProducts()).append("\n");
         summary.append("Low products: ").append(aiAnalysis.getLowProducts()).append("\n");
         summary.append("Peak hours: ").append(aiAnalysis.getPeakHours()).append("\n");
@@ -153,6 +190,89 @@ public class CampaignSuggestionService {
         summary.append("AI summary: ").append(aiAnalysis.getAiSummary()).append("\n");
 
         return summary.toString();
+    }
+
+    private void validateGeneratedSuggestionTime(AIAnalysis aiAnalysis, OpenAiService.CampaignSuggestionResult result) {
+        if (aiAnalysis.getSalesRecord() == null || aiAnalysis.getSalesRecord().getBranch() == null) {
+            throw new ApiException("Branch not found for this AI analysis");
+        }
+
+        String openingTimeText = aiAnalysis.getSalesRecord().getBranch().getOpeningTime();
+        String closingTimeText = aiAnalysis.getSalesRecord().getBranch().getClosingTime();
+
+        if (openingTimeText == null || openingTimeText.isBlank()) {
+            throw new ApiException("Branch opening time is missing");
+        }
+
+        if (closingTimeText == null || closingTimeText.isBlank()) {
+            throw new ApiException("Branch closing time is missing");
+        }
+
+        LocalTime openingTime = LocalTime.parse(openingTimeText.trim());
+        LocalTime closingTime = LocalTime.parse(closingTimeText.trim());
+
+        if (result.suggestedStartDate().isBefore(LocalDate.now())) {
+            throw new ApiException("AI suggested campaign start date cannot be in the past");
+        }
+
+        if (result.suggestedEndDate().isBefore(result.suggestedStartDate())) {
+            throw new ApiException("AI suggested campaign end date cannot be before start date");
+        }
+
+        if (!result.suggestedEndTime().isAfter(result.suggestedStartTime())) {
+            throw new ApiException("AI suggested campaign end time must be after start time");
+        }
+
+        if (result.suggestedStartTime().isBefore(openingTime)
+                || result.suggestedEndTime().isAfter(closingTime)) {
+            throw new ApiException("AI suggested campaign time is outside branch working hours");
+        }
+    }
+
+    private void validateAIAnalysisReadyForSuggestion(AIAnalysis aiAnalysis) {
+        if (aiAnalysis == null) {
+            throw new ApiException("AI analysis not found");
+        }
+
+        if (aiAnalysis.getSalesRecord() == null) {
+            throw new ApiException("Sales record not found for this AI analysis");
+        }
+
+        if (aiAnalysis.getSalesRecord().getBranch() == null) {
+            throw new ApiException("Branch not found for this AI analysis");
+        }
+
+        if (aiAnalysis.getSalesRecord().getBranch().getStatus() != StoreStatus.ACTIVE) {
+            throw new ApiException("Branch must be active before generating campaign suggestions");
+        }
+
+        if (aiAnalysis.getSalesRecord().getBranch().getStore() == null) {
+            throw new ApiException("Store not found for this branch");
+        }
+
+        if (aiAnalysis.getSalesRecord().getBranch().getStore().getStatus() != StoreStatus.ACTIVE) {
+            throw new ApiException("Store must be active before generating campaign suggestions");
+        }
+
+        if (aiAnalysis.getSalesRecord().getBranch().getStore().getStoreOwner() == null) {
+            throw new ApiException("Store owner not found for this store");
+        }
+
+        Integer storeOwnerId = aiAnalysis.getSalesRecord().getBranch().getStore().getStoreOwner().getId();
+
+        Subscription activeSubscription =
+                subscriptionRepository.findFirstByStoreOwnerIdAndStatusOrderByEndDateDesc(
+                        storeOwnerId,
+                        SubscriptionStatus.ACTIVE
+                );
+
+        if (activeSubscription == null) {
+            throw new ApiException("Store owner does not have an active subscription");
+        }
+
+        if (activeSubscription.getEndDate().isBefore(LocalDate.now())) {
+            throw new ApiException("Store owner subscription is expired");
+        }
     }
 
     public void addCampaignSuggestion(CampaignSuggestionIn campaignSuggestionIn) {
@@ -179,6 +299,8 @@ public class CampaignSuggestionService {
         campaignSuggestion.setDescription(campaignSuggestionIn.getDescription());
         campaignSuggestion.setOfferText(campaignSuggestionIn.getOfferText());
         campaignSuggestion.setCampaignType(campaignSuggestionIn.getCampaignType());
+        campaignSuggestion.setSuggestedStartDate(campaignSuggestionIn.getSuggestedStartDate());
+        campaignSuggestion.setSuggestedEndDate(campaignSuggestionIn.getSuggestedEndDate());
         campaignSuggestion.setSuggestedStartTime(campaignSuggestionIn.getSuggestedStartTime());
         campaignSuggestion.setSuggestedEndTime(campaignSuggestionIn.getSuggestedEndTime());
         campaignSuggestion.setTargetCustomersCount(campaignSuggestionIn.getTargetCustomersCount());
@@ -186,7 +308,6 @@ public class CampaignSuggestionService {
         campaignSuggestion.setSuggestedProductName(campaignSuggestionIn.getSuggestedProductName());
         campaignSuggestion.setSuggestionRound(campaignSuggestionIn.getSuggestionRound());
 
-        // اليوزر ما يدخل الحالة، السيرفس يبدأها Pending
         campaignSuggestion.setApprovalStatus(SuggestionStatus.PENDING);
 
         campaignSuggestion.setAiAnalysis(aiAnalysis);
@@ -235,6 +356,8 @@ public class CampaignSuggestionService {
         oldCampaignSuggestion.setDescription(campaignSuggestionIn.getDescription());
         oldCampaignSuggestion.setOfferText(campaignSuggestionIn.getOfferText());
         oldCampaignSuggestion.setCampaignType(campaignSuggestionIn.getCampaignType());
+        oldCampaignSuggestion.setSuggestedStartDate(campaignSuggestionIn.getSuggestedStartDate());
+        oldCampaignSuggestion.setSuggestedEndDate(campaignSuggestionIn.getSuggestedEndDate());
         oldCampaignSuggestion.setSuggestedStartTime(campaignSuggestionIn.getSuggestedStartTime());
         oldCampaignSuggestion.setSuggestedEndTime(campaignSuggestionIn.getSuggestedEndTime());
         oldCampaignSuggestion.setTargetCustomersCount(campaignSuggestionIn.getTargetCustomersCount());
@@ -243,7 +366,6 @@ public class CampaignSuggestionService {
         oldCampaignSuggestion.setSuggestionRound(campaignSuggestionIn.getSuggestionRound());
         oldCampaignSuggestion.setAiAnalysis(aiAnalysis);
 
-        // ما نغير approvalStatus من update
         campaignSuggestionRepository.save(oldCampaignSuggestion);
     }
 
@@ -272,12 +394,24 @@ public class CampaignSuggestionService {
             throw new ApiException("Campaign suggestion not found");
         }
 
+        validateAIAnalysisReadyForSuggestion(campaignSuggestion.getAiAnalysis());
+
         if (campaignSuggestion.getApprovalStatus() == SuggestionStatus.APPROVED) {
             throw new ApiException("Campaign suggestion is already approved");
         }
 
         if (campaignSuggestion.getApprovalStatus() == SuggestionStatus.REJECTED) {
             throw new ApiException("Rejected campaign suggestion cannot be approved");
+        }
+
+        List<CampaignSuggestion> suggestions =
+                campaignSuggestionRepository.findAllByAiAnalysis_Id(campaignSuggestion.getAiAnalysis().getId());
+
+        for (CampaignSuggestion suggestion : suggestions) {
+            if (!suggestion.getId().equals(campaignSuggestion.getId())
+                    && suggestion.getApprovalStatus() == SuggestionStatus.APPROVED) {
+                throw new ApiException("Another campaign suggestion is already approved for this AI analysis");
+            }
         }
 
         campaignSuggestion.setApprovalStatus(SuggestionStatus.APPROVED);
@@ -290,6 +424,8 @@ public class CampaignSuggestionService {
         if (campaignSuggestion == null) {
             throw new ApiException("Campaign suggestion not found");
         }
+
+        validateAIAnalysisReadyForSuggestion(campaignSuggestion.getAiAnalysis());
 
         if (campaignSuggestion.getCampaign() != null) {
             throw new ApiException("Cannot reject campaign suggestion because it is linked to a campaign");
@@ -326,6 +462,18 @@ public class CampaignSuggestionService {
 
         if (campaignSuggestionIn.getSuggestedEndTime() == null) {
             throw new ApiException("Suggested end time is required");
+        }
+
+        if (campaignSuggestionIn.getSuggestedStartDate() == null) {
+            throw new ApiException("Suggested start date is required");
+        }
+
+        if (campaignSuggestionIn.getSuggestedEndDate() == null) {
+            throw new ApiException("Suggested end date is required");
+        }
+
+        if (campaignSuggestionIn.getSuggestedEndDate().isBefore(campaignSuggestionIn.getSuggestedStartDate())) {
+            throw new ApiException("Suggested end date must not be before suggested start date");
         }
 
         if (!campaignSuggestionIn.getSuggestedEndTime().isAfter(campaignSuggestionIn.getSuggestedStartTime())) {
@@ -381,6 +529,8 @@ public class CampaignSuggestionService {
                 campaignSuggestion.getCampaignType(),
                 campaignSuggestion.getSuggestedStartTime(),
                 campaignSuggestion.getSuggestedEndTime(),
+                campaignSuggestion.getSuggestedStartDate(),
+                campaignSuggestion.getSuggestedEndDate(),
                 campaignSuggestion.getTargetCustomersCount(),
                 campaignSuggestion.getDiscountValue(),
                 campaignSuggestion.getSuggestedProductName(),

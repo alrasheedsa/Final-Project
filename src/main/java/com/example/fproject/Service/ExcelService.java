@@ -111,7 +111,7 @@ public class ExcelService {
 
                         if (productNameColumn == null || quantityColumn == null || unitPriceColumn == null
                                 || saleDateColumn == null || saleTimeColumn == null) {
-                            throw new ApiException("Excel headers must include productName, quantity, unitPrice, saleDate, saleTime");
+                            throw new ApiException("Excel file must include these columns: productName, quantity, unitPrice, saleDate, saleTime");
                         }
 
                         headerFound = true;
@@ -121,7 +121,7 @@ public class ExcelService {
                     String productName = formatter.formatCellValue(row.getCell(productNameColumn)).trim();
 
                     if (productName.isBlank()) {
-                        continue;
+                        throw new ApiException("Missing product name in Excel row " + (row.getRowNum() + 1));
                     }
 
                     Integer quantity = readInteger(row.getCell(quantityColumn), formatter, "quantity", row.getRowNum());
@@ -338,14 +338,14 @@ public class ExcelService {
 
     private LocalTime readLocalTime(Cell cell, DataFormatter formatter, Integer rowIndex) {
         if (cell == null) {
-            return LocalTime.of(12, 0);
+            throw new ApiException("Missing Excel sale time in row " + (rowIndex + 1));
         }
 
         try {
             String value = formatter.formatCellValue(cell);
 
             if (value == null || value.isBlank()) {
-                return LocalTime.of(12, 0);
+                throw new ApiException("Missing Excel sale time in row " + (rowIndex + 1));
             }
 
             value = value.trim();
@@ -356,11 +356,15 @@ public class ExcelService {
             if (value.contains(":")) {
                 String[] parts = value.split(":");
 
+                if (parts.length < 2) {
+                    throw new ApiException("Invalid Excel sale time in row " + (rowIndex + 1));
+                }
+
                 String hourText = parts[0].replaceAll("[^0-9]", "");
                 String minuteText = parts[1].replaceAll("[^0-9]", "");
 
                 if (hourText.isBlank() || minuteText.isBlank()) {
-                    return LocalTime.of(12, 0);
+                    throw new ApiException("Invalid Excel sale time in row " + (rowIndex + 1));
                 }
 
                 Integer hour = Integer.parseInt(hourText);
@@ -376,12 +380,19 @@ public class ExcelService {
                     hour = 0;
                 }
 
+                if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+                    throw new ApiException("Invalid Excel sale time in row " + (rowIndex + 1));
+                }
+
                 return LocalTime.of(hour, minute).withSecond(0).withNano(0);
             }
 
-            return LocalTime.of(12, 0);
+            throw new ApiException("Invalid Excel sale time in row " + (rowIndex + 1));
 
+        } catch (ApiException e) {
+            throw e;
         } catch (Exception e) {
-            return LocalTime.of(12, 0);
+            throw new ApiException("Invalid Excel sale time in row " + (rowIndex + 1));
         }
-    }}
+    }
+}
