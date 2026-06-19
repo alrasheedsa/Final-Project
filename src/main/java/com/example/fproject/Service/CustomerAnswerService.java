@@ -3,6 +3,7 @@ package com.example.fproject.Service;
 import com.example.fproject.Api.ApiException;
 import com.example.fproject.DTO.IN.CustomerAnswerRequestIn;
 import com.example.fproject.DTO.OUT.CustomerAnswerResponseOut;
+import com.example.fproject.Enum.CampaignStatus;
 import com.example.fproject.Enum.CampaignType;
 import com.example.fproject.Model.Campaign;
 import com.example.fproject.Model.CampaignMessage;
@@ -63,6 +64,7 @@ public class CustomerAnswerService {
         if (campaign.getAiQuestion() == null) {
             throw new ApiException("Campaign does not have an AI question");
         }
+        validateCampaignActiveNow(campaign);
 
         CustomerAnswer customerAnswer = new CustomerAnswer();
         customerAnswer.setSelectedOption(selectedOption);
@@ -95,6 +97,7 @@ public class CustomerAnswerService {
         return answers;
     }
 
+    @Transactional
     public void addCustomerAnswer(CustomerAnswerRequestIn dto) {
         validateDuplicateCustomerAnswer(dto, null);
         CustomerAnswer customerAnswer = new CustomerAnswer();
@@ -103,6 +106,7 @@ public class CustomerAnswerService {
         linkCampaignMessage(saved, dto.getCampaignMessageId());
     }
 
+    @Transactional
     public void updateCustomerAnswer(Integer customerAnswerId, CustomerAnswerRequestIn dto) {
         CustomerAnswer old = checkCustomerAnswer(customerAnswerId);
         validateDuplicateCustomerAnswer(dto, customerAnswerId);
@@ -155,6 +159,20 @@ public class CustomerAnswerService {
         }
         if (campaign.getAiQuestion() == null) {
             throw new ApiException("Campaign does not have an AI question");
+        }
+        validateCampaignActiveNow(campaign);
+    }
+
+    private void validateCampaignActiveNow(Campaign campaign) {
+        if (campaign.getStatus() != CampaignStatus.ACTIVE) {
+            throw new ApiException("Campaign must be active before accepting answers");
+        }
+        LocalDateTime now = LocalDateTime.now();
+        if (campaign.getStartDateTime() == null || campaign.getEndDateTime() == null) {
+            throw new ApiException("Campaign time is required");
+        }
+        if (now.isBefore(campaign.getStartDateTime()) || now.isAfter(campaign.getEndDateTime())) {
+            throw new ApiException("Campaign is outside its active time");
         }
     }
 

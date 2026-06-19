@@ -169,11 +169,20 @@ public class CustomerService {
         if (branch == null) {
             throw new ApiException("Branch not found");
         }
+        if (branch.getLatitude() == null || branch.getLongitude() == null) {
+            throw new ApiException("Branch location coordinates are required");
+        }
+        if (branch.getCampaignRadiusMeters() == null || branch.getCampaignRadiusMeters() <= 0) {
+            throw new ApiException("Branch campaign radius is required");
+        }
 
         List<Customer> customers = customerRepository.findCustomersByLocationConsentTrue();
         List<CustomerOut> result = new ArrayList<>();
 
         for (Customer customer : customers) {
+            if (customer.getLatitude() == null || customer.getLongitude() == null) {
+                continue;
+            }
             double distance = calculateDistanceInMeters(
                     branch.getLatitude(),
                     branch.getLongitude(),
@@ -190,6 +199,10 @@ public class CustomerService {
     }
 
     private double calculateDistanceInMeters(Double lat1, Double lon1, Double lat2, Double lon2) {
+        if (lat1 == null || lon1 == null || lat2 == null || lon2 == null) {
+            return Double.MAX_VALUE;
+        }
+
         final int earthRadiusMeters = 6371000;
 
         double latDistance = Math.toRadians(lat2 - lat1);

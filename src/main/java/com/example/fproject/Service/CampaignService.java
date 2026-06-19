@@ -37,6 +37,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -81,11 +82,10 @@ public class CampaignService {
         campaign.setDescription(campaignSuggestion.getDescription());
         campaign.setOfferText(campaignSuggestion.getOfferText());
         campaign.setCampaignType(campaignSuggestion.getCampaignType());
-        campaign.setStartDateTime(buildSuggestedDateTime(campaignSuggestion.getSuggestedStartTime()));
-        campaign.setEndDateTime(buildSuggestedDateTime(campaignSuggestion.getSuggestedEndTime()));
-        if (!campaign.getEndDateTime().isAfter(campaign.getStartDateTime())) {
-            campaign.setEndDateTime(campaign.getEndDateTime().plusDays(1));
-        }
+        campaign.setStartDateTime(buildSuggestedDateTime(campaignSuggestion.getSuggestedStartDate(),
+                campaignSuggestion.getSuggestedStartTime()));
+        campaign.setEndDateTime(buildSuggestedDateTime(campaignSuggestion.getSuggestedEndDate(),
+                campaignSuggestion.getSuggestedEndTime()));
         campaign.setTargetCustomersCount(campaignSuggestion.getTargetCustomersCount());
         campaign.setSentCount(0);
         campaign.setRedeemedCount(0);
@@ -117,6 +117,7 @@ public class CampaignService {
         return getCampaignsByBranchAndStatus(branchId, CampaignStatus.COMPLETED);
     }
 
+    @Transactional
     public void addCampaign(CampaignRequestIn dto) {
         validateCampaign(dto);
         Campaign campaign = new Campaign();
@@ -125,6 +126,7 @@ public class CampaignService {
         campaignRepository.save(campaign);
     }
 
+    @Transactional
     public void updateCampaign(Integer campaignId, CampaignRequestIn dto) {
         validateCampaign(dto);
         Campaign old = checkCampaign(campaignId);
@@ -152,6 +154,7 @@ public class CampaignService {
         campaignRepository.delete(campaign);
     }
 
+    @Transactional
     public void approveCampaign(Integer campaignId) {
         Campaign campaign = checkCampaign(campaignId);
         if (campaign.getStatus() != CampaignStatus.PENDING) {
@@ -162,6 +165,7 @@ public class CampaignService {
         campaignRepository.save(campaign);
     }
 
+    @Transactional
     public void cancelCampaign(Integer campaignId) {
         Campaign campaign = checkCampaign(campaignId);
         if (campaign.getStatus() == CampaignStatus.EXPIRED || campaign.getStatus() == CampaignStatus.COMPLETED) {
@@ -171,6 +175,7 @@ public class CampaignService {
         campaignRepository.save(campaign);
     }
 
+    @Transactional
     public void startCampaign(Integer campaignId) {
         Campaign campaign = checkCampaign(campaignId);
         validateCampaignCanStart(campaign);
@@ -178,6 +183,7 @@ public class CampaignService {
         campaignRepository.save(campaign);
     }
 
+    @Transactional
     public void completeCampaign(Integer campaignId) {
         Campaign campaign = checkCampaign(campaignId);
         if (campaign.getStatus() != CampaignStatus.ACTIVE && campaign.getStatus() != CampaignStatus.APPROVED) {
@@ -187,6 +193,7 @@ public class CampaignService {
         campaignRepository.save(campaign);
     }
 
+    @Transactional
     public void stopCampaign(Integer campaignId) {
         Campaign campaign = checkCampaign(campaignId);
         if (campaign.getStatus() != CampaignStatus.ACTIVE) {
@@ -391,12 +398,8 @@ public class CampaignService {
         return campaigns;
     }
 
-    private LocalDateTime buildSuggestedDateTime(java.time.LocalTime time) {
-        LocalDateTime dateTime = LocalDate.now().atTime(time);
-        if (!dateTime.isAfter(LocalDateTime.now())) {
-            return dateTime.plusDays(1);
-        }
-        return dateTime;
+    private LocalDateTime buildSuggestedDateTime(LocalDate date, LocalTime time) {
+        return date.atTime(time);
     }
 
     private void validateCampaignReady(Campaign campaign) {
@@ -427,6 +430,13 @@ public class CampaignService {
             throw new ApiException("Campaign must be approved before sending");
         }
         validateCampaignReady(campaign);
+        LocalDateTime now = LocalDateTime.now();
+        if (now.isBefore(campaign.getStartDateTime())) {
+            throw new ApiException("Campaign cannot be sent before start time");
+        }
+        if (now.isAfter(campaign.getEndDateTime())) {
+            throw new ApiException("Campaign end time is expired");
+        }
         if (campaign.getSentCount() >= campaign.getTargetCustomersCount()) {
             throw new ApiException("Campaign already reached target customers count");
         }
@@ -546,8 +556,18 @@ public class CampaignService {
     }
 
     private void validateCampaignSuggestionTime(CampaignSuggestion campaignSuggestion) {
+        if (campaignSuggestion.getSuggestedStartDate() == null || campaignSuggestion.getSuggestedEndDate() == null) {
+            throw new ApiException("Campaign suggestion date is required");
+        }
         if (campaignSuggestion.getSuggestedStartTime() == null || campaignSuggestion.getSuggestedEndTime() == null) {
             throw new ApiException("Campaign suggestion time is required");
+        }
+        LocalDateTime startDateTime = buildSuggestedDateTime(campaignSuggestion.getSuggestedStartDate(),
+                campaignSuggestion.getSuggestedStartTime());
+        LocalDateTime endDateTime = buildSuggestedDateTime(campaignSuggestion.getSuggestedEndDate(),
+                campaignSuggestion.getSuggestedEndTime());
+        if (!endDateTime.isAfter(startDateTime)) {
+            throw new ApiException("Campaign suggestion end time must be after start time");
         }
     }
 

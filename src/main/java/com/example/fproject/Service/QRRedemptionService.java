@@ -11,6 +11,7 @@ import com.example.fproject.Model.Campaign;
 import com.example.fproject.Model.Customer;
 import com.example.fproject.Model.QRCode;
 import com.example.fproject.Model.QRRedemption;
+import com.example.fproject.Repository.CampaignMessageRepository;
 import com.example.fproject.Repository.CampaignRepository;
 import com.example.fproject.Repository.CustomerRepository;
 import com.example.fproject.Repository.QRCodeRepository;
@@ -31,6 +32,7 @@ public class QRRedemptionService {
     private final QRRedemptionRepository qrRedemptionRepository;
     private final QRCodeRepository qrCodeRepository;
     private final CampaignRepository campaignRepository;
+    private final CampaignMessageRepository campaignMessageRepository;
     private final CustomerRepository customerRepository;
     private final CampaignResultService campaignResultService;
     private final ModelMapper modelMapper;
@@ -95,6 +97,7 @@ public class QRRedemptionService {
         updateRedemptionCounters(qrRedemption);
     }
 
+    @Transactional
     public void updateQRRedemption(Integer qrRedemptionId, QRRedemptionRequestIn dto) {
         QRRedemption old = checkQRRedemption(qrRedemptionId);
         setQRRedemption(old, dto);
@@ -205,6 +208,9 @@ public class QRRedemptionService {
         }
         if (Boolean.TRUE.equals(qrRedemptionRepository.existsByCampaignIdAndCustomerId(campaign.getId(), customer.getId()))) {
             throw new ApiException("Customer already used this QR code for this campaign");
+        }
+        if (!Boolean.TRUE.equals(campaignMessageRepository.existsByCampaignIdAndCustomerId(campaign.getId(), customer.getId()))) {
+            throw new ApiException("Customer did not receive this campaign offer");
         }
     }
 
