@@ -11,6 +11,7 @@ import com.example.fproject.Repository.BranchRepository;
 import com.example.fproject.Repository.MonthlyReportRepository;
 import com.example.fproject.Repository.SalesRecordItemRepository;
 import com.example.fproject.Repository.SalesRecordRepository;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -30,213 +31,177 @@ public class MonthlyReportService {
     private final ITextService iTextService;
     private final OpenAiService openAiService;
 
-
+    @Transactional
     public MonthlyReportOut generateMonthlyReport(Integer branchId, MonthlyReportIn dto) {
-        Branch branch = branchRepository.findBranchById(branchId);
 
-        if (branch == null) {
-            throw new ApiException("Branch not found");
-        }
+        Branch branch = findBranchOrThrow(branchId);
 
         if (!branchService.isBranchSubscribed(branchId)) {
             throw new ApiException("Branch must have an active subscription to generate a monthly report");
         }
 
-        if (monthlyReportRepository.existsMonthlyReportByBranchIdAndMonthAndYear(branchId, dto.getMonth(), dto.getYear())) {
-            throw new ApiException("Monthly report already exists for this month and year");
+        if (monthlyReportRepository.existsMonthlyReportByBranchIdAndMonthAndYear(
+                branchId, dto.getMonth(), dto.getYear())) {
+            throw new ApiException(
+                    "A monthly report already exists for " + monthName(dto.getMonth()) + " " + dto.getYear()
+            );
         }
 
-        SalesRecord salesRecord =
-                salesRecordRepository.findByBranch_IdAndMonthAndYear(branchId, dto.getMonth(), dto.getYear());
+        SalesRecord salesRecord = salesRecordRepository
+                .findByBranch_IdAndMonthAndYear(branchId, dto.getMonth(), dto.getYear());
 
         if (salesRecord == null) {
-            throw new ApiException("No sales record found for this branch, month, and year");
+            throw new ApiException(
+                    "No sales record found for " + monthName(dto.getMonth()) + " " + dto.getYear()
+            );
         }
 
-        List<SalesRecordItem> items =
-                salesRecordItemRepository.findAllBySalesRecord_Id(salesRecord.getId())
-                        .stream()
-                        .filter(item -> item.getSaleDate() != null
-                                && item.getSaleDate().getMonthValue() == dto.getMonth()
-                                && item.getSaleDate().getYear() == dto.getYear())
-                        .toList();
+        List<SalesRecordItem> items = salesRecordItemRepository
+                .findAllBySalesRecord_Id(salesRecord.getId())
+                .stream()
+                .filter(item -> item.getSaleDate() != null
+                        && item.getSaleDate().getMonthValue() == dto.getMonth()
+                        && item.getSaleDate().getYear() == dto.getYear())
+                .toList();
 
         if (items.isEmpty()) {
-            throw new ApiException("No sales data found for the selected month");
+            throw new ApiException(
+                    "No sales items found for " + monthName(dto.getMonth()) + " " + dto.getYear()
+            );
         }
 
-        double totalSales = items.stream()
-                .mapToDouble(item -> item.getTotalPrice() != null
-                        ? item.getTotalPrice()
-                        : item.getQuantity() * item.getUnitPrice())
-                .sum();
+        SalesStats stats = calculateStats(items);
 
-        int totalQuantity = items.stream()
-                .mapToInt(SalesRecordItem::getQuantity)
-                .sum();
+        String aiSummary = generateAiSummary(branch, dto, stats);
 
-        Map<String, Double> salesByProduct = new LinkedHashMap<>();
-        Map<String, Integer> quantityByProduct = new LinkedHashMap<>();
-        Map<Integer, Integer> quantityByHour = new LinkedHashMap<>();
+        MonthlyReport report = new MonthlyReport();
+        report.setMonth(dto.getMonth());
+        report.setYear(dto.getYear());
+        report.setTotalSales(stats.totalSales());
+        report.setTotalQuantity(stats.totalQuantity());
+        report.setTopProducts(stats.topProducts());
+        report.setLowProducts(stats.lowProducts());
+        report.setPeakHours(stats.peakHours());
+        report.setSlowHours(stats.slowHours());
+        report.setSurplusProducts(stats.surplusProducts());
+        report.setAiSummary(aiSummary);
+        report.setGeneratedAt(LocalDateTime.now());
+        report.setBranch(branch);
 
-        for (SalesRecordItem item : items) {
-            double itemTotal = item.getTotalPrice() != null
-                    ? item.getTotalPrice()
-                    : item.getQuantity() * item.getUnitPrice();
+        monthlyReportRepository.save(report);
+        report.setPdfUrl("/api/v1/monthly-report/download/" + report.getId());
+        monthlyReportRepository.save(report);
 
-            salesByProduct.merge(item.getProductName(), itemTotal, Double::sum);
-            quantityByProduct.merge(item.getProductName(), item.getQuantity(), Integer::sum);
-            quantityByHour.merge(item.getSaleTime().getHour(), item.getQuantity(), Integer::sum);
-        }
-
-        String topProducts = formatProducts(salesByProduct, true);
-        String lowProducts = formatProducts(salesByProduct, false);
-        String surplusProducts = quantityByProduct.entrySet().stream()
-                .sorted(Map.Entry.comparingByValue())
-                .limit(3)
-                .map(entry -> entry.getKey() + " (" + entry.getValue() + ")")
-                .collect(Collectors.joining(", "));
-        String peakHours = formatHour(quantityByHour, true);
-        String slowHours = formatHour(quantityByHour, false);
-
-        MonthlyReport monthlyReport = new MonthlyReport();
-        monthlyReport.setMonth(dto.getMonth());
-        monthlyReport.setYear(dto.getYear());
-
-        monthlyReport.setTotalSales(totalSales);
-        monthlyReport.setTotalQuantity(totalQuantity);
-        monthlyReport.setTopProducts(topProducts);
-        monthlyReport.setLowProducts(lowProducts);
-        monthlyReport.setPeakHours(peakHours);
-        monthlyReport.setSlowHours(slowHours);
-        monthlyReport.setSurplusProducts(surplusProducts);
-        monthlyReport.setAiSummary(
-                openAiService.generateMonthlyReportSummary(
-                        branch.getStore().getName(),
-                        branch.getName(),
-                        dto.getMonth(),
-                        dto.getYear(),
-                        totalSales,
-                        totalQuantity,
-                        topProducts,
-                        lowProducts,
-                        surplusProducts,
-                        peakHours,
-                        slowHours
-                )
-        );
-        monthlyReport.setPdfUrl("pending");
-        monthlyReport.setGeneratedAt(LocalDateTime.now());
-        monthlyReport.setBranch(branch);
-
-        monthlyReportRepository.save(monthlyReport);
-        monthlyReport.setPdfUrl("/api/v1/monthly-report/download/" + monthlyReport.getId());
-        monthlyReportRepository.save(monthlyReport);
-
-        return mapToDTOOUT(monthlyReport);
+        return mapToOut(report);
     }
 
     public List<MonthlyReportOut> getAllMonthlyReports() {
-        List<MonthlyReport> reports = monthlyReportRepository.findAll();
-        List<MonthlyReportOut> result = new ArrayList<>();
-
-        for (MonthlyReport report : reports) {
-            result.add(mapToDTOOUT(report));
-        }
-
-        return result;
+        return monthlyReportRepository.findAll()
+                .stream()
+                .map(this::mapToOut)
+                .toList();
     }
 
     public MonthlyReportOut getMonthlyReportById(Integer reportId) {
-        MonthlyReport report = monthlyReportRepository.findMonthlyReportById(reportId);
-
-        if (report == null) {
-            throw new ApiException("Monthly report not found");
-        }
-
-        return mapToDTOOUT(report);
+        return mapToOut(findReportOrThrow(reportId));
     }
 
     public List<MonthlyReportOut> getMonthlyReportsByBranchId(Integer branchId) {
-        Branch branch = branchRepository.findBranchById(branchId);
-
-        if (branch == null) {
-            throw new ApiException("Branch not found");
-        }
-
-        List<MonthlyReport> reports =
-                monthlyReportRepository.findMonthlyReportsByBranchIdOrderByYearDescMonthDesc(branchId);
-
-        List<MonthlyReportOut> result = new ArrayList<>();
-
-        for (MonthlyReport report : reports) {
-            result.add(mapToDTOOUT(report));
-        }
-
-        return result;
+        findBranchOrThrow(branchId);
+        return monthlyReportRepository
+                .findMonthlyReportsByBranchIdOrderByYearDescMonthDesc(branchId)
+                .stream()
+                .map(this::mapToOut)
+                .toList();
     }
 
-    public MonthlyReportOut getMonthlyReportByBranchAndDate(Integer branchId, Integer month, Integer year) {
-        Branch branch = branchRepository.findBranchById(branchId);
+    public MonthlyReportOut getMonthlyReportByBranchAndDate(
+            Integer branchId, Integer month, Integer year) {
 
-        if (branch == null) {
-            throw new ApiException("Branch not found");
-        }
+        findBranchOrThrow(branchId);
 
-        MonthlyReport report =
-                monthlyReportRepository.findMonthlyReportByBranchIdAndMonthAndYear(branchId, month, year);
+        MonthlyReport report = monthlyReportRepository
+                .findMonthlyReportByBranchIdAndMonthAndYear(branchId, month, year);
 
         if (report == null) {
-            throw new ApiException("Monthly report not found");
-        }
-
-        return mapToDTOOUT(report);
-    }
-
-    public MonthlyReportOut updateMonthlyReport(Integer reportId, MonthlyReportIn dto) {
-        MonthlyReport report = monthlyReportRepository.findMonthlyReportById(reportId);
-
-        if (report == null) {
-            throw new ApiException("Monthly report not found");
-        }
-
-        if (!report.getMonth().equals(dto.getMonth()) || !report.getYear().equals(dto.getYear())) {
-            boolean exists = monthlyReportRepository.existsMonthlyReportByBranchIdAndMonthAndYear(
-                    report.getBranch().getId(),
-                    dto.getMonth(),
-                    dto.getYear()
+            throw new ApiException(
+                    "No report found for " + monthName(month) + " " + year
             );
-
-            if (exists) {
-                throw new ApiException("Monthly report already exists for this month and year");
-            }
         }
 
-        report.setMonth(dto.getMonth());
-        report.setYear(dto.getYear());
-        report.setGeneratedAt(LocalDateTime.now());
-
-        monthlyReportRepository.save(report);
-
-        return mapToDTOOUT(report);
+        return mapToOut(report);
     }
 
-    public void deleteMonthlyReport(Integer reportId) {
-        MonthlyReport report = monthlyReportRepository.findMonthlyReportById(reportId);
+    @Transactional
+    public MonthlyReportOut regenerateMonthlyReport(Integer reportId) {
 
-        if (report == null) {
-            throw new ApiException("Monthly report not found");
+        MonthlyReport existing = findReportOrThrow(reportId);
+
+        Branch branch = existing.getBranch();
+        Integer branchId = branch.getId();
+        Integer month    = existing.getMonth();
+        Integer year     = existing.getYear();
+
+        if (!branchService.isBranchSubscribed(branchId)) {
+            throw new ApiException("Branch must have an active subscription to regenerate a report");
         }
 
+        SalesRecord salesRecord = salesRecordRepository
+                .findByBranch_IdAndMonthAndYear(branchId, month, year);
+
+        if (salesRecord == null) {
+            throw new ApiException(
+                    "No sales record found for " + monthName(month) + " " + year
+            );
+        }
+
+        List<SalesRecordItem> items = salesRecordItemRepository
+                .findAllBySalesRecord_Id(salesRecord.getId())
+                .stream()
+                .filter(item -> item.getSaleDate() != null
+                        && item.getSaleDate().getMonthValue() == month
+                        && item.getSaleDate().getYear() == year)
+                .toList();
+
+        if (items.isEmpty()) {
+            throw new ApiException(
+                    "No sales items found for " + monthName(month) + " " + year
+            );
+        }
+
+        SalesStats stats = calculateStats(items);
+        String aiSummary = generateAiSummary(
+                branch,
+                new MonthlyReportIn(month, year),
+                stats
+        );
+
+        existing.setTotalSales(stats.totalSales());
+        existing.setTotalQuantity(stats.totalQuantity());
+        existing.setTopProducts(stats.topProducts());
+        existing.setLowProducts(stats.lowProducts());
+        existing.setPeakHours(stats.peakHours());
+        existing.setSlowHours(stats.slowHours());
+        existing.setSurplusProducts(stats.surplusProducts());
+        existing.setAiSummary(aiSummary);
+        existing.setGeneratedAt(LocalDateTime.now());
+
+        monthlyReportRepository.save(existing);
+
+        return mapToOut(existing);
+    }
+
+
+    @Transactional
+    public void deleteMonthlyReport(Integer reportId) {
+        MonthlyReport report = findReportOrThrow(reportId);
         monthlyReportRepository.delete(report);
     }
 
-    public byte[] downloadMonthlyReport(Integer reportId) {
-        MonthlyReport report = monthlyReportRepository.findMonthlyReportById(reportId);
 
-        if (report == null) {
-            throw new ApiException("Monthly report not found");
-        }
+    public byte[] downloadMonthlyReport(Integer reportId) {
+
+        MonthlyReport report = findReportOrThrow(reportId);
 
         return iTextService.generateSalesMonthlyReportPdf(
                 report.getBranch().getStore().getName(),
@@ -253,34 +218,131 @@ public class MonthlyReportService {
         );
     }
 
-    private String formatProducts(Map<String, Double> salesByProduct, boolean highestFirst) {
-        Comparator<Map.Entry<String, Double>> comparator = Map.Entry.comparingByValue();
-        if (highestFirst) {
-            comparator = comparator.reversed();
+
+    private SalesStats calculateStats(List<SalesRecordItem> items) {
+
+        double totalSales = items.stream()
+                .mapToDouble(item -> item.getTotalPrice() != null
+                        ? item.getTotalPrice()
+                        : item.getQuantity() * item.getUnitPrice())
+                .sum();
+
+        int totalQuantity = items.stream()
+                .mapToInt(SalesRecordItem::getQuantity)
+                .sum();
+
+        Map<String, Double>  salesByProduct    = new LinkedHashMap<>();
+        Map<String, Integer> quantityByProduct = new LinkedHashMap<>();
+        Map<Integer, Integer> quantityByHour   = new LinkedHashMap<>();
+
+        for (SalesRecordItem item : items) {
+            double itemTotal = item.getTotalPrice() != null
+                    ? item.getTotalPrice()
+                    : item.getQuantity() * item.getUnitPrice();
+
+            salesByProduct.merge(item.getProductName(), itemTotal, Double::sum);
+            quantityByProduct.merge(item.getProductName(), item.getQuantity(), Integer::sum);
+
+            if (item.getSaleTime() != null) {
+                quantityByHour.merge(item.getSaleTime().getHour(), item.getQuantity(), Integer::sum);
+            }
         }
+
+        String topProducts = formatTopProducts(salesByProduct, true);
+        String lowProducts = formatTopProducts(salesByProduct, false);
+
+        String surplusProducts = quantityByProduct.entrySet().stream()
+                .sorted(Map.Entry.comparingByValue())
+                .limit(3)
+                .map(e -> e.getKey() + " (" + e.getValue() + " units)")
+                .collect(Collectors.joining(", "));
+
+        String peakHours = quantityByHour.isEmpty() ? "N/A" : formatHour(quantityByHour, true);
+        String slowHours = quantityByHour.isEmpty() ? "N/A" : formatHour(quantityByHour, false);
+
+        return new SalesStats(
+                totalSales, totalQuantity,
+                topProducts, lowProducts, surplusProducts,
+                peakHours, slowHours
+        );
+    }
+
+
+    private String generateAiSummary(Branch branch, MonthlyReportIn dto, SalesStats stats) {
+        try {
+            return openAiService.generateMonthlyReportSummary(
+                    branch.getStore().getName(),
+                    branch.getName(),
+                    dto.getMonth(),
+                    dto.getYear(),
+                    stats.totalSales(),
+                    stats.totalQuantity(),
+                    stats.topProducts(),
+                    stats.lowProducts(),
+                    stats.surplusProducts(),
+                    stats.peakHours(),
+                    stats.slowHours()
+            );
+        } catch (Exception e) {
+            return "AI summary could not be generated at this time.";
+        }
+    }
+
+    private String formatTopProducts(Map<String, Double> salesByProduct, boolean highestFirst) {
+
+        Comparator<Map.Entry<String, Double>> comparator = Map.Entry.comparingByValue();
+        if (highestFirst) comparator = comparator.reversed();
 
         return salesByProduct.entrySet().stream()
                 .sorted(comparator)
                 .limit(3)
-                .map(entry -> entry.getKey() + " (" + String.format("%.2f", entry.getValue()) + " SAR)")
+                .map(e -> e.getKey() + " (" + String.format("%.2f", e.getValue()) + " SAR)")
                 .collect(Collectors.joining(", "));
     }
 
     private String formatHour(Map<Integer, Integer> quantityByHour, boolean highestFirst) {
-        Comparator<Map.Entry<Integer, Integer>> comparator = Map.Entry.comparingByValue();
-        if (highestFirst) {
-            comparator = comparator.reversed();
-        }
 
-        Map.Entry<Integer, Integer> result = quantityByHour.entrySet().stream()
+        Comparator<Map.Entry<Integer, Integer>> comparator = Map.Entry.comparingByValue();
+        if (highestFirst) comparator = comparator.reversed();
+
+        return quantityByHour.entrySet().stream()
                 .sorted(comparator)
                 .findFirst()
-                .orElseThrow(() -> new ApiException("Sales hours are missing"));
-
-        return String.format("%02d:00 (%d units)", result.getKey(), result.getValue());
+                .map(e -> String.format("%02d:00 (%d units)", e.getKey(), e.getValue()))
+                .orElse("N/A");
     }
 
-    private MonthlyReportOut mapToDTOOUT(MonthlyReport report) {
+    private String monthName(Integer month) {
+        return switch (month) {
+            case 1  -> "January";
+            case 2  -> "February";
+            case 3  -> "March";
+            case 4  -> "April";
+            case 5  -> "May";
+            case 6  -> "June";
+            case 7  -> "July";
+            case 8  -> "August";
+            case 9  -> "September";
+            case 10 -> "October";
+            case 11 -> "November";
+            case 12 -> "December";
+            default -> "Month " + month;
+        };
+    }
+
+    private Branch findBranchOrThrow(Integer branchId) {
+        Branch branch = branchRepository.findBranchById(branchId);
+        if (branch == null) throw new ApiException("Branch not found");
+        return branch;
+    }
+
+    private MonthlyReport findReportOrThrow(Integer reportId) {
+        MonthlyReport report = monthlyReportRepository.findMonthlyReportById(reportId);
+        if (report == null) throw new ApiException("Monthly report not found");
+        return report;
+    }
+
+    private MonthlyReportOut mapToOut(MonthlyReport report) {
         return new MonthlyReportOut(
                 report.getId(),
                 report.getMonth(),
@@ -301,4 +363,14 @@ public class MonthlyReportService {
                 report.getBranch().getStore().getName()
         );
     }
+
+    private record SalesStats(
+            double  totalSales,
+            int     totalQuantity,
+            String  topProducts,
+            String  lowProducts,
+            String  surplusProducts,
+            String  peakHours,
+            String  slowHours
+    ) {}
 }

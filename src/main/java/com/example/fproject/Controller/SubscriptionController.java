@@ -40,6 +40,20 @@ public class SubscriptionController {
         return ResponseEntity.status(200).body(subscriptionService.getActiveSubscription(storeOwnerId));
     }
 
+
+    @GetMapping("/status/{storeOwnerId}")
+    public ResponseEntity<?> getSubscriptionStatus(@PathVariable Integer storeOwnerId) {
+        return ResponseEntity.status(200).body(subscriptionService.getSubscriptionStatus(storeOwnerId));
+    }
+
+
+    @PostMapping("/renew/{storeOwnerId}/{newPlanType}")
+    public ResponseEntity<?> renewSubscription(@PathVariable Integer storeOwnerId, @PathVariable String newPlanType) {
+        String checkoutUrl = subscriptionService.renewSubscription(storeOwnerId, newPlanType);
+        return ResponseEntity.status(200).body(new ApiResponse(checkoutUrl));
+    }
+
+
     @PutMapping("/cancel/{subscriptionId}")
     public ResponseEntity<?> cancelSubscription(@PathVariable Integer subscriptionId) {
         subscriptionService.cancelSubscription(subscriptionId);

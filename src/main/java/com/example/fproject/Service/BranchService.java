@@ -17,6 +17,7 @@ import com.example.fproject.Repository.MonthlyReportRepository;
 import com.example.fproject.Repository.SalesRecordRepository;
 import com.example.fproject.Repository.StoreRepository;
 import com.example.fproject.Repository.SubscriptionRepository;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -40,34 +41,33 @@ public class BranchService {
     private final SubscriptionRepository subscriptionRepository;
     private final OpenAiService openAiService;
 
+    @Transactional
     public BranchOut addBranch(Integer storeId, BranchIn dto) {
 
-        Store store = storeRepository.findStoreById(storeId);
-
-        if (store == null) {
-            throw new ApiException("Store not found");
-        }
+        Store store = findStoreOrThrow(storeId);
 
         if (store.getStatus() == StoreStatus.INACTIVE) {
-            throw new ApiException("Cannot add branch to inactive store");
+            throw new ApiException("Cannot add a branch to an inactive store");
         }
 
         if (!Boolean.TRUE.equals(store.getCommercialRegisterVerified())) {
-            throw new ApiException("Cannot add branch before commercial register verification");
+            throw new ApiException("Cannot add a branch before the store's commercial register is verified");
         }
 
         Subscription subscription = getActiveOrPendingSubscription(store.getStoreOwner().getId());
 
-        Integer currentBranchesCount = branchRepository.countBranchesByStoreId(storeId);
-        Integer maxBranchesPerStore = subscription.getPlanType().getMaxBranchesPerStore();
+        long currentCount = countActiveOrPendingBranches(storeId);
+        int maxBranches   = subscription.getPlanType().getMaxBranchesPerStore();
 
-        if (currentBranchesCount >= maxBranchesPerStore) {
-            throw new ApiException("Your current subscription plan allows only "
-                    + maxBranchesPerStore + " branch(es) per store");
+        if (currentCount >= maxBranches) {
+            throw new ApiException(
+                    "Your subscription plan allows only " + maxBranches + " branch(es) per store. "
+                            + "Deactivate an existing branch or upgrade your plan."
+            );
         }
 
         if (branchRepository.existsBranchByNameAndStoreId(dto.getName(), storeId)) {
-            throw new ApiException("Branch name already exists for this store");
+            throw new ApiException("A branch with this name already exists in this store");
         }
 
         validateWorkingHours(dto.getOpeningTime(), dto.getClosingTime());
@@ -85,70 +85,40 @@ public class BranchService {
         branch.setClosingTime(dto.getClosingTime());
         branch.setStore(store);
 
-        if (subscription.getStatus() == SubscriptionStatus.ACTIVE
-                && store.getStatus() == StoreStatus.ACTIVE) {
-            branch.setStatus(StoreStatus.ACTIVE);
-        } else {
-            branch.setStatus(StoreStatus.PENDING);
-        }
+        branch.setStatus(resolveBranchStatus(subscription, store));
 
         branchRepository.save(branch);
 
-        return mapToDTOOUT(branch);
+        return mapToOut(branch);
     }
 
     public List<BranchOut> getAllBranches() {
-
-        List<Branch> branches = branchRepository.findAll();
-        List<BranchOut> result = new ArrayList<>();
-
-        for (Branch branch : branches) {
-            result.add(mapToDTOOUT(branch));
-        }
-
-        return result;
+        return branchRepository.findAll()
+                .stream()
+                .map(this::mapToOut)
+                .toList();
     }
 
     public BranchOut getBranchById(Integer branchId) {
-
-        Branch branch = branchRepository.findBranchById(branchId);
-
-        if (branch == null) {
-            throw new ApiException("Branch not found");
-        }
-
-        return mapToDTOOUT(branch);
+        return mapToOut(findBranchOrThrow(branchId));
     }
 
     public List<BranchOut> getBranchesByStoreId(Integer storeId) {
-
-        Store store = storeRepository.findStoreById(storeId);
-
-        if (store == null) {
-            throw new ApiException("Store not found");
-        }
-
-        List<Branch> branches = branchRepository.findBranchesByStoreId(storeId);
-        List<BranchOut> result = new ArrayList<>();
-
-        for (Branch branch : branches) {
-            result.add(mapToDTOOUT(branch));
-        }
-
-        return result;
+        findStoreOrThrow(storeId);
+        return branchRepository.findBranchesByStoreId(storeId)
+                .stream()
+                .map(this::mapToOut)
+                .toList();
     }
 
+    @Transactional
     public BranchOut updateBranch(Integer branchId, BranchIn dto) {
 
-        Branch branch = branchRepository.findBranchById(branchId);
-
-        if (branch == null) {
-            throw new ApiException("Branch not found");
-        }
+        Branch branch = findBranchOrThrow(branchId);
 
         if (!branch.getName().equals(dto.getName())
                 && branchRepository.existsBranchByNameAndStoreId(dto.getName(), branch.getStore().getId())) {
-            throw new ApiException("Branch name already exists for this store");
+            throw new ApiException("A branch with this name already exists in this store");
         }
 
         validateWorkingHours(dto.getOpeningTime(), dto.getClosingTime());
@@ -165,15 +135,60 @@ public class BranchService {
 
         branchRepository.save(branch);
 
-        return mapToDTOOUT(branch);
+        return mapToOut(branch);
     }
 
+    @Transactional
+    public BranchOut activateBranch(Integer branchId) {
+
+        Branch branch = findBranchOrThrow(branchId);
+
+        if (branch.getStatus() == StoreStatus.ACTIVE) {
+            throw new ApiException("Branch is already active");
+        }
+
+        if (branch.getStore().getStatus() != StoreStatus.ACTIVE) {
+            throw new ApiException("Cannot activate branch: its store is not active");
+        }
+
+        Subscription activeSubscription = subscriptionRepository
+                .findFirstByStoreOwnerIdAndStatusOrderByEndDateDesc(
+                        branch.getStore().getStoreOwner().getId(),
+                        SubscriptionStatus.ACTIVE
+                );
+
+        if (activeSubscription == null || activeSubscription.getEndDate().isBefore(LocalDate.now())) {
+            throw new ApiException("Cannot activate branch: no active subscription found");
+        }
+
+        branch.setStatus(StoreStatus.ACTIVE);
+        branchRepository.save(branch);
+
+        return mapToOut(branch);
+    }
+
+    @Transactional
+    public BranchOut deactivateBranch(Integer branchId) {
+
+        Branch branch = findBranchOrThrow(branchId);
+
+        if (branch.getStatus() == StoreStatus.INACTIVE) {
+            throw new ApiException("Branch is already inactive");
+        }
+
+        branch.setStatus(StoreStatus.INACTIVE);
+        branchRepository.save(branch);
+
+        return mapToOut(branch);
+    }
+
+    @Transactional
     public void deleteBranch(Integer branchId) {
 
-        Branch branch = branchRepository.findBranchById(branchId);
+        Branch branch = findBranchOrThrow(branchId);
 
-        if (branch == null) {
-            throw new ApiException("Branch not found");
+        if (branch.getStatus() == StoreStatus.ACTIVE) {
+            throw new ApiException("Cannot delete an active branch. Deactivate it first");
         }
 
         if (salesRecordRepository.existsByBranchId(branchId)) {
@@ -184,67 +199,44 @@ public class BranchService {
             throw new ApiException("Cannot delete branch because it has campaigns");
         }
 
-        if (!monthlyReportRepository.findMonthlyReportsByBranchId(branchId).isEmpty()) {
+        if (monthlyReportRepository.existsMonthlyReportByBranchIdAndMonthAndYear(branchId, 0, 0)
+                || !monthlyReportRepository.findMonthlyReportsByBranchId(branchId).isEmpty()) {
             throw new ApiException("Cannot delete branch because it has monthly reports");
         }
 
         branchRepository.delete(branch);
     }
 
-    public BranchOut activateBranch(Integer branchId) {
-
-        Branch branch = branchRepository.findBranchById(branchId);
-
-        if (branch == null) {
-            throw new ApiException("Branch not found");
-        }
-
-        if (branch.getStore().getStatus() != StoreStatus.ACTIVE) {
-            throw new ApiException("Cannot activate branch because its store is not active");
-        }
-
-        Subscription activeSubscription =
-                subscriptionRepository.findFirstByStoreOwnerIdAndStatusOrderByEndDateDesc(
-                        branch.getStore().getStoreOwner().getId(),
-                        SubscriptionStatus.ACTIVE
-                );
-
-        if (activeSubscription == null || activeSubscription.getEndDate().isBefore(LocalDate.now())) {
-            throw new ApiException("Cannot activate branch without an active subscription");
-        }
-
-
-        branch.setStatus(StoreStatus.ACTIVE);
-        branchRepository.save(branch);
-
-        return mapToDTOOUT(branch);
-    }
 
     public boolean isBranchSubscribed(Integer branchId) {
-        Branch branch = branchRepository.findBranchById(branchId);
 
-        if (branch == null) {
-            throw new ApiException("Branch not found");
-        }
+        Branch branch = findBranchOrThrow(branchId);
 
         Store store = branch.getStore();
         if (store == null || store.getStoreOwner() == null) {
             return false;
         }
 
-        Subscription activeSubscription =
-                subscriptionRepository.findFirstByStoreOwnerIdAndStatusOrderByEndDateDesc(
+        if (branch.getStatus() != StoreStatus.ACTIVE) {
+            return false;
+        }
+
+        if (store.getStatus() != StoreStatus.ACTIVE) {
+            return false;
+        }
+
+        Subscription activeSubscription = subscriptionRepository
+                .findFirstByStoreOwnerIdAndStatusOrderByEndDateDesc(
                         store.getStoreOwner().getId(),
                         SubscriptionStatus.ACTIVE
                 );
 
         return activeSubscription != null
-                && !activeSubscription.getEndDate().isBefore(LocalDate.now())
-                && branch.getStatus() == StoreStatus.ACTIVE
-                && store.getStatus() == StoreStatus.ACTIVE;
+                && !activeSubscription.getEndDate().isBefore(LocalDate.now());
     }
 
     public void validateWorkingHours(String openingTime, String closingTime) {
+
         if (openingTime == null || openingTime.isBlank()) {
             throw new ApiException("Opening time is required");
         }
@@ -260,68 +252,42 @@ public class BranchService {
             if (!closing.isAfter(opening)) {
                 throw new ApiException("Closing time must be after opening time");
             }
+
         } catch (DateTimeParseException e) {
-            throw new ApiException("Working hours must use HH:mm format");
+            throw new ApiException("Working hours must be in HH:mm format (e.g. 09:00, 22:30)");
         }
-    }
-
-    public BranchOut deactivateBranch(Integer branchId) {
-
-        Branch branch = branchRepository.findBranchById(branchId);
-
-        if (branch == null) {
-            throw new ApiException("Branch not found");
-        }
-
-        branch.setStatus(StoreStatus.INACTIVE);
-        branchRepository.save(branch);
-
-        return mapToDTOOUT(branch);
     }
 
     public BranchRadiusOut getRecommendedRadius(Integer branchId) {
 
-        Branch branch = branchRepository.findBranchById(branchId);
-
-        if (branch == null) {
-            throw new ApiException("Branch not found");
-        }
+        Branch branch = findBranchOrThrow(branchId);
 
         if (branch.getLatitude() == null || branch.getLongitude() == null) {
-            throw new ApiException("Branch location is missing");
+            throw new ApiException("Branch location coordinates are missing");
         }
 
         List<Customer> customers = customerRepository.findCustomersByLocationConsentTrue();
 
-        int customersWithin500 = countCustomersInsideRadius(branch, customers, 500);
-        int customersWithin1500 = countCustomersInsideRadius(branch, customers, 1500);
-        int customersWithin3000 = countCustomersInsideRadius(branch, customers, 3000);
-        int customersWithin5000 = countCustomersInsideRadius(branch, customers, 5000);
-        int customersWithin7000 = countCustomersInsideRadius(branch, customers, 7000);
-        int customersWithin10000 = countCustomersInsideRadius(branch, customers, 10000);
-        int customersWithin20000 = countCustomersInsideRadius(branch, customers, 20000);
-        int customersWithin40000 = countCustomersInsideRadius(branch, customers, 40000);
+        int within500   = countCustomersInsideRadius(branch, customers, 500);
+        int within1500  = countCustomersInsideRadius(branch, customers, 1500);
+        int within3000  = countCustomersInsideRadius(branch, customers, 3000);
+        int within5000  = countCustomersInsideRadius(branch, customers, 5000);
+        int within7000  = countCustomersInsideRadius(branch, customers, 7000);
+        int within10000 = countCustomersInsideRadius(branch, customers, 10000);
+        int within20000 = countCustomersInsideRadius(branch, customers, 20000);
+        int within40000 = countCustomersInsideRadius(branch, customers, 40000);
 
-        OpenAiService.BranchRadiusAIResult aiResult =
-                openAiService.recommendBranchRadius(
-                        branch.getName(),
-                        branch.getLatitude(),
-                        branch.getLongitude(),
-                        branch.getCampaignRadiusMeters(),
-                        customersWithin500,
-                        customersWithin1500,
-                        customersWithin3000,
-                        customersWithin5000,
-                        customersWithin7000,
-                        customersWithin10000,
-                        customersWithin20000,
-                        customersWithin40000
-                );
+        OpenAiService.BranchRadiusAIResult aiResult = openAiService.recommendBranchRadius(
+                branch.getName(),
+                branch.getLatitude(),
+                branch.getLongitude(),
+                branch.getCampaignRadiusMeters(),
+                within500, within1500, within3000, within5000,
+                within7000, within10000, within20000, within40000
+        );
 
         Integer recommendedRadius = aiResult.recommendedRadiusMeters();
-
-        int customersInsideRecommendedRadius =
-                countCustomersInsideRadius(branch, customers, recommendedRadius);
+        int customersInside = countCustomersInsideRadius(branch, customers, recommendedRadius);
 
         branch.setRecommendedRadiusMeters(recommendedRadius);
         branchRepository.save(branch);
@@ -331,77 +297,92 @@ public class BranchService {
                 branch.getName(),
                 branch.getCampaignRadiusMeters(),
                 recommendedRadius,
-                customersInsideRecommendedRadius,
+                customersInside,
                 aiResult.reason()
         );
     }
 
+    @Transactional
     public BranchOut applyRecommendedRadius(Integer branchId) {
 
-        Branch branch = branchRepository.findBranchById(branchId);
-
-        if (branch == null) {
-            throw new ApiException("Branch not found");
-        }
+        Branch branch = findBranchOrThrow(branchId);
 
         if (branch.getRecommendedRadiusMeters() == null) {
             getRecommendedRadius(branchId);
-            branch = branchRepository.findBranchById(branchId);
+            branch = findBranchOrThrow(branchId);
         }
 
         branch.setCampaignRadiusMeters(branch.getRecommendedRadiusMeters());
         branchRepository.save(branch);
 
-        return mapToDTOOUT(branch);
+        return mapToOut(branch);
+    }
+
+    private Branch findBranchOrThrow(Integer branchId) {
+        Branch branch = branchRepository.findBranchById(branchId);
+        if (branch == null) {
+            throw new ApiException("Branch not found");
+        }
+        return branch;
+    }
+
+    private Store findStoreOrThrow(Integer storeId) {
+        Store store = storeRepository.findStoreById(storeId);
+        if (store == null) {
+            throw new ApiException("Store not found");
+        }
+        return store;
     }
 
     private Subscription getActiveOrPendingSubscription(Integer storeOwnerId) {
 
-        Subscription activeSubscription =
-                subscriptionRepository.findFirstByStoreOwnerIdAndStatusOrderByEndDateDesc(
-                        storeOwnerId,
-                        SubscriptionStatus.ACTIVE
+        Subscription active = subscriptionRepository
+                .findFirstByStoreOwnerIdAndStatusOrderByEndDateDesc(
+                        storeOwnerId, SubscriptionStatus.ACTIVE
                 );
 
-        if (activeSubscription != null && !activeSubscription.getEndDate().isBefore(LocalDate.now())) {
-            return activeSubscription;
+        if (active != null && !active.getEndDate().isBefore(LocalDate.now())) {
+            return active;
         }
 
-        Subscription pendingSubscription =
-                subscriptionRepository.findFirstByStoreOwnerIdAndStatusOrderByEndDateDesc(
-                        storeOwnerId,
-                        SubscriptionStatus.PENDING
+        Subscription pending = subscriptionRepository
+                .findFirstByStoreOwnerIdAndStatusOrderByEndDateDesc(
+                        storeOwnerId, SubscriptionStatus.PENDING
                 );
 
-        if (pendingSubscription != null && !pendingSubscription.getEndDate().isBefore(LocalDate.now())) {
-            return pendingSubscription;
+        if (pending != null) {
+            return pending;
         }
 
         throw new ApiException("Store owner must choose a subscription plan before adding branches");
     }
 
+    private long countActiveOrPendingBranches(Integer storeId) {
+        return branchRepository.findBranchesByStoreId(storeId)
+                .stream()
+                .filter(b -> b.getStatus() == StoreStatus.ACTIVE
+                        || b.getStatus() == StoreStatus.PENDING)
+                .count();
+    }
+
+    private StoreStatus resolveBranchStatus(Subscription subscription, Store store) {
+        return subscription.getStatus() == SubscriptionStatus.ACTIVE
+                && store.getStatus() == StoreStatus.ACTIVE
+                ? StoreStatus.ACTIVE
+                : StoreStatus.PENDING;
+    }
+
+
     private int countCustomersInsideRadius(Branch branch, List<Customer> customers, Integer radiusMeters) {
-
         int count = 0;
-
         for (Customer customer : customers) {
-
-            if (customer.getLatitude() == null || customer.getLongitude() == null) {
-                continue;
-            }
-
+            if (customer.getLatitude() == null || customer.getLongitude() == null) continue;
             double distance = calculateDistanceInMeters(
-                    branch.getLatitude(),
-                    branch.getLongitude(),
-                    customer.getLatitude(),
-                    customer.getLongitude()
+                    branch.getLatitude(), branch.getLongitude(),
+                    customer.getLatitude(), customer.getLongitude()
             );
-
-            if (distance <= radiusMeters) {
-                count++;
-            }
+            if (distance <= radiusMeters) count++;
         }
-
         return count;
     }
 
@@ -411,24 +392,20 @@ public class BranchService {
             return Double.MAX_VALUE;
         }
 
-        final int earthRadiusMeters = 6371000;
+        final int R = 6_371_000;
 
-        double latDistance = Math.toRadians(lat2 - lat1);
-        double lonDistance = Math.toRadians(lon2 - lon1);
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLon = Math.toRadians(lon2 - lon1);
 
-        double a = Math.sin(latDistance / 2) * Math.sin(latDistance / 2)
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
                 + Math.cos(Math.toRadians(lat1))
                 * Math.cos(Math.toRadians(lat2))
-                * Math.sin(lonDistance / 2)
-                * Math.sin(lonDistance / 2);
+                * Math.sin(dLon / 2) * Math.sin(dLon / 2);
 
-        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-        return earthRadiusMeters * c;
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 
-    private BranchOut mapToDTOOUT(Branch branch) {
-
+    private BranchOut mapToOut(Branch branch) {
         return new BranchOut(
                 branch.getId(),
                 branch.getName(),
