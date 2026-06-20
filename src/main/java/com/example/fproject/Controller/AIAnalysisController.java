@@ -130,15 +130,18 @@ public class AIAnalysisController {
         return ResponseEntity.status(200).body(aiAnalysisService.getAnalysisRiskNote(analysisId));
     }
 
-    @PostMapping("/add")
-    public ResponseEntity<?> addAIAnalysis(@RequestBody @Valid AIAnalysisIn aiAnalysisIn) {
-        aiAnalysisService.addAIAnalysis(aiAnalysisIn);
+    @PostMapping("/add/sales-record/{salesRecordId}")
+    public ResponseEntity<?> addAIAnalysis(@PathVariable Integer salesRecordId,
+                                           @RequestBody @Valid AIAnalysisIn aiAnalysisIn) {
+        aiAnalysisService.addAIAnalysis(salesRecordId, aiAnalysisIn);
         return ResponseEntity.status(200).body(new ApiResponse("AI analysis added successfully"));
     }
 
-    @PutMapping("/update/{id}")
-    public ResponseEntity<?> updateAIAnalysis(@PathVariable Integer id, @RequestBody @Valid AIAnalysisIn aiAnalysisIn) {
-        aiAnalysisService.updateAIAnalysis(id, aiAnalysisIn);
+    @PutMapping("/update/{id}/sales-record/{salesRecordId}")
+    public ResponseEntity<?> updateAIAnalysis(@PathVariable Integer id,
+                                              @PathVariable Integer salesRecordId,
+                                              @RequestBody @Valid AIAnalysisIn aiAnalysisIn) {
+        aiAnalysisService.updateAIAnalysis(id, salesRecordId, aiAnalysisIn);
         return ResponseEntity.status(200).body(new ApiResponse("AI analysis updated successfully"));
     }
 

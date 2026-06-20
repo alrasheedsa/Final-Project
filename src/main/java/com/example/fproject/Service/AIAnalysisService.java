@@ -65,16 +65,16 @@ public class AIAnalysisService {
         return convertToOut(aiAnalysis);
     }
 
-    public void addAIAnalysis(AIAnalysisIn aiAnalysisIn) {
+    public void addAIAnalysis(Integer salesRecordId, AIAnalysisIn aiAnalysisIn) {
         validateAIAnalysisIn(aiAnalysisIn);
 
-        SalesRecord salesRecord = salesRecordRepository.findSalesRecordById(aiAnalysisIn.getSalesRecordId());
+        SalesRecord salesRecord = salesRecordRepository.findSalesRecordById(salesRecordId);
 
         if (salesRecord == null) {
             throw new ApiException("Sales record not found");
         }
 
-        Boolean exists = aiAnalysisRepository.existsBySalesRecord_Id(aiAnalysisIn.getSalesRecordId());
+        Boolean exists = aiAnalysisRepository.existsBySalesRecord_Id(salesRecordId);
 
         if (Boolean.TRUE.equals(exists)) {
             throw new ApiException("This sales record already has AI analysis");
@@ -341,7 +341,7 @@ public class AIAnalysisService {
         return String.format("%02d:00 - %02d:00", hour, nextHour);
     }
 
-    public void updateAIAnalysis(Integer id, AIAnalysisIn aiAnalysisIn) {
+    public void updateAIAnalysis(Integer id, Integer salesRecordId, AIAnalysisIn aiAnalysisIn) {
         validateAIAnalysisIn(aiAnalysisIn);
 
         AIAnalysis oldAIAnalysis = aiAnalysisRepository.findAIAnalysisById(id);
@@ -350,17 +350,17 @@ public class AIAnalysisService {
             throw new ApiException("AI analysis not found");
         }
 
-        SalesRecord salesRecord = salesRecordRepository.findSalesRecordById(aiAnalysisIn.getSalesRecordId());
+        SalesRecord salesRecord = salesRecordRepository.findSalesRecordById(salesRecordId);
 
         if (salesRecord == null) {
             throw new ApiException("Sales record not found");
         }
 
         Boolean changedSalesRecord =
-                !oldAIAnalysis.getSalesRecord().getId().equals(aiAnalysisIn.getSalesRecordId());
+                !oldAIAnalysis.getSalesRecord().getId().equals(salesRecordId);
 
         if (changedSalesRecord) {
-            Boolean exists = aiAnalysisRepository.existsBySalesRecord_Id(aiAnalysisIn.getSalesRecordId());
+            Boolean exists = aiAnalysisRepository.existsBySalesRecord_Id(salesRecordId);
 
             if (Boolean.TRUE.equals(exists)) {
                 throw new ApiException("Another AI analysis already exists for this sales record");
@@ -811,9 +811,6 @@ public class AIAnalysisService {
             throw new ApiException("AI summary is required");
         }
 
-        if (aiAnalysisIn.getSalesRecordId() == null) {
-            throw new ApiException("Sales record id is required");
-        }
     }
 
     private AIAnalysisOut convertToOut(AIAnalysis aiAnalysis) {

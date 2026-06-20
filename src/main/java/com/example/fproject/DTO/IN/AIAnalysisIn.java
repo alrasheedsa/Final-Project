@@ -35,7 +35,4 @@ public class AIAnalysisIn {
 
     @NotBlank(message = "AI summary is required")
     private String aiSummary;
-
-    @NotNull(message = "Sales record id is required")
-    private Integer salesRecordId;
 }
