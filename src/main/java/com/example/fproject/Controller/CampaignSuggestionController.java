@@ -74,6 +74,11 @@ public class CampaignSuggestionController {
         return ResponseEntity.status(200).body(new ApiResponse("Campaign suggestion approved successfully"));
     }
 
+    @PostMapping("/{suggestionId}/send-approval-email")
+    public ResponseEntity<?> sendApprovedCampaignSuggestionEmail(@PathVariable Integer suggestionId) {
+        return ResponseEntity.status(200).body(new ApiResponse(campaignSuggestionService.sendApprovedCampaignSuggestionEmail(suggestionId)));
+    }
+
     @PutMapping("/reject/{id}")
     public ResponseEntity<?> rejectCampaignSuggestion(@PathVariable Integer id) {
         campaignSuggestionService.rejectCampaignSuggestion(id);

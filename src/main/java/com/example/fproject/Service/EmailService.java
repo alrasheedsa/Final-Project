@@ -166,6 +166,101 @@ public class EmailService {
         return sendHtmlEmail(to, subject, htmlBody);
     }
 
+    public String sendCampaignSuggestionApprovedEmail(String to,
+                                                      String ownerName,
+                                                      String branchName,
+                                                      String suggestionTitle,
+                                                      String campaignType,
+                                                      String offerText,
+                                                      String productName,
+                                                      String startDate,
+                                                      String endDate,
+                                                      String startTime,
+                                                      String endTime,
+                                                      Integer targetCustomersCount,
+                                                      Double discountValue) {
+
+        String subject = "تم اعتماد اقتراح الحملة - على دربك";
+
+        String targetText = targetCustomersCount == null ? "غير متوفر" : targetCustomersCount.toString();
+        String discountText = discountValue == null ? "غير متوفر" : discountValue + "%";
+
+        String htmlBody = """
+            <div style="margin:0;padding:0;background:#F7F3EA;font-family:Arial,Tahoma,sans-serif;direction:rtl;text-align:right;color:#243B35;">
+                <div style="max-width:680px;margin:0 auto;padding:32px 18px;">
+                    <div style="background:#ffffff;border-radius:24px;padding:28px;border:1px solid #E6DDCC;box-shadow:0 10px 30px rgba(36,59,53,0.08);">
+                        
+                        <div style="margin-bottom:22px;">
+                            <div style="font-size:24px;font-weight:800;color:#1F5C4D;">على دربك</div>
+                            <div style="font-size:13px;color:#8B7D68;margin-top:6px;">اعتماد اقتراح حملة ذكية</div>
+                        </div>
+
+                        <h2 style="margin:0 0 12px;font-size:22px;color:#243B35;">تم اعتماد اقتراح الحملة بنجاح</h2>
+
+                        <p style="font-size:15px;line-height:1.9;margin:0 0 20px;color:#5E6B63;">
+                            مرحبًا %s، تم اعتماد اقتراح حملة لفرع <b>%s</b>.
+                        </p>
+
+                        <div style="background:#1F5C4D;color:#ffffff;border-radius:18px;padding:18px;margin-bottom:16px;">
+                            <div style="font-size:14px;opacity:0.9;margin-bottom:8px;">عنوان الحملة</div>
+                            <div style="font-size:20px;font-weight:800;line-height:1.7;">%s</div>
+                        </div>
+
+                        <div style="background:#F7F3EA;border-radius:18px;padding:18px;margin-bottom:16px;">
+                            <div style="font-size:14px;color:#8B7D68;margin-bottom:6px;">نص العرض</div>
+                            <div style="font-size:17px;font-weight:700;color:#243B35;line-height:1.8;">%s</div>
+                        </div>
+
+                        <div style="background:#ffffff;border:1px solid #E6DDCC;border-radius:16px;padding:16px;margin-bottom:10px;">
+                            <b>نوع الحملة:</b> %s
+                        </div>
+
+                        <div style="background:#ffffff;border:1px solid #E6DDCC;border-radius:16px;padding:16px;margin-bottom:10px;">
+                            <b>المنتج المقترح:</b> %s
+                        </div>
+
+                        <div style="background:#ffffff;border:1px solid #E6DDCC;border-radius:16px;padding:16px;margin-bottom:10px;">
+                            <b>موعد الحملة:</b><br>
+                            من %s إلى %s<br>
+                            من الساعة %s إلى %s
+                        </div>
+
+                        <div style="background:#ffffff;border:1px solid #E6DDCC;border-radius:16px;padding:16px;margin-bottom:10px;">
+                            <b>عدد العملاء المستهدفين:</b> %s
+                        </div>
+
+                        <div style="background:#ffffff;border:1px solid #E6DDCC;border-radius:16px;padding:16px;">
+                            <b>قيمة الخصم:</b> %s
+                        </div>
+
+                        <p style="font-size:13px;line-height:1.8;color:#8B7D68;margin:22px 0 0;">
+                            يمكنك الآن متابعة تجهيز الحملة من لوحة الحملات داخل النظام.
+                        </p>
+                    </div>
+
+                    <div style="text-align:center;color:#A09686;font-size:12px;margin-top:18px;">
+                        هذه رسالة تلقائية من منصة على دربك
+                    </div>
+                </div>
+            </div>
+            """.formatted(
+                safeEmailText(ownerName),
+                safeEmailText(branchName),
+                safeEmailText(suggestionTitle),
+                safeEmailText(offerText),
+                safeEmailText(campaignType),
+                safeEmailText(productName),
+                safeEmailText(startDate),
+                safeEmailText(endDate),
+                safeEmailText(startTime),
+                safeEmailText(endTime),
+                targetText,
+                discountText
+        );
+
+        return sendHtmlEmail(to, subject, htmlBody);
+    }
+
     private String safeEmailText(String value) {
         if (value == null || value.isBlank()) {
             return "غير متوفر";

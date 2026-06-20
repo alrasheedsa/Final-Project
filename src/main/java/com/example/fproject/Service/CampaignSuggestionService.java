@@ -30,6 +30,7 @@ public class CampaignSuggestionService {
     private final SubscriptionRepository subscriptionRepository;
     private final OpenAiService openAiService;
     private final HolidayService holidayService;
+    private final EmailService emailService;
 
     public List<CampaignSuggestionOut> getAllCampaignSuggestions() {
         List<CampaignSuggestion> campaignSuggestions = campaignSuggestionRepository.findAll();
@@ -483,7 +484,83 @@ public class CampaignSuggestionService {
         }
 
         campaignSuggestion.setApprovalStatus(SuggestionStatus.APPROVED);
-        campaignSuggestionRepository.save(campaignSuggestion);
+        CampaignSuggestion savedSuggestion = campaignSuggestionRepository.save(campaignSuggestion);
+
+        sendApprovedSuggestionEmailSafely(savedSuggestion);
+    }
+
+    public String sendApprovedCampaignSuggestionEmail(Integer suggestionId) {
+        CampaignSuggestion campaignSuggestion =
+                campaignSuggestionRepository.findCampaignSuggestionById(suggestionId);
+
+        if (campaignSuggestion == null) {
+            throw new ApiException("Campaign suggestion not found");
+        }
+
+        if (campaignSuggestion.getApprovalStatus() != SuggestionStatus.APPROVED) {
+            throw new ApiException("Campaign suggestion must be approved before sending approval email");
+        }
+
+        return sendApprovedSuggestionEmail(campaignSuggestion);
+    }
+
+    private void sendApprovedSuggestionEmailSafely(CampaignSuggestion campaignSuggestion) {
+        try {
+            sendApprovedSuggestionEmail(campaignSuggestion);
+        } catch (Exception e) {
+            System.out.println("Campaign suggestion approval email was not sent: " + e.getMessage());
+        }
+    }
+
+    private String sendApprovedSuggestionEmail(CampaignSuggestion campaignSuggestion) {
+        if (campaignSuggestion.getAiAnalysis() == null
+                || campaignSuggestion.getAiAnalysis().getSalesRecord() == null
+                || campaignSuggestion.getAiAnalysis().getSalesRecord().getBranch() == null
+                || campaignSuggestion.getAiAnalysis().getSalesRecord().getBranch().getStore() == null
+                || campaignSuggestion.getAiAnalysis().getSalesRecord().getBranch().getStore().getStoreOwner() == null
+                || campaignSuggestion.getAiAnalysis().getSalesRecord().getBranch().getStore().getStoreOwner().getUser() == null) {
+            throw new ApiException("Store owner email information not found");
+        }
+
+        String ownerEmail =
+                campaignSuggestion.getAiAnalysis()
+                        .getSalesRecord()
+                        .getBranch()
+                        .getStore()
+                        .getStoreOwner()
+                        .getUser()
+                        .getEmail();
+
+        String ownerName =
+                campaignSuggestion.getAiAnalysis()
+                        .getSalesRecord()
+                        .getBranch()
+                        .getStore()
+                        .getStoreOwner()
+                        .getUser()
+                        .getFullName();
+
+        String branchName =
+                campaignSuggestion.getAiAnalysis()
+                        .getSalesRecord()
+                        .getBranch()
+                        .getName();
+
+        return emailService.sendCampaignSuggestionApprovedEmail(
+                ownerEmail,
+                ownerName,
+                branchName,
+                campaignSuggestion.getTitle(),
+                campaignSuggestion.getCampaignType().name(),
+                campaignSuggestion.getOfferText(),
+                campaignSuggestion.getSuggestedProductName(),
+                campaignSuggestion.getSuggestedStartDate().toString(),
+                campaignSuggestion.getSuggestedEndDate().toString(),
+                campaignSuggestion.getSuggestedStartTime().toString(),
+                campaignSuggestion.getSuggestedEndTime().toString(),
+                campaignSuggestion.getTargetCustomersCount(),
+                campaignSuggestion.getDiscountValue()
+        );
     }
 
     public void rejectCampaignSuggestion(Integer id) {
