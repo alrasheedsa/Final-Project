@@ -304,16 +304,25 @@ public class ExcelService {
         }
 
         try {
+            if (cell.getCellType() == CellType.NUMERIC) {
+                return DateUtil.getLocalDateTime(cell.getNumericCellValue()).toLocalDate();
+            }
+
             if (DateUtil.isCellDateFormatted(cell)) {
                 return cell.getLocalDateTimeCellValue().toLocalDate();
             }
 
             String value = formatter.formatCellValue(cell).trim();
+            value = normalizeDateText(value);
 
             DateTimeFormatter formatterOne = DateTimeFormatter.ofPattern("yyyy-MM-dd");
             DateTimeFormatter formatterTwo = DateTimeFormatter.ofPattern("yyyy/M/d");
             DateTimeFormatter formatterThree = DateTimeFormatter.ofPattern("M/d/yyyy");
             DateTimeFormatter formatterFour = DateTimeFormatter.ofPattern("d/M/yyyy");
+            DateTimeFormatter formatterFive = DateTimeFormatter.ofPattern("M/d/yy");
+            DateTimeFormatter formatterSix = DateTimeFormatter.ofPattern("d/M/yy");
+            DateTimeFormatter formatterSeven = DateTimeFormatter.ofPattern("yyyy.MM.dd");
+            DateTimeFormatter formatterEight = DateTimeFormatter.ofPattern("yyyy MM dd");
 
             try {
                 return LocalDate.parse(value, formatterOne);
@@ -330,10 +339,64 @@ public class ExcelService {
             } catch (Exception ignored) {
             }
 
-            return LocalDate.parse(value, formatterFour);
+            try {
+                return LocalDate.parse(value, formatterFour);
+            } catch (Exception ignored) {
+            }
+
+            try {
+                return LocalDate.parse(value, formatterFive);
+            } catch (Exception ignored) {
+            }
+
+            try {
+                return LocalDate.parse(value, formatterSix);
+            } catch (Exception ignored) {
+            }
+
+            try {
+                return LocalDate.parse(value, formatterSeven);
+            } catch (Exception ignored) {
+            }
+
+            return LocalDate.parse(value, formatterEight);
+
         } catch (Exception e) {
             throw new ApiException("Invalid Excel sale date in row " + (rowIndex + 1));
         }
+    }
+
+    private String normalizeDateText(String value) {
+        if (value == null) {
+            return "";
+        }
+
+        return value.trim()
+                .replace("٠", "0")
+                .replace("١", "1")
+                .replace("٢", "2")
+                .replace("٣", "3")
+                .replace("٤", "4")
+                .replace("٥", "5")
+                .replace("٦", "6")
+                .replace("٧", "7")
+                .replace("٨", "8")
+                .replace("٩", "9")
+                .replace("۰", "0")
+                .replace("۱", "1")
+                .replace("۲", "2")
+                .replace("۳", "3")
+                .replace("۴", "4")
+                .replace("۵", "5")
+                .replace("۶", "6")
+                .replace("۷", "7")
+                .replace("۸", "8")
+                .replace("۹", "9")
+                .replace(".", "-")
+                .replace("/", "/")
+                .replace("\\", "/")
+                .replace("\u200E", "")
+                .replace("\u200F", "");
     }
 
     private LocalTime readLocalTime(Cell cell, DataFormatter formatter, Integer rowIndex) {
