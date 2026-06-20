@@ -387,6 +387,46 @@ public class CampaignSuggestionService {
         campaignSuggestionRepository.delete(campaignSuggestion);
     }
 
+    public CampaignSuggestionOut getApprovedSuggestionByAnalysis(Integer analysisId) {
+        AIAnalysis aiAnalysis = aiAnalysisRepository.findAIAnalysisById(analysisId);
+
+        if (aiAnalysis == null) {
+            throw new ApiException("AI analysis not found");
+        }
+
+        List<CampaignSuggestion> suggestions =
+                campaignSuggestionRepository.findAllByAiAnalysis_Id(analysisId);
+
+        for (CampaignSuggestion suggestion : suggestions) {
+            if (suggestion.getApprovalStatus() == SuggestionStatus.APPROVED) {
+                return convertToOut(suggestion);
+            }
+        }
+
+        throw new ApiException("No approved campaign suggestion found for this AI analysis");
+    }
+
+    public List<CampaignSuggestionOut> getPendingSuggestionsByAnalysis(Integer analysisId) {
+        AIAnalysis aiAnalysis = aiAnalysisRepository.findAIAnalysisById(analysisId);
+
+        if (aiAnalysis == null) {
+            throw new ApiException("AI analysis not found");
+        }
+
+        List<CampaignSuggestion> suggestions =
+                campaignSuggestionRepository.findAllByAiAnalysis_Id(analysisId);
+
+        List<CampaignSuggestionOut> pendingSuggestions = new ArrayList<>();
+
+        for (CampaignSuggestion suggestion : suggestions) {
+            if (suggestion.getApprovalStatus() == SuggestionStatus.PENDING) {
+                pendingSuggestions.add(convertToOut(suggestion));
+            }
+        }
+
+        return pendingSuggestions;
+    }
+
     public void approveCampaignSuggestion(Integer id) {
         CampaignSuggestion campaignSuggestion = campaignSuggestionRepository.findCampaignSuggestionById(id);
 

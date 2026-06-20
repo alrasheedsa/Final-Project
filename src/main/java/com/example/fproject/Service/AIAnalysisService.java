@@ -652,6 +652,51 @@ public class AIAnalysisService {
         return "لا توجد مخاطر عالية واضحة، لكن يفضّل متابعة أداء الحملة بعد الإطلاق";
     }
 
+    public AIAnalysisOut getLatestAIAnalysisByBranch(Integer branchId) {
+        AIAnalysis aiAnalysis =
+                aiAnalysisRepository.findFirstBySalesRecord_Branch_IdOrderByAnalyzedAtDesc(branchId);
+
+        if (aiAnalysis == null) {
+            throw new ApiException("No AI analysis found for this branch");
+        }
+
+        return convertToOut(aiAnalysis);
+    }
+
+    public Map<String, Object> getAIAnalysisDashboard(Integer analysisId) {
+        AIAnalysis aiAnalysis = getAIAnalysisEntity(analysisId);
+
+        Map<String, Object> dashboard = new HashMap<>();
+
+        dashboard.put("analysisId", aiAnalysis.getId());
+        dashboard.put("branchName", getAnalysisBranchName(analysisId));
+        dashboard.put("salesRecordInfo", getAnalysisSalesRecordInfo(analysisId));
+        dashboard.put("summary", getAnalysisSummary(analysisId));
+        dashboard.put("aiSummary", getAiSummary(analysisId));
+
+        dashboard.put("totalSales", getTotalSales(analysisId));
+        dashboard.put("peakHours", getPeakHours(analysisId));
+        dashboard.put("slowHours", getSlowHours(analysisId));
+        dashboard.put("confidence", getConfidence(analysisId));
+
+        dashboard.put("salesChart", getSalesChart(analysisId));
+        dashboard.put("topProducts", getTopProducts(analysisId));
+        dashboard.put("lowProducts", getLowProducts(analysisId));
+        dashboard.put("productDetails", getProductDetails(analysisId));
+
+        dashboard.put("surplusProducts", getSurplusProducts(analysisId));
+        dashboard.put("seasonalPatterns", getSeasonalPatterns(analysisId));
+        dashboard.put("recommendation", getRecommendations(analysisId));
+        dashboard.put("bestRecommendation", getBestRecommendation(analysisId));
+
+        dashboard.put("suggestedCampaignReady", isSuggestedCampaignReady(analysisId));
+        dashboard.put("mainOpportunity", getAnalysisMainOpportunity(analysisId));
+        dashboard.put("riskNote", getAnalysisRiskNote(analysisId));
+        dashboard.put("generatedAt", getAnalysisGeneratedAt(analysisId));
+
+        return dashboard;
+    }
+
     public void deleteAIAnalysis(Integer id) {
         AIAnalysis aiAnalysis = aiAnalysisRepository.findAIAnalysisById(id);
 
