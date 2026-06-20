@@ -29,6 +29,7 @@ public class CampaignSuggestionIn {
     private CampaignType campaignType;
 
     @NotNull(message = "Suggested start time is required")
+    @Future
     private LocalTime suggestedStartTime;
 
     @NotNull(message = "Suggested end time is required")

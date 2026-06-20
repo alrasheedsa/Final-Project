@@ -162,6 +162,18 @@ public class CampaignController {
         return ResponseEntity.status(200).body(new ApiResponse("Finished campaigns expired successfully"));
     }
 
+    @PutMapping("/check-finished")
+    public ResponseEntity<?> checkFinishedCampaigns() {
+        campaignService.expireFinishedCampaigns();
+        return ResponseEntity.status(200).body(new ApiResponse("Finished campaigns checked successfully"));
+    }
+
+    @PutMapping("/start-ready")
+    public ResponseEntity<?> startReadyCampaigns() {
+        campaignService.startReadyCampaigns();
+        return ResponseEntity.status(200).body(new ApiResponse("Ready campaigns started successfully"));
+    }
+
     @PutMapping("/update/{campaignId}")
     public ResponseEntity<?> updateCampaign(@PathVariable Integer campaignId,
                                             @RequestBody @Valid CampaignRequestIn campaignRequestIn) {

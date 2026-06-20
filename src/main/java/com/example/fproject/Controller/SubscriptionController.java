@@ -76,4 +76,10 @@ public class SubscriptionController {
         subscriptionService.expireSubscription(subscriptionId);
         return ResponseEntity.status(200).body(new ApiResponse("Subscription expired successfully"));
     }
+
+    @PutMapping("/check-expired")
+    public ResponseEntity<?> checkExpiredSubscriptions() {
+        subscriptionService.checkExpiredSubscriptions();
+        return ResponseEntity.status(200).body(new ApiResponse("Expired subscriptions checked successfully"));
+    }
 }
