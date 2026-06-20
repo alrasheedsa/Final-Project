@@ -26,7 +26,4 @@ public class GoogleSheetSalesRecordIn {
     @NotNull(message = "Year is required")
     @Min(value = 2020, message = "Year must be valid")
     private Integer year;
-
-    @NotNull(message = "Branch id is required")
-    private Integer branchId;
 }

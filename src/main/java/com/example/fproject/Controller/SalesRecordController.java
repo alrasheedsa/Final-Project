@@ -33,28 +33,29 @@ public class SalesRecordController {
         return ResponseEntity.status(200).body(salesRecordService.getSalesRecordsByBranchId(branchId));
     }
 
-    @PostMapping(value = "/add", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<?> addSalesRecord(@RequestParam("file") MultipartFile file,
+    @PostMapping(value = "/add/branch/{branchId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> addSalesRecord(@PathVariable Integer branchId,
+                                            @RequestParam("file") MultipartFile file,
                                             @RequestParam Integer month,
-                                            @RequestParam Integer year,
-                                            @RequestParam Integer branchId) {
+                                            @RequestParam Integer year) {
         SalesRecordIn salesRecordIn = new SalesRecordIn(month, year, branchId);
         salesRecordService.addSalesRecord(file, salesRecordIn);
         return ResponseEntity.status(200).body(new ApiResponse("Sales record added successfully"));
     }
 
-    @PostMapping("/import-google-sheet")
-    public ResponseEntity<?> importSalesRecordFromGoogleSheet(@Valid @RequestBody GoogleSheetSalesRecordIn googleSheetSalesRecordIn) {
-        salesRecordService.importSalesRecordFromGoogleSheet(googleSheetSalesRecordIn);
+    @PostMapping("/import-google-sheet/branch/{branchId}")
+    public ResponseEntity<?> importSalesRecordFromGoogleSheet(@PathVariable Integer branchId,
+                                                              @Valid @RequestBody GoogleSheetSalesRecordIn googleSheetSalesRecordIn) {
+        salesRecordService.importSalesRecordFromGoogleSheet(branchId, googleSheetSalesRecordIn);
         return ResponseEntity.status(200).body(new ApiResponse("Sales record imported from Google Sheets successfully"));
     }
 
-    @PutMapping(value = "/update/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PutMapping(value = "/update/{id}/branch/{branchId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> updateSalesRecord(@PathVariable Integer id,
+                                               @PathVariable Integer branchId,
                                                @RequestParam(value = "file", required = false) MultipartFile file,
                                                @RequestParam Integer month,
-                                               @RequestParam Integer year,
-                                               @RequestParam Integer branchId) {
+                                               @RequestParam Integer year) {
         SalesRecordIn salesRecordIn = new SalesRecordIn(month, year, branchId);
         salesRecordService.updateSalesRecord(id, file, salesRecordIn);
         return ResponseEntity.status(200).body(new ApiResponse("Sales record updated successfully"));

@@ -133,19 +133,19 @@ public class SalesRecordService {
     }
 
     @Transactional
-    public void importSalesRecordFromGoogleSheet(GoogleSheetSalesRecordIn googleSheetSalesRecordIn) {
+    public void importSalesRecordFromGoogleSheet(Integer branchId, GoogleSheetSalesRecordIn googleSheetSalesRecordIn) {
         SalesRecordIn salesRecordIn = new SalesRecordIn(
                 googleSheetSalesRecordIn.getMonth(),
                 googleSheetSalesRecordIn.getYear(),
-                googleSheetSalesRecordIn.getBranchId()
+                branchId
         );
 
         validateSalesRecordIn(salesRecordIn);
 
-        Branch branch = validateBranchReadyForSalesRecord(googleSheetSalesRecordIn.getBranchId());
+        Branch branch = validateBranchReadyForSalesRecord(branchId);
 
         Boolean exists = salesRecordRepository.existsByBranch_IdAndMonthAndYear(
-                googleSheetSalesRecordIn.getBranchId(),
+                branchId,
                 googleSheetSalesRecordIn.getMonth(),
                 googleSheetSalesRecordIn.getYear()
         );
