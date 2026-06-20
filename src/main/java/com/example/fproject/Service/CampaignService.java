@@ -39,7 +39,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -304,6 +306,63 @@ public class CampaignService {
                 campaign.getAiQuestion() == null ? null : campaign.getAiQuestion().getId(),
                 campaign.getQrCode() == null ? null : campaign.getQrCode().getId()
         );
+    }
+
+    public Map<String, Object> getCampaignDashboard(Integer campaignId) {
+        Campaign campaign = checkCampaign(campaignId);
+
+        Map<String, Object> dashboard = new HashMap<>();
+
+        dashboard.put("campaignDetails", getCampaignDetails(campaignId));
+        dashboard.put("maxCustomers", getMaxCustomers(campaignId));
+        dashboard.put("usedCoupons", getUsedCoupons(campaignId));
+        dashboard.put("remainingCoupons", getRemainingCoupons(campaignId));
+        dashboard.put("usageRate", getUsageRate(campaignId));
+        dashboard.put("timing", getCampaignTiming(campaignId));
+        dashboard.put("type", getCampaignType(campaignId));
+        dashboard.put("question", getCampaignQuestion(campaignId));
+        dashboard.put("source", getCampaignSource(campaignId));
+        dashboard.put("qrStatus", getCampaignQRStatus(campaignId));
+
+        if (campaign.getCampaignResult() == null) {
+            dashboard.put("campaignResult", null);
+        } else {
+            dashboard.put("campaignResult", campaignResultService.getCampaignResultByCampaign(campaignId));
+        }
+
+        return dashboard;
+    }
+
+    public Map<String, Object> getCampaignQRStatus(Integer campaignId) {
+        checkCampaign(campaignId);
+
+        QRCode qrCode = qrCodeRepository.findQRCodeByCampaignId(campaignId);
+
+        Map<String, Object> qrStatus = new HashMap<>();
+
+        if (qrCode == null) {
+            qrStatus.put("hasQRCode", false);
+            qrStatus.put("status", "NOT_GENERATED");
+            qrStatus.put("qrCodeId", null);
+            qrStatus.put("code", null);
+            qrStatus.put("usedCount", 0);
+            qrStatus.put("maxUsageCount", 0);
+            qrStatus.put("remainingUsage", 0);
+            return qrStatus;
+        }
+
+        Integer usedCount = qrCode.getUsedCount() == null ? 0 : qrCode.getUsedCount();
+        Integer maxUsageCount = qrCode.getMaxUsageCount() == null ? 0 : qrCode.getMaxUsageCount();
+
+        qrStatus.put("hasQRCode", true);
+        qrStatus.put("status", qrCode.getStatus());
+        qrStatus.put("qrCodeId", qrCode.getId());
+        qrStatus.put("code", qrCode.getCode());
+        qrStatus.put("usedCount", usedCount);
+        qrStatus.put("maxUsageCount", maxUsageCount);
+        qrStatus.put("remainingUsage", maxUsageCount - usedCount);
+
+        return qrStatus;
     }
 
     public ValueOut getMaxCustomers(Integer campaignId) {

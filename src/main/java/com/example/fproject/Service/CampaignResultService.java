@@ -4,6 +4,7 @@ import com.example.fproject.Api.ApiException;
 import com.example.fproject.DTO.IN.CampaignResultRequestIn;
 import com.example.fproject.DTO.OUT.CampaignResultResponseOut;
 import com.example.fproject.DTO.OUT.ValueOut;
+import com.example.fproject.Enum.CampaignStatus;
 import com.example.fproject.Model.Campaign;
 import com.example.fproject.Model.CampaignMessage;
 import com.example.fproject.Model.CampaignResult;
@@ -23,7 +24,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -47,6 +50,59 @@ public class CampaignResultService {
 
     public CampaignResultResponseOut getCampaignResultById(Integer campaignResultId) {
         return mapCampaignResult(checkCampaignResult(campaignResultId));
+    }
+
+    @Transactional
+    public List<CampaignResultResponseOut> generateFinishedCampaignResults() {
+        List<CampaignResultResponseOut> generatedResults = new ArrayList<>();
+
+        for (Campaign campaign : campaignRepository.findAllByStatus(CampaignStatus.EXPIRED)) {
+            CampaignResult existingResult = campaignResultRepository.findCampaignResultByCampaignId(campaign.getId());
+
+            if (existingResult == null) {
+                generatedResults.add(generateCampaignResult(campaign.getId()));
+            }
+        }
+
+        for (Campaign campaign : campaignRepository.findAllByStatus(CampaignStatus.COMPLETED)) {
+            CampaignResult existingResult = campaignResultRepository.findCampaignResultByCampaignId(campaign.getId());
+
+            if (existingResult == null) {
+                generatedResults.add(generateCampaignResult(campaign.getId()));
+            }
+        }
+
+        return generatedResults;
+    }
+
+    public Map<String, Object> getCampaignResultDashboard(Integer campaignId) {
+        Campaign campaign = checkCampaign(campaignId);
+
+        CampaignResult campaignResult = campaignResultRepository.findCampaignResultByCampaignId(campaignId);
+
+        if (campaignResult == null) {
+            throw new ApiException("Campaign result not found");
+        }
+
+        Map<String, Object> dashboard = new HashMap<>();
+
+        dashboard.put("campaignId", campaign.getId());
+        dashboard.put("campaignTitle", campaign.getTitle());
+        dashboard.put("campaignStatus", campaign.getStatus());
+
+        dashboard.put("result", mapCampaignResult(campaignResult));
+        dashboard.put("totalSent", getTotalSent(campaignId));
+        dashboard.put("totalAnswered", getTotalAnswered(campaignId));
+        dashboard.put("correctAnswers", getCorrectAnswers(campaignId));
+        dashboard.put("wrongAnswers", getWrongAnswers(campaignId));
+        dashboard.put("qrUsed", getQRUsed(campaignId));
+        dashboard.put("conversionRate", getConversionRate(campaignId));
+        dashboard.put("bestResponseTime", getBestResponseTime(campaignId));
+
+        dashboard.put("aiSummary", campaignResult.getAiSummary());
+        dashboard.put("createdAt", campaignResult.getCreatedAt());
+
+        return dashboard;
     }
 
     @Transactional

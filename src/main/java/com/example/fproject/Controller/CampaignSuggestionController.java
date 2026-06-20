@@ -58,10 +58,25 @@ public class CampaignSuggestionController {
         return ResponseEntity.status(200).body(new ApiResponse("Campaign suggestion deleted successfully"));
     }
 
+    @GetMapping("/approved/analysis/{analysisId}")
+    public ResponseEntity<?> getApprovedSuggestionByAnalysis(@PathVariable Integer analysisId) {
+        return ResponseEntity.status(200).body(campaignSuggestionService.getApprovedSuggestionByAnalysis(analysisId));
+    }
+
+    @GetMapping("/pending/analysis/{analysisId}")
+    public ResponseEntity<?> getPendingSuggestionsByAnalysis(@PathVariable Integer analysisId) {
+        return ResponseEntity.status(200).body(campaignSuggestionService.getPendingSuggestionsByAnalysis(analysisId));
+    }
+
     @PutMapping("/approve/{id}")
     public ResponseEntity<?> approveCampaignSuggestion(@PathVariable Integer id) {
         campaignSuggestionService.approveCampaignSuggestion(id);
         return ResponseEntity.status(200).body(new ApiResponse("Campaign suggestion approved successfully"));
+    }
+
+    @PostMapping("/{suggestionId}/send-approval-email")
+    public ResponseEntity<?> sendApprovedCampaignSuggestionEmail(@PathVariable Integer suggestionId) {
+        return ResponseEntity.status(200).body(new ApiResponse(campaignSuggestionService.sendApprovedCampaignSuggestionEmail(suggestionId)));
     }
 
     @PutMapping("/reject/{id}")

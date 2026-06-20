@@ -72,6 +72,16 @@ public class CampaignResultController {
         return ResponseEntity.status(200).body(campaignResultService.getBestResponseTime(campaignId));
     }
 
+    @PostMapping("/generate-finished")
+    public ResponseEntity<?> generateFinishedCampaignResults() {
+        return ResponseEntity.status(200).body(campaignResultService.generateFinishedCampaignResults());
+    }
+
+    @GetMapping("/{campaignId}/dashboard")
+    public ResponseEntity<?> getCampaignResultDashboard(@PathVariable Integer campaignId) {
+        return ResponseEntity.status(200).body(campaignResultService.getCampaignResultDashboard(campaignId));
+    }
+
     @PostMapping("/generate/{campaignId}")
     public ResponseEntity<?> generateCampaignResult(@PathVariable Integer campaignId) {
         return ResponseEntity.status(200).body(campaignResultService.generateCampaignResult(campaignId));

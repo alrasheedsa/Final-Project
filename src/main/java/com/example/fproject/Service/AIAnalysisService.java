@@ -26,6 +26,7 @@ public class AIAnalysisService {
     private final SalesRecordRepository salesRecordRepository;
     private final SalesRecordItemRepository salesRecordItemRepository;
     private final OpenAiService openAiService;
+    private final EmailService emailService;
 
     public List<AIAnalysisOut> getAllAIAnalyses() {
         List<AIAnalysis> aiAnalyses = aiAnalysisRepository.findAll();
@@ -125,7 +126,9 @@ public class AIAnalysisService {
         aiAnalysis.setAnalyzedAt(LocalDateTime.now());
         aiAnalysis.setSalesRecord(salesRecord);
 
-        aiAnalysisRepository.save(aiAnalysis);
+        AIAnalysis savedAnalysis = aiAnalysisRepository.save(aiAnalysis);
+
+        sendAIAnalysisEmailSafely(savedAnalysis);
     }
 
     private String buildSalesSummaryForAI(SalesRecord salesRecord, String rawSalesData) {
@@ -240,11 +243,24 @@ public class AIAnalysisService {
         }
 
         if (rawSalesData != null && !rawSalesData.isBlank()) {
-            summary.append("\nRaw Excel text for reference:\n");
-            summary.append(rawSalesData);
+            summary.append("\nSales data sample for reference only:\n");
+            summary.append(limitRawSalesData(rawSalesData, 1200));
         }
 
         return summary.toString();
+    }
+
+    private String limitRawSalesData(String rawSalesData, Integer maxLength) {
+        if (rawSalesData == null || rawSalesData.isBlank()) {
+            return "Not available";
+        }
+
+        if (rawSalesData.length() <= maxLength) {
+            return rawSalesData;
+        }
+
+        return rawSalesData.substring(0, maxLength)
+                + "\n... Data was shortened to keep AI analysis focused on summarized business metrics.";
     }
 
     private String findTopProduct(Map<String, Integer> quantityByProduct) {
@@ -650,6 +666,106 @@ public class AIAnalysisService {
         }
 
         return "لا توجد مخاطر عالية واضحة، لكن يفضّل متابعة أداء الحملة بعد الإطلاق";
+    }
+
+    public AIAnalysisOut getLatestAIAnalysisByBranch(Integer branchId) {
+        AIAnalysis aiAnalysis =
+                aiAnalysisRepository.findFirstBySalesRecord_Branch_IdOrderByAnalyzedAtDesc(branchId);
+
+        if (aiAnalysis == null) {
+            throw new ApiException("No AI analysis found for this branch");
+        }
+
+        return convertToOut(aiAnalysis);
+    }
+
+    public Map<String, Object> getAIAnalysisDashboard(Integer analysisId) {
+        AIAnalysis aiAnalysis = getAIAnalysisEntity(analysisId);
+
+        Map<String, Object> dashboard = new HashMap<>();
+
+        dashboard.put("analysisId", aiAnalysis.getId());
+        dashboard.put("branchName", getAnalysisBranchName(analysisId));
+        dashboard.put("salesRecordInfo", getAnalysisSalesRecordInfo(analysisId));
+        dashboard.put("summary", getAnalysisSummary(analysisId));
+        dashboard.put("aiSummary", getAiSummary(analysisId));
+
+        dashboard.put("totalSales", getTotalSales(analysisId));
+        dashboard.put("peakHours", getPeakHours(analysisId));
+        dashboard.put("slowHours", getSlowHours(analysisId));
+        dashboard.put("confidence", getConfidence(analysisId));
+
+        dashboard.put("salesChart", getSalesChart(analysisId));
+        dashboard.put("topProducts", getTopProducts(analysisId));
+        dashboard.put("lowProducts", getLowProducts(analysisId));
+        dashboard.put("productDetails", getProductDetails(analysisId));
+
+        dashboard.put("surplusProducts", getSurplusProducts(analysisId));
+        dashboard.put("seasonalPatterns", getSeasonalPatterns(analysisId));
+        dashboard.put("recommendation", getRecommendations(analysisId));
+        dashboard.put("bestRecommendation", getBestRecommendation(analysisId));
+
+        dashboard.put("suggestedCampaignReady", isSuggestedCampaignReady(analysisId));
+        dashboard.put("mainOpportunity", getAnalysisMainOpportunity(analysisId));
+        dashboard.put("riskNote", getAnalysisRiskNote(analysisId));
+        dashboard.put("generatedAt", getAnalysisGeneratedAt(analysisId));
+
+        return dashboard;
+    }
+
+    public String sendAIAnalysisSummaryEmail(Integer analysisId) {
+        AIAnalysis aiAnalysis = getAIAnalysisEntity(analysisId);
+
+        return sendAIAnalysisEmail(aiAnalysis);
+    }
+
+    private void sendAIAnalysisEmailSafely(AIAnalysis aiAnalysis) {
+        try {
+            sendAIAnalysisEmail(aiAnalysis);
+        } catch (Exception e) {
+            System.out.println("AI analysis email was not sent: " + e.getMessage());
+        }
+    }
+
+    private String sendAIAnalysisEmail(AIAnalysis aiAnalysis) {
+        if (aiAnalysis.getSalesRecord() == null
+                || aiAnalysis.getSalesRecord().getBranch() == null
+                || aiAnalysis.getSalesRecord().getBranch().getStore() == null
+                || aiAnalysis.getSalesRecord().getBranch().getStore().getStoreOwner() == null
+                || aiAnalysis.getSalesRecord().getBranch().getStore().getStoreOwner().getUser() == null) {
+            throw new ApiException("Store owner email information not found");
+        }
+
+        String ownerEmail =
+                aiAnalysis.getSalesRecord()
+                        .getBranch()
+                        .getStore()
+                        .getStoreOwner()
+                        .getUser()
+                        .getEmail();
+
+        String ownerName =
+                aiAnalysis.getSalesRecord()
+                        .getBranch()
+                        .getStore()
+                        .getStoreOwner()
+                        .getUser()
+                        .getFullName();
+
+        String branchName = aiAnalysis.getSalesRecord().getBranch().getName();
+
+        return emailService.sendAIAnalysisReadyEmail(
+                ownerEmail,
+                ownerName,
+                branchName,
+                aiAnalysis.getSalesRecord().getMonth(),
+                aiAnalysis.getSalesRecord().getYear(),
+                aiAnalysis.getSlowHours(),
+                aiAnalysis.getPeakHours(),
+                aiAnalysis.getTopProducts(),
+                aiAnalysis.getLowProducts(),
+                aiAnalysis.getRecommendation()
+        );
     }
 
     public void deleteAIAnalysis(Integer id) {

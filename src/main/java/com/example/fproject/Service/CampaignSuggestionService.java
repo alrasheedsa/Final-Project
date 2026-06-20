@@ -14,6 +14,7 @@ import com.example.fproject.Repository.CampaignSuggestionRepository;
 import com.example.fproject.Repository.SubscriptionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import com.example.fproject.Enum.SubscriptionPlanType;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -28,6 +29,8 @@ public class CampaignSuggestionService {
     private final AIAnalysisRepository aiAnalysisRepository;
     private final SubscriptionRepository subscriptionRepository;
     private final OpenAiService openAiService;
+    private final HolidayService holidayService;
+    private final EmailService emailService;
 
     public List<CampaignSuggestionOut> getAllCampaignSuggestions() {
         List<CampaignSuggestion> campaignSuggestions = campaignSuggestionRepository.findAll();
@@ -76,7 +79,7 @@ public class CampaignSuggestionService {
             throw new ApiException("AI analysis not found");
         }
 
-        validateAIAnalysisReadyForSuggestion(aiAnalysis);
+        Subscription activeSubscription = validateAIAnalysisReadyForSuggestion(aiAnalysis);
 
         List<CampaignSuggestion> oldSuggestions =
                 campaignSuggestionRepository.findAllByAiAnalysis_Id(aiAnalysisId);
@@ -85,7 +88,7 @@ public class CampaignSuggestionService {
             throw new ApiException("Campaign suggestions already generated for this AI analysis");
         }
 
-        return generateAndSaveSuggestions(aiAnalysis, 1);
+        return generateAndSaveSuggestions(aiAnalysis, 1, activeSubscription);
     }
 
     public List<CampaignSuggestionOut> regenerateCampaignSuggestions(Integer aiAnalysisId) {
@@ -95,7 +98,7 @@ public class CampaignSuggestionService {
             throw new ApiException("AI analysis not found");
         }
 
-        validateAIAnalysisReadyForSuggestion(aiAnalysis);
+        Subscription activeSubscription = validateAIAnalysisReadyForSuggestion(aiAnalysis);
 
         List<CampaignSuggestion> oldSuggestions =
                 campaignSuggestionRepository.findAllByAiAnalysis_Id(aiAnalysisId);
@@ -116,18 +119,22 @@ public class CampaignSuggestionService {
             throw new ApiException("Generate campaign suggestions before regenerating");
         }
 
-        if (latestRound >= 3) {
-            throw new ApiException("Maximum suggestion regeneration rounds reached");
+        Integer maxRounds = getMaxSuggestionRoundsByPlan(activeSubscription.getPlanType());
+
+        if (latestRound >= maxRounds) {
+            throw new ApiException("Maximum suggestion regeneration rounds reached for this subscription plan");
         }
 
-        return generateAndSaveSuggestions(aiAnalysis, latestRound + 1);
+        return generateAndSaveSuggestions(aiAnalysis, latestRound + 1, activeSubscription);
     }
 
-    private List<CampaignSuggestionOut> generateAndSaveSuggestions(AIAnalysis aiAnalysis, Integer suggestionRound) {
+    private List<CampaignSuggestionOut> generateAndSaveSuggestions(AIAnalysis aiAnalysis, Integer suggestionRound, Subscription activeSubscription) {
         String analysisSummary = buildAnalysisSummary(aiAnalysis);
 
+        Integer suggestionCount = getSuggestionCountByPlan(activeSubscription.getPlanType());
+
         List<OpenAiService.CampaignSuggestionResult> aiResults =
-                openAiService.generateCampaignSuggestionsFromAIAnalysis(analysisSummary, suggestionRound);
+                openAiService.generateCampaignSuggestionsFromAIAnalysis(analysisSummary, suggestionRound, suggestionCount);
 
         List<CampaignSuggestionOut> campaignSuggestionOuts = new ArrayList<>();
 
@@ -189,6 +196,10 @@ public class CampaignSuggestionService {
         summary.append("Recommendation: ").append(aiAnalysis.getRecommendation()).append("\n");
         summary.append("AI summary: ").append(aiAnalysis.getAiSummary()).append("\n");
 
+        summary.append("\nHoliday context:\n")
+                .append(holidayService.getSaudiHolidayContextForAI())
+                .append("\n");
+
         return summary.toString();
     }
 
@@ -229,7 +240,7 @@ public class CampaignSuggestionService {
         }
     }
 
-    private void validateAIAnalysisReadyForSuggestion(AIAnalysis aiAnalysis) {
+    private Subscription validateAIAnalysisReadyForSuggestion(AIAnalysis aiAnalysis){
         if (aiAnalysis == null) {
             throw new ApiException("AI analysis not found");
         }
@@ -273,6 +284,24 @@ public class CampaignSuggestionService {
         if (activeSubscription.getEndDate().isBefore(LocalDate.now())) {
             throw new ApiException("Store owner subscription is expired");
         }
+
+        return activeSubscription;
+    }
+
+    private Integer getSuggestionCountByPlan(SubscriptionPlanType planType) {
+        if (planType == SubscriptionPlanType.PROFESSIONAL_YEARLY) {
+            return 5;
+        }
+
+        return 3;
+    }
+
+    private Integer getMaxSuggestionRoundsByPlan(SubscriptionPlanType planType) {
+        if (planType == SubscriptionPlanType.BASIC_MONTHLY) {
+            return 1;
+        }
+
+        return 3;
     }
 
     public void addCampaignSuggestion(CampaignSuggestionIn campaignSuggestionIn) {
@@ -387,6 +416,46 @@ public class CampaignSuggestionService {
         campaignSuggestionRepository.delete(campaignSuggestion);
     }
 
+    public CampaignSuggestionOut getApprovedSuggestionByAnalysis(Integer analysisId) {
+        AIAnalysis aiAnalysis = aiAnalysisRepository.findAIAnalysisById(analysisId);
+
+        if (aiAnalysis == null) {
+            throw new ApiException("AI analysis not found");
+        }
+
+        List<CampaignSuggestion> suggestions =
+                campaignSuggestionRepository.findAllByAiAnalysis_Id(analysisId);
+
+        for (CampaignSuggestion suggestion : suggestions) {
+            if (suggestion.getApprovalStatus() == SuggestionStatus.APPROVED) {
+                return convertToOut(suggestion);
+            }
+        }
+
+        throw new ApiException("No approved campaign suggestion found for this AI analysis");
+    }
+
+    public List<CampaignSuggestionOut> getPendingSuggestionsByAnalysis(Integer analysisId) {
+        AIAnalysis aiAnalysis = aiAnalysisRepository.findAIAnalysisById(analysisId);
+
+        if (aiAnalysis == null) {
+            throw new ApiException("AI analysis not found");
+        }
+
+        List<CampaignSuggestion> suggestions =
+                campaignSuggestionRepository.findAllByAiAnalysis_Id(analysisId);
+
+        List<CampaignSuggestionOut> pendingSuggestions = new ArrayList<>();
+
+        for (CampaignSuggestion suggestion : suggestions) {
+            if (suggestion.getApprovalStatus() == SuggestionStatus.PENDING) {
+                pendingSuggestions.add(convertToOut(suggestion));
+            }
+        }
+
+        return pendingSuggestions;
+    }
+
     public void approveCampaignSuggestion(Integer id) {
         CampaignSuggestion campaignSuggestion = campaignSuggestionRepository.findCampaignSuggestionById(id);
 
@@ -415,7 +484,83 @@ public class CampaignSuggestionService {
         }
 
         campaignSuggestion.setApprovalStatus(SuggestionStatus.APPROVED);
-        campaignSuggestionRepository.save(campaignSuggestion);
+        CampaignSuggestion savedSuggestion = campaignSuggestionRepository.save(campaignSuggestion);
+
+        sendApprovedSuggestionEmailSafely(savedSuggestion);
+    }
+
+    public String sendApprovedCampaignSuggestionEmail(Integer suggestionId) {
+        CampaignSuggestion campaignSuggestion =
+                campaignSuggestionRepository.findCampaignSuggestionById(suggestionId);
+
+        if (campaignSuggestion == null) {
+            throw new ApiException("Campaign suggestion not found");
+        }
+
+        if (campaignSuggestion.getApprovalStatus() != SuggestionStatus.APPROVED) {
+            throw new ApiException("Campaign suggestion must be approved before sending approval email");
+        }
+
+        return sendApprovedSuggestionEmail(campaignSuggestion);
+    }
+
+    private void sendApprovedSuggestionEmailSafely(CampaignSuggestion campaignSuggestion) {
+        try {
+            sendApprovedSuggestionEmail(campaignSuggestion);
+        } catch (Exception e) {
+            System.out.println("Campaign suggestion approval email was not sent: " + e.getMessage());
+        }
+    }
+
+    private String sendApprovedSuggestionEmail(CampaignSuggestion campaignSuggestion) {
+        if (campaignSuggestion.getAiAnalysis() == null
+                || campaignSuggestion.getAiAnalysis().getSalesRecord() == null
+                || campaignSuggestion.getAiAnalysis().getSalesRecord().getBranch() == null
+                || campaignSuggestion.getAiAnalysis().getSalesRecord().getBranch().getStore() == null
+                || campaignSuggestion.getAiAnalysis().getSalesRecord().getBranch().getStore().getStoreOwner() == null
+                || campaignSuggestion.getAiAnalysis().getSalesRecord().getBranch().getStore().getStoreOwner().getUser() == null) {
+            throw new ApiException("Store owner email information not found");
+        }
+
+        String ownerEmail =
+                campaignSuggestion.getAiAnalysis()
+                        .getSalesRecord()
+                        .getBranch()
+                        .getStore()
+                        .getStoreOwner()
+                        .getUser()
+                        .getEmail();
+
+        String ownerName =
+                campaignSuggestion.getAiAnalysis()
+                        .getSalesRecord()
+                        .getBranch()
+                        .getStore()
+                        .getStoreOwner()
+                        .getUser()
+                        .getFullName();
+
+        String branchName =
+                campaignSuggestion.getAiAnalysis()
+                        .getSalesRecord()
+                        .getBranch()
+                        .getName();
+
+        return emailService.sendCampaignSuggestionApprovedEmail(
+                ownerEmail,
+                ownerName,
+                branchName,
+                campaignSuggestion.getTitle(),
+                campaignSuggestion.getCampaignType().name(),
+                campaignSuggestion.getOfferText(),
+                campaignSuggestion.getSuggestedProductName(),
+                campaignSuggestion.getSuggestedStartDate().toString(),
+                campaignSuggestion.getSuggestedEndDate().toString(),
+                campaignSuggestion.getSuggestedStartTime().toString(),
+                campaignSuggestion.getSuggestedEndTime().toString(),
+                campaignSuggestion.getTargetCustomersCount(),
+                campaignSuggestion.getDiscountValue()
+        );
     }
 
     public void rejectCampaignSuggestion(Integer id) {

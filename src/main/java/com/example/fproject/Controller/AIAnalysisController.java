@@ -142,6 +142,21 @@ public class AIAnalysisController {
         return ResponseEntity.status(200).body(new ApiResponse("AI analysis updated successfully"));
     }
 
+    @GetMapping("/latest/branch/{branchId}")
+    public ResponseEntity<?> getLatestAIAnalysisByBranch(@PathVariable Integer branchId) {
+        return ResponseEntity.status(200).body(aiAnalysisService.getLatestAIAnalysisByBranch(branchId));
+    }
+
+    @GetMapping("/{analysisId}/dashboard")
+    public ResponseEntity<?> getAIAnalysisDashboard(@PathVariable Integer analysisId) {
+        return ResponseEntity.status(200).body(aiAnalysisService.getAIAnalysisDashboard(analysisId));
+    }
+
+    @PostMapping("/{analysisId}/send-email-summary")
+    public ResponseEntity<?> sendAIAnalysisSummaryEmail(@PathVariable Integer analysisId) {
+        return ResponseEntity.status(200).body(new ApiResponse(aiAnalysisService.sendAIAnalysisSummaryEmail(analysisId)));
+    }
+
     @DeleteMapping("/delete/{id}")
     public ResponseEntity<?> deleteAIAnalysis(@PathVariable Integer id) {
         aiAnalysisService.deleteAIAnalysis(id);

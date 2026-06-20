@@ -58,6 +58,16 @@ public class CampaignController {
         return ResponseEntity.status(200).body(campaignService.getCampaignDetails(campaignId));
     }
 
+    @GetMapping("/{campaignId}/dashboard")
+    public ResponseEntity<?> getCampaignDashboard(@PathVariable Integer campaignId) {
+        return ResponseEntity.status(200).body(campaignService.getCampaignDashboard(campaignId));
+    }
+
+    @GetMapping("/{campaignId}/qr-status")
+    public ResponseEntity<?> getCampaignQRStatus(@PathVariable Integer campaignId) {
+        return ResponseEntity.status(200).body(campaignService.getCampaignQRStatus(campaignId));
+    }
+
     @GetMapping("/max-customers/{campaignId}")
     public ResponseEntity<?> getMaxCustomers(@PathVariable Integer campaignId) {
         return ResponseEntity.status(200).body(campaignService.getMaxCustomers(campaignId));
