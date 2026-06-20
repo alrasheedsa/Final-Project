@@ -40,15 +40,18 @@ public class CampaignSuggestionController {
         return ResponseEntity.status(200).body(campaignSuggestionService.regenerateCampaignSuggestions(aiAnalysisId));
     }
 
-    @PostMapping("/add")
-    public ResponseEntity<?> addCampaignSuggestion(@RequestBody @Valid CampaignSuggestionIn campaignSuggestionIn) {
-        campaignSuggestionService.addCampaignSuggestion(campaignSuggestionIn);
+    @PostMapping("/add/analysis/{aiAnalysisId}")
+    public ResponseEntity<?> addCampaignSuggestion(@PathVariable Integer aiAnalysisId,
+                                                   @RequestBody @Valid CampaignSuggestionIn campaignSuggestionIn) {
+        campaignSuggestionService.addCampaignSuggestion(aiAnalysisId, campaignSuggestionIn);
         return ResponseEntity.status(200).body(new ApiResponse("Campaign suggestion added successfully"));
     }
 
-    @PutMapping("/update/{id}")
-    public ResponseEntity<?> updateCampaignSuggestion(@PathVariable Integer id, @RequestBody @Valid CampaignSuggestionIn campaignSuggestionIn) {
-        campaignSuggestionService.updateCampaignSuggestion(id, campaignSuggestionIn);
+    @PutMapping("/update/{id}/analysis/{aiAnalysisId}")
+    public ResponseEntity<?> updateCampaignSuggestion(@PathVariable Integer id,
+                                                      @PathVariable Integer aiAnalysisId,
+                                                      @RequestBody @Valid CampaignSuggestionIn campaignSuggestionIn) {
+        campaignSuggestionService.updateCampaignSuggestion(id, aiAnalysisId, campaignSuggestionIn);
         return ResponseEntity.status(200).body(new ApiResponse("Campaign suggestion updated successfully"));
     }
 

@@ -304,47 +304,37 @@ public class CampaignSuggestionService {
         return 3;
     }
 
-    public void addCampaignSuggestion(CampaignSuggestionIn campaignSuggestionIn) {
+    public void addCampaignSuggestion(Integer aiAnalysisId, CampaignSuggestionIn campaignSuggestionIn) {
         validateCampaignSuggestionIn(campaignSuggestionIn);
 
-        AIAnalysis aiAnalysis = aiAnalysisRepository.findAIAnalysisById(campaignSuggestionIn.getAiAnalysisId());
+        AIAnalysis aiAnalysis = aiAnalysisRepository.findAIAnalysisById(aiAnalysisId);
 
         if (aiAnalysis == null) {
             throw new ApiException("AI analysis not found");
-        }
-
-        Boolean exists = campaignSuggestionRepository.existsByAiAnalysis_IdAndSuggestionRound(
-                campaignSuggestionIn.getAiAnalysisId(),
-                campaignSuggestionIn.getSuggestionRound()
-        );
-
-        if (Boolean.TRUE.equals(exists)) {
-            throw new ApiException("Suggestion round already exists for this AI analysis");
         }
 
         CampaignSuggestion campaignSuggestion = new CampaignSuggestion();
 
         campaignSuggestion.setTitle(campaignSuggestionIn.getTitle());
         campaignSuggestion.setDescription(campaignSuggestionIn.getDescription());
-        campaignSuggestion.setOfferText(campaignSuggestionIn.getOfferText());
         campaignSuggestion.setCampaignType(campaignSuggestionIn.getCampaignType());
+        campaignSuggestion.setOfferText(campaignSuggestionIn.getOfferText());
+        campaignSuggestion.setSuggestedProductName(campaignSuggestionIn.getSuggestedProductName());
         campaignSuggestion.setSuggestedStartDate(campaignSuggestionIn.getSuggestedStartDate());
         campaignSuggestion.setSuggestedEndDate(campaignSuggestionIn.getSuggestedEndDate());
         campaignSuggestion.setSuggestedStartTime(campaignSuggestionIn.getSuggestedStartTime());
         campaignSuggestion.setSuggestedEndTime(campaignSuggestionIn.getSuggestedEndTime());
         campaignSuggestion.setTargetCustomersCount(campaignSuggestionIn.getTargetCustomersCount());
         campaignSuggestion.setDiscountValue(campaignSuggestionIn.getDiscountValue());
-        campaignSuggestion.setSuggestedProductName(campaignSuggestionIn.getSuggestedProductName());
-        campaignSuggestion.setSuggestionRound(campaignSuggestionIn.getSuggestionRound());
 
         campaignSuggestion.setApprovalStatus(SuggestionStatus.PENDING);
-
+        campaignSuggestion.setSuggestionRound(1);
         campaignSuggestion.setAiAnalysis(aiAnalysis);
 
         campaignSuggestionRepository.save(campaignSuggestion);
     }
 
-    public void updateCampaignSuggestion(Integer id, CampaignSuggestionIn campaignSuggestionIn) {
+    public void updateCampaignSuggestion(Integer id, Integer aiAnalysisId, CampaignSuggestionIn campaignSuggestionIn) {
         validateCampaignSuggestionIn(campaignSuggestionIn);
 
         CampaignSuggestion oldCampaignSuggestion =
@@ -354,45 +344,27 @@ public class CampaignSuggestionService {
             throw new ApiException("Campaign suggestion not found");
         }
 
-        if (oldCampaignSuggestion.getCampaign() != null) {
-            throw new ApiException("Cannot update campaign suggestion because it is linked to a campaign");
-        }
-
-        AIAnalysis aiAnalysis = aiAnalysisRepository.findAIAnalysisById(campaignSuggestionIn.getAiAnalysisId());
+        AIAnalysis aiAnalysis = aiAnalysisRepository.findAIAnalysisById(aiAnalysisId);
 
         if (aiAnalysis == null) {
             throw new ApiException("AI analysis not found");
         }
 
-        Boolean changedAIAnalysis =
-                !oldCampaignSuggestion.getAiAnalysis().getId().equals(campaignSuggestionIn.getAiAnalysisId());
-
-        Boolean changedSuggestionRound =
-                !oldCampaignSuggestion.getSuggestionRound().equals(campaignSuggestionIn.getSuggestionRound());
-
-        if (changedAIAnalysis || changedSuggestionRound) {
-            Boolean exists = campaignSuggestionRepository.existsByAiAnalysis_IdAndSuggestionRound(
-                    campaignSuggestionIn.getAiAnalysisId(),
-                    campaignSuggestionIn.getSuggestionRound()
-            );
-
-            if (Boolean.TRUE.equals(exists)) {
-                throw new ApiException("Suggestion round already exists for this AI analysis");
-            }
+        if (oldCampaignSuggestion.getApprovalStatus() == SuggestionStatus.APPROVED) {
+            throw new ApiException("Approved campaign suggestion cannot be updated");
         }
 
         oldCampaignSuggestion.setTitle(campaignSuggestionIn.getTitle());
         oldCampaignSuggestion.setDescription(campaignSuggestionIn.getDescription());
-        oldCampaignSuggestion.setOfferText(campaignSuggestionIn.getOfferText());
         oldCampaignSuggestion.setCampaignType(campaignSuggestionIn.getCampaignType());
+        oldCampaignSuggestion.setOfferText(campaignSuggestionIn.getOfferText());
+        oldCampaignSuggestion.setSuggestedProductName(campaignSuggestionIn.getSuggestedProductName());
         oldCampaignSuggestion.setSuggestedStartDate(campaignSuggestionIn.getSuggestedStartDate());
         oldCampaignSuggestion.setSuggestedEndDate(campaignSuggestionIn.getSuggestedEndDate());
         oldCampaignSuggestion.setSuggestedStartTime(campaignSuggestionIn.getSuggestedStartTime());
         oldCampaignSuggestion.setSuggestedEndTime(campaignSuggestionIn.getSuggestedEndTime());
         oldCampaignSuggestion.setTargetCustomersCount(campaignSuggestionIn.getTargetCustomersCount());
         oldCampaignSuggestion.setDiscountValue(campaignSuggestionIn.getDiscountValue());
-        oldCampaignSuggestion.setSuggestedProductName(campaignSuggestionIn.getSuggestedProductName());
-        oldCampaignSuggestion.setSuggestionRound(campaignSuggestionIn.getSuggestionRound());
         oldCampaignSuggestion.setAiAnalysis(aiAnalysis);
 
         campaignSuggestionRepository.save(oldCampaignSuggestion);
@@ -644,18 +616,6 @@ public class CampaignSuggestionService {
         if (campaignSuggestionIn.getSuggestedProductName() == null
                 || campaignSuggestionIn.getSuggestedProductName().isBlank()) {
             throw new ApiException("Suggested product name is required");
-        }
-
-        if (campaignSuggestionIn.getSuggestionRound() == null) {
-            throw new ApiException("Suggestion round is required");
-        }
-
-        if (campaignSuggestionIn.getSuggestionRound() <= 0) {
-            throw new ApiException("Suggestion round must be greater than zero");
-        }
-
-        if (campaignSuggestionIn.getAiAnalysisId() == null) {
-            throw new ApiException("AI analysis id is required");
         }
     }
 
