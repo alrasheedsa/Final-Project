@@ -254,6 +254,17 @@ public class SubscriptionService {
         deactivateStoresAndBranches(subscription);
     }
 
+    @Transactional
+    public void checkExpiredSubscriptions() {
+        for (Subscription subscription : subscriptionRepository.findAllByStatus(SubscriptionStatus.ACTIVE)) {
+            if (subscription.getEndDate() != null && subscription.getEndDate().isBefore(LocalDate.now())) {
+                subscription.setStatus(SubscriptionStatus.EXPIRED);
+                subscriptionRepository.save(subscription);
+                deactivateStoresAndBranches(subscription);
+            }
+        }
+    }
+
 
     private SubscriptionLimitsOut buildLimits(Integer storeOwnerId, List<Store> stores) {
 

@@ -282,6 +282,19 @@ public class CampaignService {
         }
     }
 
+    @Transactional
+    public void startReadyCampaigns() {
+        LocalDateTime now = LocalDateTime.now();
+        for (Campaign campaign : campaignRepository.findAllByStatus(CampaignStatus.APPROVED)) {
+            if (campaign.getStartDateTime() == null || campaign.getEndDateTime() == null) {
+                continue;
+            }
+            if (!campaign.getStartDateTime().isAfter(now) && campaign.getEndDateTime().isAfter(now)) {
+                sendCampaign(campaign.getId());
+            }
+        }
+    }
+
     public CampaignDetailsOut getCampaignDetails(Integer campaignId) {
         Campaign campaign = checkCampaign(campaignId);
         Branch branch = campaign.getBranch();
