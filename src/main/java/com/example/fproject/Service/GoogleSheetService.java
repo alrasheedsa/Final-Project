@@ -154,13 +154,14 @@ public class GoogleSheetService {
                     + googleSheetsApiKey
                     + "&valueRenderOption=FORMATTED_VALUE";
 
-            Map<String, Object> response = restTemplate.getForObject(url, Map.class);
+            GoogleSheetValuesResponse response =
+                    restTemplate.getForObject(url, GoogleSheetValuesResponse.class);
 
-            if (response == null || response.get("values") == null) {
+            if (response == null || response.getValues() == null || response.getValues().isEmpty()) {
                 throw new ApiException("Google Sheet has no values");
             }
 
-            return (List<List<Object>>) response.get("values");
+            return response.getValues();
 
         } catch (ApiException e) {
             throw e;
@@ -370,6 +371,19 @@ public class GoogleSheetService {
 
         } catch (Exception e) {
             throw new ApiException("Invalid Google Sheet sale time in row " + (rowIndex + 1));
+        }
+    }
+
+    private static class GoogleSheetValuesResponse {
+
+        private List<List<Object>> values;
+
+        public List<List<Object>> getValues() {
+            return values;
+        }
+
+        public void setValues(List<List<Object>> values) {
+            this.values = values;
         }
     }
 }

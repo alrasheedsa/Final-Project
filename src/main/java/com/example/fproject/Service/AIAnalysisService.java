@@ -243,11 +243,24 @@ public class AIAnalysisService {
         }
 
         if (rawSalesData != null && !rawSalesData.isBlank()) {
-            summary.append("\nRaw Excel text for reference:\n");
-            summary.append(rawSalesData);
+            summary.append("\nSales data sample for reference only:\n");
+            summary.append(limitRawSalesData(rawSalesData, 1200));
         }
 
         return summary.toString();
+    }
+
+    private String limitRawSalesData(String rawSalesData, Integer maxLength) {
+        if (rawSalesData == null || rawSalesData.isBlank()) {
+            return "Not available";
+        }
+
+        if (rawSalesData.length() <= maxLength) {
+            return rawSalesData;
+        }
+
+        return rawSalesData.substring(0, maxLength)
+                + "\n... Data was shortened to keep AI analysis focused on summarized business metrics.";
     }
 
     private String findTopProduct(Map<String, Integer> quantityByProduct) {
