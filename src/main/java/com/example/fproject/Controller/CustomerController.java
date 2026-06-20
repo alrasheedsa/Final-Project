@@ -55,4 +55,60 @@ public class CustomerController {
     public ResponseEntity<?> getCustomersInsideRadius(@PathVariable Integer branchId) {
         return ResponseEntity.status(200).body(customerService.getCustomersInsideRadius(branchId));
     }
+
+    @GetMapping("/{customerId}/campaigns/in-radius")
+    public ResponseEntity<?> getCampaignsInRadius(@PathVariable Integer customerId) {
+        return ResponseEntity.status(200).body(customerService.getCampaignsInRadius(customerId));
+    }
+
+    @GetMapping("/{customerId}/campaigns/active")
+    public ResponseEntity<?> getActiveCampaigns(@PathVariable Integer customerId) {
+        return ResponseEntity.status(200).body(customerService.getActiveCampaignsInRadius(customerId));
+    }
+
+    @GetMapping("/{customerId}/campaigns/expired")
+    public ResponseEntity<?> getExpiredCampaigns(@PathVariable Integer customerId) {
+        return ResponseEntity.status(200).body(customerService.getExpiredCampaignsInRadius(customerId));
+    }
+
+    @GetMapping("/{customerId}/campaigns/used")
+    public ResponseEntity<?> getUsedCampaigns(@PathVariable Integer customerId) {
+        return ResponseEntity.status(200).body(customerService.getUsedCampaigns(customerId));
+    }
+
+
+    @GetMapping("/{customerId}/offers")
+    public ResponseEntity<?> getCustomerOffers(@PathVariable Integer customerId) {
+        return ResponseEntity.status(200).body(customerService.getCustomerOffers(customerId));
+    }
+
+    @GetMapping("/{customerId}/campaign-messages/active")
+    public ResponseEntity<?> getActiveMessages(@PathVariable Integer customerId) {
+        return ResponseEntity.status(200).body(customerService.getActiveMessages(customerId));
+    }
+
+    @GetMapping("/{customerId}/campaign-messages/answered")
+    public ResponseEntity<?> getAnsweredMessages(@PathVariable Integer customerId) {
+        return ResponseEntity.status(200).body(customerService.getAnsweredMessages(customerId));
+    }
+
+    @GetMapping("/{customerId}/campaign-messages/unanswered")
+    public ResponseEntity<?> getUnansweredMessages(@PathVariable Integer customerId) {
+        return ResponseEntity.status(200).body(customerService.getUnansweredMessages(customerId));
+    }
+
+    @GetMapping("/{customerId}/qr-codes")
+    public ResponseEntity<?> getCustomerQRCodes(@PathVariable Integer customerId) {
+        return ResponseEntity.status(200).body(customerService.getCustomerQRCodes(customerId));
+    }
+
+    @GetMapping("/{customerId}/available-qr")
+    public ResponseEntity<?> getAvailableQRCodes(@PathVariable Integer customerId) {
+        return ResponseEntity.status(200).body(customerService.getAvailableQRCodes(customerId));
+    }
+
+    @GetMapping("/{customerId}/used-qr")
+    public ResponseEntity<?> getUsedQRCodes(@PathVariable Integer customerId) {
+        return ResponseEntity.status(200).body(customerService.getUsedQRCodes(customerId));
+    }
 }
