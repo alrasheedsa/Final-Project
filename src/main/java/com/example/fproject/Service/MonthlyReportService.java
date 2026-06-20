@@ -23,14 +23,14 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class MonthlyReportService {
 
-    private final MonthlyReportRepository monthlyReportRepository;
-    private final BranchRepository branchRepository;
-    private final SalesRecordRepository salesRecordRepository;
-    private final SalesRecordItemRepository salesRecordItemRepository;
-    private final BranchService branchService;
-    private final ITextService iTextService;
-    private final OpenAiService openAiService;
-    private final EmailService emailService;
+    private final MonthlyReportRepository    monthlyReportRepository;
+    private final BranchRepository           branchRepository;
+    private final SalesRecordRepository      salesRecordRepository;
+    private final SalesRecordItemRepository  salesRecordItemRepository;
+    private final BranchService              branchService;
+    private final ITextService               iTextService;
+    private final OpenAiService              openAiService;
+    private final EmailService               emailService;
 
     @Transactional
     public MonthlyReportOut generateMonthlyReport(Integer branchId, MonthlyReportIn dto) {
@@ -88,6 +88,7 @@ public class MonthlyReportService {
         report.setAiSummary(aiSummary);
         report.setGeneratedAt(LocalDateTime.now());
         report.setBranch(branch);
+        report.setPdfUrl("pending");
 
         monthlyReportRepository.save(report);
         report.setPdfUrl("/api/v1/monthly-report/download/" + report.getId());
@@ -277,7 +278,6 @@ public class MonthlyReportService {
 
         MonthlyReport report = findReportOrThrow(reportId);
 
-        // توليد PDF
         byte[] pdf = iTextService.generateSalesMonthlyReportPdf(
                 report.getBranch().getStore().getName(),
                 report.getBranch().getName(),
@@ -292,38 +292,22 @@ public class MonthlyReportService {
                 report.getAiSummary()
         );
 
-        // لو ما حُدد إيميل → استخدام إيميل صاحب المتجر
         String recipient = (toEmail != null && !toEmail.isBlank())
                 ? toEmail
                 : report.getBranch().getStore().getStoreOwner().getUser().getEmail();
 
-        String storeName  = report.getBranch().getStore().getName();
-        String branchName = report.getBranch().getName();
         String monthLabel = monthName(report.getMonth()) + " " + report.getYear();
 
-        String subject = "التقرير الشهري — " + storeName + " | " + branchName + " | " + monthLabel;
-
-        String body = """
-                السلام عليكم،
-
-                يسعدنا إرسال التقرير الشهري لـ %s — فرع %s لشهر %s.
-
-                يتضمن التقرير:
-                • إجمالي المبيعات: %.2f ريال
-                • إجمالي الكمية المباعة: %d وحدة
-                • أعلى المنتجات: %s
-                • تحليل الذكاء الاصطناعي: مرفق في الـ PDF
-
-                التقرير الكامل مرفق بهذه الرسالة.
-
-                منصة موقر
-                """.formatted(
-                storeName, branchName, monthLabel,
-                report.getTotalSales(), report.getTotalQuantity(),
-                report.getTopProducts()
+        emailService.sendMonthlyReportEmail(
+                recipient,
+                report.getBranch().getStore().getName(),
+                report.getBranch().getName(),
+                monthLabel,
+                report.getTotalSales(),
+                report.getTotalQuantity(),
+                report.getTopProducts(),
+                pdf
         );
-
-        emailService.sendEmailWithPdf(recipient, subject, body, pdf);
     }
 
     private String generateAiSummary(Branch branch, MonthlyReportIn dto, SalesStats stats) {

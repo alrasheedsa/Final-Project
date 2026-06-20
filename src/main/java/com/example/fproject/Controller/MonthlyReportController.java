@@ -19,13 +19,14 @@ public class MonthlyReportController {
 
     @PostMapping("/generate/{branchId}")
     public ResponseEntity<?> generateMonthlyReport(@PathVariable Integer branchId, @Valid @RequestBody MonthlyReportIn dto) {
-        return ResponseEntity.status(200).body(monthlyReportService.generateMonthlyReport(branchId, dto));
+        monthlyReportService.generateMonthlyReport(branchId, dto);
+        return ResponseEntity.status(200).body(new ApiResponse("Monthly report generated successfully"));
     }
-
 
     @PutMapping("/regenerate/{reportId}")
     public ResponseEntity<?> regenerateMonthlyReport(@PathVariable Integer reportId) {
-        return ResponseEntity.status(200).body(monthlyReportService.regenerateMonthlyReport(reportId));
+        monthlyReportService.regenerateMonthlyReport(reportId);
+        return ResponseEntity.status(200).body(new ApiResponse("Monthly report regenerated successfully"));
     }
 
     @GetMapping("/get")
@@ -48,13 +49,11 @@ public class MonthlyReportController {
         return ResponseEntity.status(200).body(monthlyReportService.getMonthlyReportByBranchAndDate(branchId, month, year));
     }
 
-
     @DeleteMapping("/delete/{reportId}")
     public ResponseEntity<?> deleteMonthlyReport(@PathVariable Integer reportId) {
         monthlyReportService.deleteMonthlyReport(reportId);
         return ResponseEntity.status(200).body(new ApiResponse("Monthly report deleted successfully"));
     }
-
 
     @GetMapping("/download/{reportId}")
     public ResponseEntity<byte[]> downloadMonthlyReport(@PathVariable Integer reportId) {

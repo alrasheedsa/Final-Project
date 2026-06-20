@@ -17,7 +17,8 @@ public class StoreController {
 
     @PostMapping("/add/{storeOwnerId}")
     public ResponseEntity<?> addStore(@PathVariable Integer storeOwnerId, @Valid @RequestBody StoreIn dto) {
-        return ResponseEntity.status(200).body(storeService.addStore(storeOwnerId, dto));
+        storeService.addStore(storeOwnerId, dto);
+        return ResponseEntity.status(200).body(new ApiResponse("Store added successfully"));
     }
 
     @GetMapping("/get")
@@ -37,17 +38,20 @@ public class StoreController {
 
     @PutMapping("/update/{storeId}")
     public ResponseEntity<?> updateStore(@PathVariable Integer storeId, @Valid @RequestBody StoreIn dto) {
-        return ResponseEntity.status(200).body(storeService.updateStore(storeId, dto));
+        storeService.updateStore(storeId, dto);
+        return ResponseEntity.status(200).body(new ApiResponse("Store updated successfully"));
     }
 
     @PutMapping("/activate/{storeId}")
     public ResponseEntity<?> activateStore(@PathVariable Integer storeId) {
-        return ResponseEntity.status(200).body(storeService.activateStore(storeId));
+        storeService.activateStore(storeId);
+        return ResponseEntity.status(200).body(new ApiResponse("Store activated successfully"));
     }
 
     @PutMapping("/deactivate/{storeId}")
     public ResponseEntity<?> deactivateStore(@PathVariable Integer storeId) {
-        return ResponseEntity.status(200).body(storeService.deactivateStore(storeId));
+        storeService.deactivateStore(storeId);
+        return ResponseEntity.status(200).body(new ApiResponse("Store deactivated successfully"));
     }
 
     @DeleteMapping("/delete/{storeId}")

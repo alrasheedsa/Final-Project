@@ -16,6 +16,14 @@ import java.util.logging.Logger;
 public class EmailService {
 
     private final JavaMailSender mailSender;
+    private static final String PRIMARY      = "#1a5c5b";
+    private static final String PRIMARY_LIGHT= "#e8f4f4";
+    private static final String ACCENT       = "#f0e8d8";
+    private static final String TEXT_DARK    = "#1a3a3a";
+    private static final String TEXT_MUTED   = "#5a7a7a";
+    private static final String BORDER       = "#d4e6e6";
+    private static final String WHITE        = "#ffffff";
+
     private static final Logger logger = Logger.getLogger(EmailService.class.getName());
 
     public String sendEmail(String to, String subject, String body) {
@@ -259,6 +267,108 @@ public class EmailService {
         );
 
         return sendHtmlEmail(to, subject, htmlBody);
+    }
+
+    public void sendMonthlyReportEmail(String to,
+                                       String storeName,
+                                       String branchName,
+                                       String monthLabel,
+                                       Double totalSales,
+                                       Integer totalQuantity,
+                                       String topProducts,
+                                       byte[] pdfBytes) {
+        validateText(to,         "Recipient email is required");
+        validateText(storeName,  "Store name is required");
+        validateText(branchName, "Branch name is required");
+        validateText(monthLabel, "Month label is required");
+
+        if (pdfBytes == null || pdfBytes.length == 0) {
+            throw new ApiException("PDF attachment is required");
+        }
+
+        String subject = "التقرير الشهري — " + storeName + " | " + branchName + " | " + monthLabel;
+
+        String htmlBody = """
+            <div style="margin:0;padding:0;background:#F7F3EA;font-family:Arial,Tahoma,sans-serif;direction:rtl;text-align:right;color:#243B35;">
+                <div style="max-width:680px;margin:0 auto;padding:32px 18px;">
+                    <div style="background:#ffffff;border-radius:24px;padding:28px;border:1px solid #E6DDCC;box-shadow:0 10px 30px rgba(36,59,53,0.08);">
+
+                        <div style="margin-bottom:22px;">
+                            <div style="font-size:24px;font-weight:800;color:#1F5C4D;">على دربك</div>
+                            <div style="font-size:13px;color:#8B7D68;margin-top:6px;">التقرير الشهري للمبيعات</div>
+                        </div>
+
+                        <h2 style="margin:0 0 12px;font-size:22px;color:#243B35;">تقرير %s</h2>
+
+                        <p style="font-size:15px;line-height:1.9;margin:0 0 20px;color:#5E6B63;">
+                            السلام عليكم، يسعدنا مشاركتك ملخص أداء مبيعات
+                            <b>%s</b> — فرع <b>%s</b> لشهر <b>%s</b>.
+                            <br/>التقرير الكامل مرفق بهذا الإيميل كملف PDF.
+                        </p>
+
+                        <div style="margin-bottom:18px;">
+                            <table width="100%%" cellpadding="0" cellspacing="0">
+                                <tr>
+                                    <td width="48%%" style="background:#F7F3EA;border-radius:18px;padding:18px;text-align:center;">
+                                        <div style="font-size:22px;font-weight:800;color:#1F5C4D;">%.2f</div>
+                                        <div style="font-size:12px;color:#8B7D68;margin-top:4px;">إجمالي المبيعات (ريال)</div>
+                                    </td>
+                                    <td width="4%%"></td>
+                                    <td width="48%%" style="background:#EEF6F1;border-radius:18px;padding:18px;text-align:center;">
+                                        <div style="font-size:22px;font-weight:800;color:#243B35;">%d</div>
+                                        <div style="font-size:12px;color:#8B7D68;margin-top:4px;">إجمالي الوحدات المباعة</div>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+
+                        <div style="background:#ffffff;border:1px solid #E6DDCC;border-radius:16px;padding:16px;margin-bottom:16px;">
+                            <div style="font-size:13px;color:#8B7D68;">⭐ أعلى المنتجات مبيعاً</div>
+                            <div style="font-size:15px;font-weight:700;color:#243B35;margin-top:6px;line-height:1.8;">%s</div>
+                        </div>
+
+                        <div style="background:#1F5C4D;color:#ffffff;border-radius:18px;padding:16px;text-align:center;">
+                            <div style="font-size:14px;opacity:0.9;">
+                                التحليل الكامل والتوصيات مرفقة في ملف PDF
+                            </div>
+                        </div>
+
+                        <p style="font-size:13px;line-height:1.8;color:#8B7D68;margin:20px 0 0;">
+                            يمكنك فتح الملف المرفق لمراجعة التحليل الذكي ومقارنة أداء الشهر الحالي بالشهر السابق.
+                        </p>
+                    </div>
+
+                    <div style="text-align:center;color:#A09686;font-size:12px;margin-top:18px;">
+                        هذه رسالة تلقائية من منصة على دربك
+                    </div>
+                </div>
+            </div>
+            """.formatted(
+                safeEmailText(monthLabel),
+                safeEmailText(storeName),
+                safeEmailText(branchName),
+                safeEmailText(monthLabel),
+                totalSales,
+                totalQuantity,
+                safeEmailText(topProducts)
+        );
+
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setTo(to);
+            helper.setSubject(subject);
+            helper.setText(htmlBody, true);
+            helper.addAttachment(
+                    "تقرير-" + monthLabel + ".pdf",
+                    new ByteArrayResource(pdfBytes),
+                    "application/pdf"
+            );
+            mailSender.send(message);
+            logger.info("Monthly report email sent to: " + to);
+        } catch (Exception e) {
+            throw new ApiException("Failed to send monthly report email: " + e.getMessage());
+        }
     }
 
     private String safeEmailText(String value) {

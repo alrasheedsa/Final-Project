@@ -17,7 +17,8 @@ public class StoreOwnerController {
 
     @PostMapping("/register")
     public ResponseEntity<?> registerStoreOwner(@Valid @RequestBody StoreOwnerIn dto) {
-        return ResponseEntity.status(200).body(storeOwnerService.registerStoreOwner(dto));
+        storeOwnerService.registerStoreOwner(dto);
+        return ResponseEntity.status(200).body(new ApiResponse("Store owner registered successfully"));
     }
 
     @GetMapping("/get")
@@ -32,7 +33,8 @@ public class StoreOwnerController {
 
     @PutMapping("/update/{storeOwnerId}")
     public ResponseEntity<?> updateStoreOwner(@PathVariable Integer storeOwnerId, @Valid @RequestBody StoreOwnerIn dto) {
-        return ResponseEntity.status(200).body(storeOwnerService.updateStoreOwner(storeOwnerId, dto));
+        storeOwnerService.updateStoreOwner(storeOwnerId, dto);
+        return ResponseEntity.status(200).body(new ApiResponse("Store owner updated successfully"));
     }
 
     @DeleteMapping("/delete/{storeOwnerId}")

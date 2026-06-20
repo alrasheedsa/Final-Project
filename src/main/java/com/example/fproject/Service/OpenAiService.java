@@ -362,27 +362,27 @@ public class OpenAiService {
         validateText(branchName, "Branch name is required");
 
         String prompt = """
-                أنت محلل أعمال لمنصة تجزئة سعودية.
-                حلل بيانات التقرير الشهري التالية واكتب ملخصا تنفيذيا باللغة العربية لصاحب المتجر.
+                You are a business analyst for a retail platform.
+                Analyze the following monthly report data and write an executive summary in English for the store owner.
 
-                القواعد:
-                - اعتمد فقط على البيانات المقدمة، ولا تخترع أرقاما أو معلومات.
-                - اكتب فقرة واضحة من 3 إلى 5 جمل.
-                - اذكر أداء المبيعات، المنتجات الأقوى والأضعف، وساعات الذروة والركود.
-                - اختم بتوصية عملية واحدة أو اثنتين لتحسين المبيعات.
-                - أعد النص العربي فقط، بدون JSON وبدون Markdown.
+                Rules:
+                - Use only the provided data, do not invent numbers or information.
+                - Write a clear paragraph of 3 to 5 sentences.
+                - Mention sales performance, strongest and weakest products, and peak/slow hours.
+                - End with one or two practical recommendations to improve sales.
+                - Return plain English text only, no JSON and no Markdown.
 
-                المتجر: %s
-                الفرع: %s
-                الشهر: %s
-                السنة: %s
-                إجمالي المبيعات بالريال: %.2f
-                إجمالي الكمية المباعة: %s
-                أعلى المنتجات: %s
-                أقل المنتجات: %s
-                المنتجات المقترحة للترويج: %s
-                ساعة الذروة: %s
-                ساعة الركود: %s
+                Store: %s
+                Branch: %s
+                Month: %s
+                Year: %s
+                Total Sales (SAR): %.2f
+                Total Quantity Sold: %s
+                Top Products: %s
+                Low Products: %s
+                Products Suggested for Promotion: %s
+                Peak Hour: %s
+                Slow Hour: %s
                 """.formatted(
                 storeName,
                 branchName,
@@ -432,41 +432,41 @@ public class OpenAiService {
                 : 0;
 
         String salesTrend = salesChangePercent >= 0
-                ? String.format("ارتفعت بنسبة %.1f%%", salesChangePercent)
-                : String.format("انخفضت بنسبة %.1f%%", Math.abs(salesChangePercent));
+                ? String.format("increased by %.1f%%", salesChangePercent)
+                : String.format("decreased by %.1f%%", Math.abs(salesChangePercent));
 
         String prompt = """
-                أنت محلل أعمال لمنصة تجزئة سعودية.
-                قارن بين أداء الشهرين التاليين واكتب ملخصاً تنفيذياً باللغة العربية لصاحب المتجر.
- 
-                القواعد:
-                - اعتمد فقط على البيانات المقدمة، ولا تخترع أرقاماً.
-                - اكتب فقرة من 4 إلى 6 جمل.
-                - قارن المبيعات والكميات والمنتجات بين الشهرين.
-                - أوضح إذا كان الأداء تحسّن أم تراجع ولماذا.
-                - اختم بتوصية عملية واحدة أو اثنتين للشهر القادم.
-                - أعد النص العربي فقط، بدون JSON وبدون Markdown.
- 
-                المتجر: %s
-                الفرع: %s
- 
-                ═══ الشهر الحالي: %s/%s ═══
-                إجمالي المبيعات: %.2f ريال
-                إجمالي الكمية: %d وحدة
-                أعلى المنتجات: %s
-                أقل المنتجات: %s
-                منتجات الترويج المقترح: %s
-                ساعة الذروة: %s
-                ساعة الركود: %s
- 
-                ═══ الشهر السابق: %s/%s ═══
-                إجمالي المبيعات: %.2f ريال
-                إجمالي الكمية: %d وحدة
-                أعلى المنتجات: %s
-                أقل المنتجات: %s
- 
-                ═══ مقارنة سريعة ═══
-                المبيعات %s (من %.2f إلى %.2f ريال)
+                You are a business analyst for a retail platform.
+                Compare the performance of the following two months and write an executive summary in English for the store owner.
+
+                Rules:
+                - Use only the provided data, do not invent numbers.
+                - Write a paragraph of 4 to 6 sentences.
+                - Compare sales, quantities, and products between the two months.
+                - Clarify whether performance improved or declined and why.
+                - End with one or two practical recommendations for next month.
+                - Return plain English text only, no JSON and no Markdown.
+
+                Store: %s
+                Branch: %s
+
+                === Current Month: %s/%s ===
+                Total Sales: %.2f SAR
+                Total Quantity: %d units
+                Top Products: %s
+                Low Products: %s
+                Products Suggested for Promotion: %s
+                Peak Hour: %s
+                Slow Hour: %s
+
+                === Previous Month: %s/%s ===
+                Total Sales: %.2f SAR
+                Total Quantity: %d units
+                Top Products: %s
+                Low Products: %s
+
+                === Quick Comparison ===
+                Sales %s (from %.2f to %.2f SAR)
                 """.formatted(
                 storeName, branchName,
                 currentMonth, currentYear,
