@@ -30,6 +30,7 @@ public class MonthlyReportService {
     private final BranchService branchService;
     private final ITextService iTextService;
     private final OpenAiService openAiService;
+    private final EmailService emailService;
 
     @Transactional
     public MonthlyReportOut generateMonthlyReport(Integer branchId, MonthlyReportIn dto) {
@@ -268,8 +269,100 @@ public class MonthlyReportService {
     }
 
 
+    /**
+     * يرسل التقرير الشهري بالبريد الإلكتروني كملف PDF مرفق.
+     * لو ما حُدد الإيميل → يُرسل لإيميل صاحب المتجر تلقائياً.
+     */
+    public void sendReportByEmail(Integer reportId, String toEmail) {
+
+        MonthlyReport report = findReportOrThrow(reportId);
+
+        // توليد PDF
+        byte[] pdf = iTextService.generateSalesMonthlyReportPdf(
+                report.getBranch().getStore().getName(),
+                report.getBranch().getName(),
+                report.getMonth(),
+                report.getYear(),
+                report.getTotalSales(),
+                report.getTotalQuantity(),
+                report.getTopProducts(),
+                report.getLowProducts(),
+                report.getPeakHours(),
+                report.getSlowHours(),
+                report.getAiSummary()
+        );
+
+        // لو ما حُدد إيميل → استخدام إيميل صاحب المتجر
+        String recipient = (toEmail != null && !toEmail.isBlank())
+                ? toEmail
+                : report.getBranch().getStore().getStoreOwner().getUser().getEmail();
+
+        String storeName  = report.getBranch().getStore().getName();
+        String branchName = report.getBranch().getName();
+        String monthLabel = monthName(report.getMonth()) + " " + report.getYear();
+
+        String subject = "التقرير الشهري — " + storeName + " | " + branchName + " | " + monthLabel;
+
+        String body = """
+                السلام عليكم،
+
+                يسعدنا إرسال التقرير الشهري لـ %s — فرع %s لشهر %s.
+
+                يتضمن التقرير:
+                • إجمالي المبيعات: %.2f ريال
+                • إجمالي الكمية المباعة: %d وحدة
+                • أعلى المنتجات: %s
+                • تحليل الذكاء الاصطناعي: مرفق في الـ PDF
+
+                التقرير الكامل مرفق بهذه الرسالة.
+
+                منصة موقر
+                """.formatted(
+                storeName, branchName, monthLabel,
+                report.getTotalSales(), report.getTotalQuantity(),
+                report.getTopProducts()
+        );
+
+        emailService.sendEmailWithPdf(recipient, subject, body, pdf);
+    }
+
     private String generateAiSummary(Branch branch, MonthlyReportIn dto, SalesStats stats) {
         try {
+            // جلب تقرير الشهر السابق للمقارنة
+            int previousMonth = dto.getMonth() == 1 ? 12 : dto.getMonth() - 1;
+            int previousYear  = dto.getMonth() == 1 ? dto.getYear() - 1 : dto.getYear();
+
+            MonthlyReport previousReport = monthlyReportRepository
+                    .findMonthlyReportByBranchIdAndMonthAndYear(
+                            branch.getId(), previousMonth, previousYear
+                    );
+
+            // لو يوجد تقرير الشهر السابق → مقارنة
+            if (previousReport != null) {
+                return openAiService.generateMonthlyReportComparisonSummary(
+                        branch.getStore().getName(),
+                        branch.getName(),
+                        // الشهر الحالي
+                        dto.getMonth(),
+                        dto.getYear(),
+                        stats.totalSales(),
+                        stats.totalQuantity(),
+                        stats.topProducts(),
+                        stats.lowProducts(),
+                        stats.surplusProducts(),
+                        stats.peakHours(),
+                        stats.slowHours(),
+                        // الشهر السابق
+                        previousReport.getMonth(),
+                        previousReport.getYear(),
+                        previousReport.getTotalSales(),
+                        previousReport.getTotalQuantity(),
+                        previousReport.getTopProducts(),
+                        previousReport.getLowProducts()
+                );
+            }
+
+            // لو ما يوجد شهر سابق → ملخص عادي
             return openAiService.generateMonthlyReportSummary(
                     branch.getStore().getName(),
                     branch.getName(),
@@ -283,6 +376,7 @@ public class MonthlyReportService {
                     stats.peakHours(),
                     stats.slowHours()
             );
+
         } catch (Exception e) {
             return "AI summary could not be generated at this time.";
         }
