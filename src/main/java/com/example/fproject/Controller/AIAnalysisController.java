@@ -152,6 +152,11 @@ public class AIAnalysisController {
         return ResponseEntity.status(200).body(aiAnalysisService.getAIAnalysisDashboard(analysisId));
     }
 
+    @PostMapping("/{analysisId}/send-email-summary")
+    public ResponseEntity<?> sendAIAnalysisSummaryEmail(@PathVariable Integer analysisId) {
+        return ResponseEntity.status(200).body(new ApiResponse(aiAnalysisService.sendAIAnalysisSummaryEmail(analysisId)));
+    }
+
     @DeleteMapping("/delete/{id}")
     public ResponseEntity<?> deleteAIAnalysis(@PathVariable Integer id) {
         aiAnalysisService.deleteAIAnalysis(id);

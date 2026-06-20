@@ -26,6 +26,7 @@ public class AIAnalysisService {
     private final SalesRecordRepository salesRecordRepository;
     private final SalesRecordItemRepository salesRecordItemRepository;
     private final OpenAiService openAiService;
+    private final EmailService emailService;
 
     public List<AIAnalysisOut> getAllAIAnalyses() {
         List<AIAnalysis> aiAnalyses = aiAnalysisRepository.findAll();
@@ -125,7 +126,9 @@ public class AIAnalysisService {
         aiAnalysis.setAnalyzedAt(LocalDateTime.now());
         aiAnalysis.setSalesRecord(salesRecord);
 
-        aiAnalysisRepository.save(aiAnalysis);
+        AIAnalysis savedAnalysis = aiAnalysisRepository.save(aiAnalysis);
+
+        sendAIAnalysisEmailSafely(savedAnalysis);
     }
 
     private String buildSalesSummaryForAI(SalesRecord salesRecord, String rawSalesData) {
@@ -695,6 +698,61 @@ public class AIAnalysisService {
         dashboard.put("generatedAt", getAnalysisGeneratedAt(analysisId));
 
         return dashboard;
+    }
+
+    public String sendAIAnalysisSummaryEmail(Integer analysisId) {
+        AIAnalysis aiAnalysis = getAIAnalysisEntity(analysisId);
+
+        return sendAIAnalysisEmail(aiAnalysis);
+    }
+
+    private void sendAIAnalysisEmailSafely(AIAnalysis aiAnalysis) {
+        try {
+            sendAIAnalysisEmail(aiAnalysis);
+        } catch (Exception e) {
+            System.out.println("AI analysis email was not sent: " + e.getMessage());
+        }
+    }
+
+    private String sendAIAnalysisEmail(AIAnalysis aiAnalysis) {
+        if (aiAnalysis.getSalesRecord() == null
+                || aiAnalysis.getSalesRecord().getBranch() == null
+                || aiAnalysis.getSalesRecord().getBranch().getStore() == null
+                || aiAnalysis.getSalesRecord().getBranch().getStore().getStoreOwner() == null
+                || aiAnalysis.getSalesRecord().getBranch().getStore().getStoreOwner().getUser() == null) {
+            throw new ApiException("Store owner email information not found");
+        }
+
+        String ownerEmail =
+                aiAnalysis.getSalesRecord()
+                        .getBranch()
+                        .getStore()
+                        .getStoreOwner()
+                        .getUser()
+                        .getEmail();
+
+        String ownerName =
+                aiAnalysis.getSalesRecord()
+                        .getBranch()
+                        .getStore()
+                        .getStoreOwner()
+                        .getUser()
+                        .getFullName();
+
+        String branchName = aiAnalysis.getSalesRecord().getBranch().getName();
+
+        return emailService.sendAIAnalysisReadyEmail(
+                ownerEmail,
+                ownerName,
+                branchName,
+                aiAnalysis.getSalesRecord().getMonth(),
+                aiAnalysis.getSalesRecord().getYear(),
+                aiAnalysis.getSlowHours(),
+                aiAnalysis.getPeakHours(),
+                aiAnalysis.getTopProducts(),
+                aiAnalysis.getLowProducts(),
+                aiAnalysis.getRecommendation()
+        );
     }
 
     public void deleteAIAnalysis(Integer id) {
