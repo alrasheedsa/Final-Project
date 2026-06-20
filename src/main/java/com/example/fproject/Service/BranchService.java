@@ -2,21 +2,15 @@ package com.example.fproject.Service;
 
 import com.example.fproject.Api.ApiException;
 import com.example.fproject.DTO.IN.BranchIn;
+import com.example.fproject.DTO.OUT.BranchDashboardOut;
 import com.example.fproject.DTO.OUT.BranchOut;
 import com.example.fproject.DTO.OUT.BranchRadiusOut;
+import com.example.fproject.DTO.OUT.CampaignRadiusInfoOut;
+import com.example.fproject.Enum.CampaignStatus;
 import com.example.fproject.Enum.StoreStatus;
 import com.example.fproject.Enum.SubscriptionStatus;
-import com.example.fproject.Model.Branch;
-import com.example.fproject.Model.Customer;
-import com.example.fproject.Model.Store;
-import com.example.fproject.Model.Subscription;
-import com.example.fproject.Repository.BranchRepository;
-import com.example.fproject.Repository.CampaignRepository;
-import com.example.fproject.Repository.CustomerRepository;
-import com.example.fproject.Repository.MonthlyReportRepository;
-import com.example.fproject.Repository.SalesRecordRepository;
-import com.example.fproject.Repository.StoreRepository;
-import com.example.fproject.Repository.SubscriptionRepository;
+import com.example.fproject.Model.*;
+import com.example.fproject.Repository.*;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -24,7 +18,6 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeParseException;
-import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -84,7 +77,6 @@ public class BranchService {
         branch.setOpeningTime(dto.getOpeningTime());
         branch.setClosingTime(dto.getClosingTime());
         branch.setStore(store);
-
         branch.setStatus(resolveBranchStatus(subscription, store));
 
         branchRepository.save(branch);
@@ -93,10 +85,7 @@ public class BranchService {
     }
 
     public List<BranchOut> getAllBranches() {
-        return branchRepository.findAll()
-                .stream()
-                .map(this::mapToOut)
-                .toList();
+        return branchRepository.findAll().stream().map(this::mapToOut).toList();
     }
 
     public BranchOut getBranchById(Integer branchId) {
@@ -105,10 +94,7 @@ public class BranchService {
 
     public List<BranchOut> getBranchesByStoreId(Integer storeId) {
         findStoreOrThrow(storeId);
-        return branchRepository.findBranchesByStoreId(storeId)
-                .stream()
-                .map(this::mapToOut)
-                .toList();
+        return branchRepository.findBranchesByStoreId(storeId).stream().map(this::mapToOut).toList();
     }
 
     @Transactional
@@ -153,8 +139,7 @@ public class BranchService {
 
         Subscription activeSubscription = subscriptionRepository
                 .findFirstByStoreOwnerIdAndStatusOrderByEndDateDesc(
-                        branch.getStore().getStoreOwner().getId(),
-                        SubscriptionStatus.ACTIVE
+                        branch.getStore().getStoreOwner().getId(), SubscriptionStatus.ACTIVE
                 );
 
         if (activeSubscription == null || activeSubscription.getEndDate().isBefore(LocalDate.now())) {
@@ -199,8 +184,7 @@ public class BranchService {
             throw new ApiException("Cannot delete branch because it has campaigns");
         }
 
-        if (monthlyReportRepository.existsMonthlyReportByBranchIdAndMonthAndYear(branchId, 0, 0)
-                || !monthlyReportRepository.findMonthlyReportsByBranchId(branchId).isEmpty()) {
+        if (!monthlyReportRepository.findMonthlyReportsByBranchId(branchId).isEmpty()) {
             throw new ApiException("Cannot delete branch because it has monthly reports");
         }
 
@@ -211,24 +195,15 @@ public class BranchService {
     public boolean isBranchSubscribed(Integer branchId) {
 
         Branch branch = findBranchOrThrow(branchId);
-
         Store store = branch.getStore();
-        if (store == null || store.getStoreOwner() == null) {
-            return false;
-        }
 
-        if (branch.getStatus() != StoreStatus.ACTIVE) {
-            return false;
-        }
-
-        if (store.getStatus() != StoreStatus.ACTIVE) {
-            return false;
-        }
+        if (store == null || store.getStoreOwner() == null) return false;
+        if (branch.getStatus() != StoreStatus.ACTIVE) return false;
+        if (store.getStatus() != StoreStatus.ACTIVE) return false;
 
         Subscription activeSubscription = subscriptionRepository
                 .findFirstByStoreOwnerIdAndStatusOrderByEndDateDesc(
-                        store.getStoreOwner().getId(),
-                        SubscriptionStatus.ACTIVE
+                        store.getStoreOwner().getId(), SubscriptionStatus.ACTIVE
                 );
 
         return activeSubscription != null
@@ -240,7 +215,6 @@ public class BranchService {
         if (openingTime == null || openingTime.isBlank()) {
             throw new ApiException("Opening time is required");
         }
-
         if (closingTime == null || closingTime.isBlank()) {
             throw new ApiException("Closing time is required");
         }
@@ -252,7 +226,6 @@ public class BranchService {
             if (!closing.isAfter(opening)) {
                 throw new ApiException("Closing time must be after opening time");
             }
-
         } catch (DateTimeParseException e) {
             throw new ApiException("Working hours must be in HH:mm format (e.g. 09:00, 22:30)");
         }
@@ -279,8 +252,7 @@ public class BranchService {
 
         OpenAiService.BranchRadiusAIResult aiResult = openAiService.recommendBranchRadius(
                 branch.getName(),
-                branch.getLatitude(),
-                branch.getLongitude(),
+                branch.getLatitude(), branch.getLongitude(),
                 branch.getCampaignRadiusMeters(),
                 within500, within1500, within3000, within5000,
                 within7000, within10000, within20000, within40000
@@ -318,41 +290,95 @@ public class BranchService {
         return mapToOut(branch);
     }
 
+
+    public BranchDashboardOut getBranchDashboard(Integer branchId) {
+
+        Branch branch = findBranchOrThrow(branchId);
+
+        int customersInRadius = countCustomersInRadius(branch);
+
+        List<Campaign> campaigns = campaignRepository.findAllByBranchId(branchId);
+        Campaign lastCampaign = campaigns.stream()
+                .filter(c -> c.getStartDateTime() != null)
+                .max((a, b) -> a.getStartDateTime().compareTo(b.getStartDateTime()))
+                .orElse(null);
+
+        long activeCampaigns = campaigns.stream()
+                .filter(c -> c.getStatus() == CampaignStatus.ACTIVE)
+                .count();
+
+        return new BranchDashboardOut(
+                branch.getId(),
+                branch.getName(),
+                branch.getStatus(),
+                branch.getOpeningTime(),
+                branch.getClosingTime(),
+                branch.getCampaignRadiusMeters(),
+                branch.getRecommendedRadiusMeters(),
+                customersInRadius,
+                campaigns.size(),
+                (int) activeCampaigns,
+                lastCampaign != null ? lastCampaign.getId() : null,
+                lastCampaign != null ? lastCampaign.getTitle() : null,
+                lastCampaign != null ? lastCampaign.getStatus() : null
+        );
+    }
+
+    public int getCustomersInRadiusCount(Integer branchId) {
+        Branch branch = findBranchOrThrow(branchId);
+        return countCustomersInRadius(branch);
+    }
+
+    public CampaignRadiusInfoOut getCampaignRadiusInfo(Integer branchId) {
+
+        Branch branch = findBranchOrThrow(branchId);
+
+        int currentRadius     = branch.getCampaignRadiusMeters() != null ? branch.getCampaignRadiusMeters() : 0;
+        int recommendedRadius = branch.getRecommendedRadiusMeters() != null ? branch.getRecommendedRadiusMeters() : 0;
+
+        List<Customer> customers = customerRepository.findCustomersByLocationConsentTrue();
+
+        int customersInCurrent     = countCustomersInsideRadius(branch, customers, currentRadius);
+        int customersInRecommended = recommendedRadius > 0
+                ? countCustomersInsideRadius(branch, customers, recommendedRadius)
+                : 0;
+
+        return new CampaignRadiusInfoOut(
+                branch.getId(),
+                branch.getName(),
+                currentRadius,
+                customersInCurrent,
+                recommendedRadius,
+                customersInRecommended,
+                recommendedRadius > 0 && recommendedRadius != currentRadius
+                        ? "Recommended radius based on AI analysis"
+                        : null
+        );
+    }
+
     private Branch findBranchOrThrow(Integer branchId) {
         Branch branch = branchRepository.findBranchById(branchId);
-        if (branch == null) {
-            throw new ApiException("Branch not found");
-        }
+        if (branch == null) throw new ApiException("Branch not found");
         return branch;
     }
 
     private Store findStoreOrThrow(Integer storeId) {
         Store store = storeRepository.findStoreById(storeId);
-        if (store == null) {
-            throw new ApiException("Store not found");
-        }
+        if (store == null) throw new ApiException("Store not found");
         return store;
     }
 
     private Subscription getActiveOrPendingSubscription(Integer storeOwnerId) {
 
         Subscription active = subscriptionRepository
-                .findFirstByStoreOwnerIdAndStatusOrderByEndDateDesc(
-                        storeOwnerId, SubscriptionStatus.ACTIVE
-                );
+                .findFirstByStoreOwnerIdAndStatusOrderByEndDateDesc(storeOwnerId, SubscriptionStatus.ACTIVE);
 
-        if (active != null && !active.getEndDate().isBefore(LocalDate.now())) {
-            return active;
-        }
+        if (active != null && !active.getEndDate().isBefore(LocalDate.now())) return active;
 
         Subscription pending = subscriptionRepository
-                .findFirstByStoreOwnerIdAndStatusOrderByEndDateDesc(
-                        storeOwnerId, SubscriptionStatus.PENDING
-                );
+                .findFirstByStoreOwnerIdAndStatusOrderByEndDateDesc(storeOwnerId, SubscriptionStatus.PENDING);
 
-        if (pending != null) {
-            return pending;
-        }
+        if (pending != null) return pending;
 
         throw new ApiException("Store owner must choose a subscription plan before adding branches");
     }
@@ -360,8 +386,7 @@ public class BranchService {
     private long countActiveOrPendingBranches(Integer storeId) {
         return branchRepository.findBranchesByStoreId(storeId)
                 .stream()
-                .filter(b -> b.getStatus() == StoreStatus.ACTIVE
-                        || b.getStatus() == StoreStatus.PENDING)
+                .filter(b -> b.getStatus() == StoreStatus.ACTIVE || b.getStatus() == StoreStatus.PENDING)
                 .count();
     }
 
@@ -372,6 +397,13 @@ public class BranchService {
                 : StoreStatus.PENDING;
     }
 
+    private int countCustomersInRadius(Branch branch) {
+        if (branch.getLatitude() == null || branch.getLongitude() == null
+                || branch.getCampaignRadiusMeters() == null) return 0;
+
+        List<Customer> customers = customerRepository.findCustomersByLocationConsentTrue();
+        return countCustomersInsideRadius(branch, customers, branch.getCampaignRadiusMeters());
+    }
 
     private int countCustomersInsideRadius(Branch branch, List<Customer> customers, Integer radiusMeters) {
         int count = 0;
@@ -387,19 +419,14 @@ public class BranchService {
     }
 
     private double calculateDistanceInMeters(Double lat1, Double lon1, Double lat2, Double lon2) {
-
-        if (lat1 == null || lon1 == null || lat2 == null || lon2 == null) {
-            return Double.MAX_VALUE;
-        }
+        if (lat1 == null || lon1 == null || lat2 == null || lon2 == null) return Double.MAX_VALUE;
 
         final int R = 6_371_000;
-
         double dLat = Math.toRadians(lat2 - lat1);
         double dLon = Math.toRadians(lon2 - lon1);
 
         double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
-                + Math.cos(Math.toRadians(lat1))
-                * Math.cos(Math.toRadians(lat2))
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
                 * Math.sin(dLon / 2) * Math.sin(dLon / 2);
 
         return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));

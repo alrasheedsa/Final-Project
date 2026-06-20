@@ -57,6 +57,14 @@ public class BranchController {
         return ResponseEntity.status(200).body("Branch deleted successfully");
     }
 
+    @GetMapping("/subscribed/{branchId}")
+    public ResponseEntity<?> isBranchSubscribed(@PathVariable Integer branchId) {
+        return ResponseEntity.status(200).body(
+                Map.of("subscribed", branchService.isBranchSubscribed(branchId))
+        );
+    }
+
+
     @GetMapping("/recommended-radius/{branchId}")
     public ResponseEntity<?> getRecommendedRadius(@PathVariable Integer branchId) {
         return ResponseEntity.status(200).body(branchService.getRecommendedRadius(branchId));
@@ -67,10 +75,21 @@ public class BranchController {
         return ResponseEntity.status(200).body(branchService.applyRecommendedRadius(branchId));
     }
 
-    @GetMapping("/subscribed/{branchId}")
-    public ResponseEntity<?> isBranchSubscribed(@PathVariable Integer branchId) {
+
+    @GetMapping("/{branchId}/dashboard")
+    public ResponseEntity<?> getBranchDashboard(@PathVariable Integer branchId) {
+        return ResponseEntity.status(200).body(branchService.getBranchDashboard(branchId));
+    }
+
+    @GetMapping("/{branchId}/customers-in-radius/count")
+    public ResponseEntity<?> getCustomersInRadiusCount(@PathVariable Integer branchId) {
         return ResponseEntity.status(200).body(
-                Map.of("subscribed", branchService.isBranchSubscribed(branchId))
+                Map.of("count", branchService.getCustomersInRadiusCount(branchId))
         );
+    }
+
+    @GetMapping("/{branchId}/campaign-radius-info")
+    public ResponseEntity<?> getCampaignRadiusInfo(@PathVariable Integer branchId) {
+        return ResponseEntity.status(200).body(branchService.getCampaignRadiusInfo(branchId));
     }
 }
