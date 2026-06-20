@@ -29,6 +29,7 @@ public class CampaignSuggestionService {
     private final AIAnalysisRepository aiAnalysisRepository;
     private final SubscriptionRepository subscriptionRepository;
     private final OpenAiService openAiService;
+    private final HolidayService holidayService;
 
     public List<CampaignSuggestionOut> getAllCampaignSuggestions() {
         List<CampaignSuggestion> campaignSuggestions = campaignSuggestionRepository.findAll();
@@ -193,6 +194,10 @@ public class CampaignSuggestionService {
         summary.append("Seasonal patterns: ").append(aiAnalysis.getSeasonalPatterns()).append("\n");
         summary.append("Recommendation: ").append(aiAnalysis.getRecommendation()).append("\n");
         summary.append("AI summary: ").append(aiAnalysis.getAiSummary()).append("\n");
+
+        summary.append("\nHoliday context:\n")
+                .append(holidayService.getSaudiHolidayContextForAI())
+                .append("\n");
 
         return summary.toString();
     }
