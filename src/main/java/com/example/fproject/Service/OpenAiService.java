@@ -397,6 +397,88 @@ public class OpenAiService {
         return summary;
     }
 
+    public String generateMonthlyReportComparisonSummary(
+            String storeName,
+            String branchName,
+            // بيانات الشهر الحالي
+            Integer currentMonth,
+            Integer currentYear,
+            Double  currentTotalSales,
+            Integer currentTotalQuantity,
+            String  currentTopProducts,
+            String  currentLowProducts,
+            String  currentSurplusProducts,
+            String  currentPeakHours,
+            String  currentSlowHours,
+            // بيانات الشهر السابق
+            Integer previousMonth,
+            Integer previousYear,
+            Double  previousTotalSales,
+            Integer previousTotalQuantity,
+            String  previousTopProducts,
+            String  previousLowProducts
+    ) {
+        validateApiKey();
+        validateText(storeName,  "Store name is required");
+        validateText(branchName, "Branch name is required");
+
+        double salesChangePercent = previousTotalSales > 0
+                ? ((currentTotalSales - previousTotalSales) / previousTotalSales) * 100
+                : 0;
+
+        String salesTrend = salesChangePercent >= 0
+                ? String.format("ارتفعت بنسبة %.1f%%", salesChangePercent)
+                : String.format("انخفضت بنسبة %.1f%%", Math.abs(salesChangePercent));
+
+        String prompt = """
+                أنت محلل أعمال لمنصة تجزئة سعودية.
+                قارن بين أداء الشهرين التاليين واكتب ملخصاً تنفيذياً باللغة العربية لصاحب المتجر.
+ 
+                القواعد:
+                - اعتمد فقط على البيانات المقدمة، ولا تخترع أرقاماً.
+                - اكتب فقرة من 4 إلى 6 جمل.
+                - قارن المبيعات والكميات والمنتجات بين الشهرين.
+                - أوضح إذا كان الأداء تحسّن أم تراجع ولماذا.
+                - اختم بتوصية عملية واحدة أو اثنتين للشهر القادم.
+                - أعد النص العربي فقط، بدون JSON وبدون Markdown.
+ 
+                المتجر: %s
+                الفرع: %s
+ 
+                ═══ الشهر الحالي: %s/%s ═══
+                إجمالي المبيعات: %.2f ريال
+                إجمالي الكمية: %d وحدة
+                أعلى المنتجات: %s
+                أقل المنتجات: %s
+                منتجات الترويج المقترح: %s
+                ساعة الذروة: %s
+                ساعة الركود: %s
+ 
+                ═══ الشهر السابق: %s/%s ═══
+                إجمالي المبيعات: %.2f ريال
+                إجمالي الكمية: %d وحدة
+                أعلى المنتجات: %s
+                أقل المنتجات: %s
+ 
+                ═══ مقارنة سريعة ═══
+                المبيعات %s (من %.2f إلى %.2f ريال)
+                """.formatted(
+                storeName, branchName,
+                currentMonth, currentYear,
+                currentTotalSales, currentTotalQuantity,
+                currentTopProducts, currentLowProducts,
+                currentSurplusProducts, currentPeakHours, currentSlowHours,
+                previousMonth, previousYear,
+                previousTotalSales, previousTotalQuantity,
+                previousTopProducts, previousLowProducts,
+                salesTrend, previousTotalSales, currentTotalSales
+        );
+
+        String summary = extractAssistantContent(sendPrompt(prompt)).trim();
+        validateText(summary, "OpenAI returned an empty comparison summary");
+        return summary;
+    }
+
     private boolean isAllowedRadius(Integer radiusMeters) {
 
         return radiusMeters != null && (

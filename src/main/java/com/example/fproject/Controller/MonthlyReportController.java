@@ -66,4 +66,10 @@ public class MonthlyReportController {
                 )
                 .body(monthlyReportService.downloadMonthlyReport(reportId));
     }
+
+    @PostMapping("/send-email/{reportId}")
+    public ResponseEntity<?> sendReportByEmail(@PathVariable Integer reportId, @RequestParam(required = false) String toEmail) {
+        monthlyReportService.sendReportByEmail(reportId, toEmail);
+        return ResponseEntity.status(200).body(new ApiResponse("Monthly report sent successfully by email"));
+    }
 }
