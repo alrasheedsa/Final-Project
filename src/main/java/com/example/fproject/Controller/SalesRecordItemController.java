@@ -30,15 +30,18 @@ public class SalesRecordItemController {
         return ResponseEntity.status(200).body(salesRecordItemService.getSalesRecordItemsBySalesRecordId(salesRecordId));
     }
 
-    @PostMapping("/add")
-    public ResponseEntity<?> addSalesRecordItem(@RequestBody @Valid SalesRecordItemIn salesRecordItemIn) {
-        salesRecordItemService.addSalesRecordItem(salesRecordItemIn);
+    @PostMapping("/add/sales-record/{salesRecordId}")
+    public ResponseEntity<?> addSalesRecordItem(@PathVariable Integer salesRecordId,
+                                                @RequestBody @Valid SalesRecordItemIn salesRecordItemIn) {
+        salesRecordItemService.addSalesRecordItem(salesRecordId, salesRecordItemIn);
         return ResponseEntity.status(200).body(new ApiResponse("Sales record item added successfully"));
     }
 
-    @PutMapping("/update/{id}")
-    public ResponseEntity<?> updateSalesRecordItem(@PathVariable Integer id, @RequestBody @Valid SalesRecordItemIn salesRecordItemIn) {
-        salesRecordItemService.updateSalesRecordItem(id, salesRecordItemIn);
+    @PutMapping("/update/{id}/sales-record/{salesRecordId}")
+    public ResponseEntity<?> updateSalesRecordItem(@PathVariable Integer id,
+                                                   @PathVariable Integer salesRecordId,
+                                                   @RequestBody @Valid SalesRecordItemIn salesRecordItemIn) {
+        salesRecordItemService.updateSalesRecordItem(id, salesRecordId, salesRecordItemIn);
         return ResponseEntity.status(200).body(new ApiResponse("Sales record item updated successfully"));
     }
 

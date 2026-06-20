@@ -63,10 +63,10 @@ public class SalesRecordItemService {
     }
 
     @Transactional
-    public void addSalesRecordItem(SalesRecordItemIn salesRecordItemIn) {
+    public void addSalesRecordItem(Integer salesRecordId, SalesRecordItemIn salesRecordItemIn) {
         validateSalesRecordItemIn(salesRecordItemIn);
 
-        SalesRecord salesRecord = salesRecordRepository.findSalesRecordById(salesRecordItemIn.getSalesRecordId());
+        SalesRecord salesRecord = salesRecordRepository.findSalesRecordById(salesRecordId);
 
         if (salesRecord == null) {
             throw new ApiException("Sales record not found");
@@ -80,10 +80,7 @@ public class SalesRecordItemService {
         salesRecordItem.setProductName(salesRecordItemIn.getProductName());
         salesRecordItem.setQuantity(salesRecordItemIn.getQuantity());
         salesRecordItem.setUnitPrice(salesRecordItemIn.getUnitPrice());
-
-        // اليوزر ما يدخلها، السيرفس يحسبها
         salesRecordItem.setTotalPrice(salesRecordItemIn.getQuantity() * salesRecordItemIn.getUnitPrice());
-
         salesRecordItem.setSaleDate(salesRecordItemIn.getSaleDate());
         salesRecordItem.setSaleTime(salesRecordItemIn.getSaleTime());
         salesRecordItem.setSalesRecord(salesRecord);
@@ -92,7 +89,7 @@ public class SalesRecordItemService {
     }
 
     @Transactional
-    public void updateSalesRecordItem(Integer id, SalesRecordItemIn salesRecordItemIn) {
+    public void updateSalesRecordItem(Integer id, Integer salesRecordId, SalesRecordItemIn salesRecordItemIn) {
         validateSalesRecordItemIn(salesRecordItemIn);
 
         SalesRecordItem oldSalesRecordItem = salesRecordItemRepository.findSalesRecordItemById(id);
@@ -103,7 +100,7 @@ public class SalesRecordItemService {
 
         validateSalesRecordCanBeEdited(oldSalesRecordItem.getSalesRecord().getId());
 
-        SalesRecord salesRecord = salesRecordRepository.findSalesRecordById(salesRecordItemIn.getSalesRecordId());
+        SalesRecord salesRecord = salesRecordRepository.findSalesRecordById(salesRecordId);
 
         if (salesRecord == null) {
             throw new ApiException("Sales record not found");
@@ -115,10 +112,7 @@ public class SalesRecordItemService {
         oldSalesRecordItem.setProductName(salesRecordItemIn.getProductName());
         oldSalesRecordItem.setQuantity(salesRecordItemIn.getQuantity());
         oldSalesRecordItem.setUnitPrice(salesRecordItemIn.getUnitPrice());
-
-        // نعيد حسابها وقت التعديل
         oldSalesRecordItem.setTotalPrice(salesRecordItemIn.getQuantity() * salesRecordItemIn.getUnitPrice());
-
         oldSalesRecordItem.setSaleDate(salesRecordItemIn.getSaleDate());
         oldSalesRecordItem.setSaleTime(salesRecordItemIn.getSaleTime());
         oldSalesRecordItem.setSalesRecord(salesRecord);
@@ -171,9 +165,6 @@ public class SalesRecordItemService {
             throw new ApiException("Sale time is required");
         }
 
-        if (salesRecordItemIn.getSalesRecordId() == null) {
-            throw new ApiException("Sales record id is required");
-        }
     }
 
     private void validateSaleDateWithSalesRecordMonth(SalesRecordItemIn salesRecordItemIn, SalesRecord salesRecord) {
