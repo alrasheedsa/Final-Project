@@ -3,11 +3,13 @@ package com.example.fproject.Controller;
 import com.example.fproject.Api.ApiResponse;
 import com.example.fproject.DTO.IN.SalesRecordIn;
 import com.example.fproject.Service.SalesRecordService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import com.example.fproject.DTO.IN.GoogleSheetSalesRecordIn;
 
 @RestController
 @RequestMapping("/api/v1/sales-record")
@@ -39,6 +41,12 @@ public class SalesRecordController {
         SalesRecordIn salesRecordIn = new SalesRecordIn(month, year, branchId);
         salesRecordService.addSalesRecord(file, salesRecordIn);
         return ResponseEntity.status(200).body(new ApiResponse("Sales record added successfully"));
+    }
+
+    @PostMapping("/import-google-sheet")
+    public ResponseEntity<?> importSalesRecordFromGoogleSheet(@Valid @RequestBody GoogleSheetSalesRecordIn googleSheetSalesRecordIn) {
+        salesRecordService.importSalesRecordFromGoogleSheet(googleSheetSalesRecordIn);
+        return ResponseEntity.status(200).body(new ApiResponse("Sales record imported from Google Sheets successfully"));
     }
 
     @PutMapping(value = "/update/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

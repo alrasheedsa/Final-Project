@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 import com.example.fproject.Model.SalesRecordItem;
+import com.example.fproject.DTO.IN.GoogleSheetSalesRecordIn;
 
 import java.nio.file.StandardCopyOption;
 
@@ -37,6 +38,7 @@ public class SalesRecordService {
     private final AIAnalysisRepository aiAnalysisRepository;
     private final ExcelService excelService;
     private final AIAnalysisService aiAnalysisService;
+    private final GoogleSheetService googleSheetService;
 
     private static final Path SALES_RECORD_UPLOAD_DIR = Paths.get("uploads", "sales-records");
 
@@ -128,6 +130,57 @@ public class SalesRecordService {
             deleteSavedExcelFile(fileUrl);
             throw new ApiException("Failed to add sales record");
         }
+    }
+
+    @Transactional
+    public void importSalesRecordFromGoogleSheet(GoogleSheetSalesRecordIn googleSheetSalesRecordIn) {
+        SalesRecordIn salesRecordIn = new SalesRecordIn(
+                googleSheetSalesRecordIn.getMonth(),
+                googleSheetSalesRecordIn.getYear(),
+                googleSheetSalesRecordIn.getBranchId()
+        );
+
+        validateSalesRecordIn(salesRecordIn);
+
+        Branch branch = validateBranchReadyForSalesRecord(googleSheetSalesRecordIn.getBranchId());
+
+        Boolean exists = salesRecordRepository.existsByBranch_IdAndMonthAndYear(
+                googleSheetSalesRecordIn.getBranchId(),
+                googleSheetSalesRecordIn.getMonth(),
+                googleSheetSalesRecordIn.getYear()
+        );
+
+        if (Boolean.TRUE.equals(exists)) {
+            throw new ApiException("Sales record already exists for this branch in the same month and year");
+        }
+
+        String salesData = googleSheetService.extractSalesData(
+                googleSheetSalesRecordIn.getSpreadsheetId(),
+                googleSheetSalesRecordIn.getRange()
+        );
+
+        List<SalesRecordItem> salesRecordItems = googleSheetService.extractSalesRecordItems(
+                googleSheetSalesRecordIn.getSpreadsheetId(),
+                googleSheetSalesRecordIn.getRange()
+        );
+
+        SalesRecord salesRecord = new SalesRecord();
+
+        salesRecord.setFileName("Google Sheets Import");
+        salesRecord.setFileUrl("https://docs.google.com/spreadsheets/d/" + googleSheetSalesRecordIn.getSpreadsheetId());
+        salesRecord.setMonth(googleSheetSalesRecordIn.getMonth());
+        salesRecord.setYear(googleSheetSalesRecordIn.getYear());
+        salesRecord.setUploadedAt(LocalDateTime.now());
+        salesRecord.setBranch(branch);
+
+        SalesRecord savedSalesRecord = salesRecordRepository.save(salesRecord);
+
+        for (SalesRecordItem salesRecordItem : salesRecordItems) {
+            salesRecordItem.setSalesRecord(savedSalesRecord);
+            salesRecordItemRepository.save(salesRecordItem);
+        }
+
+        aiAnalysisService.generateAIAnalysisFromSalesRecord(savedSalesRecord.getId(), salesData);
     }
 
     @Transactional
