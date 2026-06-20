@@ -14,6 +14,7 @@ import com.example.fproject.Repository.CampaignSuggestionRepository;
 import com.example.fproject.Repository.SubscriptionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import com.example.fproject.Enum.SubscriptionPlanType;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -76,7 +77,7 @@ public class CampaignSuggestionService {
             throw new ApiException("AI analysis not found");
         }
 
-        validateAIAnalysisReadyForSuggestion(aiAnalysis);
+        Subscription activeSubscription = validateAIAnalysisReadyForSuggestion(aiAnalysis);
 
         List<CampaignSuggestion> oldSuggestions =
                 campaignSuggestionRepository.findAllByAiAnalysis_Id(aiAnalysisId);
@@ -85,7 +86,7 @@ public class CampaignSuggestionService {
             throw new ApiException("Campaign suggestions already generated for this AI analysis");
         }
 
-        return generateAndSaveSuggestions(aiAnalysis, 1);
+        return generateAndSaveSuggestions(aiAnalysis, 1, activeSubscription);
     }
 
     public List<CampaignSuggestionOut> regenerateCampaignSuggestions(Integer aiAnalysisId) {
@@ -95,7 +96,7 @@ public class CampaignSuggestionService {
             throw new ApiException("AI analysis not found");
         }
 
-        validateAIAnalysisReadyForSuggestion(aiAnalysis);
+        Subscription activeSubscription = validateAIAnalysisReadyForSuggestion(aiAnalysis);
 
         List<CampaignSuggestion> oldSuggestions =
                 campaignSuggestionRepository.findAllByAiAnalysis_Id(aiAnalysisId);
@@ -116,18 +117,22 @@ public class CampaignSuggestionService {
             throw new ApiException("Generate campaign suggestions before regenerating");
         }
 
-        if (latestRound >= 3) {
-            throw new ApiException("Maximum suggestion regeneration rounds reached");
+        Integer maxRounds = getMaxSuggestionRoundsByPlan(activeSubscription.getPlanType());
+
+        if (latestRound >= maxRounds) {
+            throw new ApiException("Maximum suggestion regeneration rounds reached for this subscription plan");
         }
 
-        return generateAndSaveSuggestions(aiAnalysis, latestRound + 1);
+        return generateAndSaveSuggestions(aiAnalysis, latestRound + 1, activeSubscription);
     }
 
-    private List<CampaignSuggestionOut> generateAndSaveSuggestions(AIAnalysis aiAnalysis, Integer suggestionRound) {
+    private List<CampaignSuggestionOut> generateAndSaveSuggestions(AIAnalysis aiAnalysis, Integer suggestionRound, Subscription activeSubscription) {
         String analysisSummary = buildAnalysisSummary(aiAnalysis);
 
+        Integer suggestionCount = getSuggestionCountByPlan(activeSubscription.getPlanType());
+
         List<OpenAiService.CampaignSuggestionResult> aiResults =
-                openAiService.generateCampaignSuggestionsFromAIAnalysis(analysisSummary, suggestionRound);
+                openAiService.generateCampaignSuggestionsFromAIAnalysis(analysisSummary, suggestionRound, suggestionCount);
 
         List<CampaignSuggestionOut> campaignSuggestionOuts = new ArrayList<>();
 
@@ -229,7 +234,7 @@ public class CampaignSuggestionService {
         }
     }
 
-    private void validateAIAnalysisReadyForSuggestion(AIAnalysis aiAnalysis) {
+    private Subscription validateAIAnalysisReadyForSuggestion(AIAnalysis aiAnalysis){
         if (aiAnalysis == null) {
             throw new ApiException("AI analysis not found");
         }
@@ -273,6 +278,24 @@ public class CampaignSuggestionService {
         if (activeSubscription.getEndDate().isBefore(LocalDate.now())) {
             throw new ApiException("Store owner subscription is expired");
         }
+
+        return activeSubscription;
+    }
+
+    private Integer getSuggestionCountByPlan(SubscriptionPlanType planType) {
+        if (planType == SubscriptionPlanType.PROFESSIONAL_YEARLY) {
+            return 5;
+        }
+
+        return 3;
+    }
+
+    private Integer getMaxSuggestionRoundsByPlan(SubscriptionPlanType planType) {
+        if (planType == SubscriptionPlanType.BASIC_MONTHLY) {
+            return 1;
+        }
+
+        return 3;
     }
 
     public void addCampaignSuggestion(CampaignSuggestionIn campaignSuggestionIn) {

@@ -101,15 +101,19 @@ public class OpenAiService {
         }
     }
 
-    public List<CampaignSuggestionResult> generateCampaignSuggestionsFromAIAnalysis(String analysisSummary, Integer suggestionRound) {
+    public List<CampaignSuggestionResult> generateCampaignSuggestionsFromAIAnalysis(String analysisSummary, Integer suggestionRound, Integer suggestionCount) {
         validateApiKey();
         validateText(analysisSummary, "AI analysis summary is required");
 
+        if (suggestionCount == null || suggestionCount < 1) {
+            throw new ApiException("Suggestion count must be positive");
+        }
+
         String prompt = """
-            Generate exactly 3 campaign suggestions based on this AI analysis.
+            Generate exactly %s campaign suggestions based on this AI analysis.
 
             Return JSON only.
-            Return a JSON array with exactly 3 objects.
+            Return a JSON array with exactly %s objects.
             Use Arabic text for title, description, offerText, and suggestedProductName.
             campaignType must be only DIRECT_OFFER or QUESTION_BASED.
             suggestedStartDate and suggestedEndDate must use yyyy-MM-dd format.
@@ -142,7 +146,8 @@ public class OpenAiService {
             ]
 
             AI analysis:
-            """ + analysisSummary;
+            %s
+            """.formatted(suggestionCount, suggestionCount, analysisSummary);
 
         String response = sendPrompt(prompt);
         String content = extractAssistantContent(response);
@@ -151,8 +156,8 @@ public class OpenAiService {
         try {
             JsonNode jsonNode = objectMapper.readTree(cleanContent);
 
-            if (!jsonNode.isArray() || jsonNode.size() != 3) {
-                throw new ApiException("AI must return exactly 3 campaign suggestions");
+            if (!jsonNode.isArray() || jsonNode.size() != suggestionCount) {
+                throw new ApiException("AI must return exactly " + suggestionCount + " campaign suggestions");
             }
 
             List<CampaignSuggestionResult> results = new ArrayList<>();
