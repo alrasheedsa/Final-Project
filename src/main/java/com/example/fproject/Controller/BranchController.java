@@ -1,5 +1,6 @@
 package com.example.fproject.Controller;
 
+import com.example.fproject.Api.ApiResponse;
 import com.example.fproject.DTO.IN.BranchIn;
 import com.example.fproject.Service.BranchService;
 import jakarta.validation.Valid;
@@ -18,7 +19,8 @@ public class BranchController {
 
     @PostMapping("/add/{storeId}")
     public ResponseEntity<?> addBranch(@PathVariable Integer storeId, @Valid @RequestBody BranchIn dto) {
-        return ResponseEntity.status(200).body(branchService.addBranch(storeId, dto));
+        branchService.addBranch(storeId, dto);
+        return ResponseEntity.status(200).body(new ApiResponse("Store added successfully"));
     }
 
     @GetMapping("/get")
@@ -38,30 +40,31 @@ public class BranchController {
 
     @PutMapping("/update/{branchId}")
     public ResponseEntity<?> updateBranch(@PathVariable Integer branchId, @Valid @RequestBody BranchIn dto) {
-        return ResponseEntity.status(200).body(branchService.updateBranch(branchId, dto));
+        branchService.updateBranch(branchId, dto);
+        return ResponseEntity.status(200).body(new ApiResponse("Store updated successfully"));
     }
 
     @PutMapping("/activate/{branchId}")
     public ResponseEntity<?> activateBranch(@PathVariable Integer branchId) {
-        return ResponseEntity.status(200).body(branchService.activateBranch(branchId));
+        branchService.activateBranch(branchId);
+        return ResponseEntity.status(200).body(new ApiResponse("Branch activated successfully"));
     }
 
     @PutMapping("/deactivate/{branchId}")
     public ResponseEntity<?> deactivateBranch(@PathVariable Integer branchId) {
-        return ResponseEntity.status(200).body(branchService.deactivateBranch(branchId));
+        branchService.deactivateBranch(branchId);
+        return ResponseEntity.status(200).body(new ApiResponse("Branch deactivated successfully"));
     }
 
     @DeleteMapping("/delete/{branchId}")
     public ResponseEntity<?> deleteBranch(@PathVariable Integer branchId) {
         branchService.deleteBranch(branchId);
-        return ResponseEntity.status(200).body("Branch deleted successfully");
+        return ResponseEntity.status(200).body(new ApiResponse("Branch deleted successfully"));
     }
 
     @GetMapping("/subscribed/{branchId}")
     public ResponseEntity<?> isBranchSubscribed(@PathVariable Integer branchId) {
-        return ResponseEntity.status(200).body(
-                Map.of("subscribed", branchService.isBranchSubscribed(branchId))
-        );
+        return ResponseEntity.status(200).body(new ApiResponse("subscribed: "+ branchService.isBranchSubscribed(branchId)));
     }
 
 
@@ -72,7 +75,8 @@ public class BranchController {
 
     @PutMapping("/apply-recommended-radius/{branchId}")
     public ResponseEntity<?> applyRecommendedRadius(@PathVariable Integer branchId) {
-        return ResponseEntity.status(200).body(branchService.applyRecommendedRadius(branchId));
+        branchService.applyRecommendedRadius(branchId);
+        return ResponseEntity.status(200).body(new ApiResponse("Recommended radius Applied successfully"));
     }
 
 
@@ -84,7 +88,7 @@ public class BranchController {
     @GetMapping("/{branchId}/customers-in-radius/count")
     public ResponseEntity<?> getCustomersInRadiusCount(@PathVariable Integer branchId) {
         return ResponseEntity.status(200).body(
-                Map.of("count", branchService.getCustomersInRadiusCount(branchId))
+                new ApiResponse(String.valueOf(branchService.getCustomersInRadiusCount(branchId)))
         );
     }
 

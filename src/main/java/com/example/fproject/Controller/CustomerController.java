@@ -17,7 +17,8 @@ public class CustomerController {
 
     @PostMapping("/register")
     public ResponseEntity<?> registerCustomer(@Valid @RequestBody CustomerIn dto) {
-        return ResponseEntity.status(200).body(customerService.registerCustomer(dto));
+        customerService.registerCustomer(dto);
+        return ResponseEntity.status(200).body(new ApiResponse("Customer registered successfully"));
     }
 
     @GetMapping("/get")
@@ -37,7 +38,8 @@ public class CustomerController {
 
     @PutMapping("/update/{customerId}")
     public ResponseEntity<?> updateCustomer(@PathVariable Integer customerId, @Valid @RequestBody CustomerIn dto) {
-        return ResponseEntity.status(200).body(customerService.updateCustomer(customerId, dto));
+        customerService.updateCustomer(customerId, dto);
+        return ResponseEntity.status(200).body(new ApiResponse("Customer updated successfully"));
     }
 
     @DeleteMapping("/delete/{customerId}")
@@ -75,7 +77,6 @@ public class CustomerController {
     public ResponseEntity<?> getUsedCampaigns(@PathVariable Integer customerId) {
         return ResponseEntity.status(200).body(customerService.getUsedCampaigns(customerId));
     }
-
 
     @GetMapping("/{customerId}/offers")
     public ResponseEntity<?> getCustomerOffers(@PathVariable Integer customerId) {

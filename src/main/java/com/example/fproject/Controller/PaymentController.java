@@ -7,8 +7,6 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Map;
-
 @RestController
 @RequestMapping("/api/v1/payment")
 @RequiredArgsConstructor
@@ -19,7 +17,7 @@ public class PaymentController {
     @PostMapping("/subscribe/{planType}/{storeOwnerId}")
     public ResponseEntity<?> createSubscriptionCheckout(@PathVariable String planType, @PathVariable Integer storeOwnerId) {
         String checkoutUrl = lemonSqueezyService.createSubscriptionCheckout(planType, storeOwnerId);
-        return ResponseEntity.status(200).body(Map.of("message", checkoutUrl));
+        return ResponseEntity.status(200).body(new ApiResponse(checkoutUrl));
     }
 
     @GetMapping("/subscription/{storeOwnerId}")
