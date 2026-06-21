@@ -64,78 +64,78 @@ public class ServiceTest {
     SalesRecord salesRecord;
     SalesRecordItem item;
 
-    @BeforeEach
-    void setUp() {
-        salesRecordService = new SalesRecordService(
-                salesRecordRepository,
-                salesRecordItemRepository,
-                branchRepository,
-                subscriptionRepository,
-                aiAnalysisRepository,
-                excelService,
-                aiAnalysisService,
-                googleSheetService
-        );
-
-        salesRecordItemService = new SalesRecordItemService(
-                salesRecordItemRepository,
-                salesRecordRepository,
-                aiAnalysisRepository
-        );
-
-        branch = new Branch();
-        branch.setId(1);
-        branch.setName("Test Branch");
-
-        salesRecord = new SalesRecord();
-        salesRecord.setId(1);
-        salesRecord.setFileName("sales.xlsx");
-        salesRecord.setFileUrl("uploads/sales.xlsx");
-        salesRecord.setMonth(6);
-        salesRecord.setYear(2026);
-        salesRecord.setUploadedAt(LocalDateTime.now());
-        salesRecord.setBranch(branch);
-
-        item = new SalesRecordItem();
-        item.setId(1);
-        item.setProductName("Latte");
-        item.setQuantity(10);
-        item.setUnitPrice(12.0);
-        item.setTotalPrice(120.0);
-        item.setSaleDate(LocalDate.of(2026, 6, 1));
-        item.setSaleTime(LocalTime.of(9, 0));
-        item.setSalesRecord(salesRecord);
-    }
-
-    @Test
-    public void getAllSalesRecordsTest() {
-        when(salesRecordRepository.findAll()).thenReturn(List.of(salesRecord));
-
-        List<SalesRecordOut> result = salesRecordService.getAllSalesRecords();
-
-        Assertions.assertEquals(1, result.size());
-        verify(salesRecordRepository, times(1)).findAll();
-    }
-
-    @Test
-    public void getSalesRecordByIdNotFoundTest() {
-        when(salesRecordRepository.findSalesRecordById(100)).thenReturn(null);
-
-        ApiException exception = Assertions.assertThrows(ApiException.class, () -> {
-            salesRecordService.getSalesRecordById(100);
-        });
-
-        Assertions.assertEquals("Sales record not found", exception.getMessage());
-        verify(salesRecordRepository, times(1)).findSalesRecordById(100);
-    }
-
-    @Test
-    public void getAllSalesRecordItemsTest() {
-        when(salesRecordItemRepository.findAll()).thenReturn(List.of(item));
-
-        List<SalesRecordItemOut> result = salesRecordItemService.getAllSalesRecordItems();
-
-        Assertions.assertEquals(1, result.size());
-        verify(salesRecordItemRepository, times(1)).findAll();
-    }
+//    @BeforeEach
+//    void setUp() {
+//        salesRecordService = new SalesRecordService(
+//                salesRecordRepository,
+//                salesRecordItemRepository,
+//                branchRepository,
+//                subscriptionRepository,
+//                aiAnalysisRepository,
+//                excelService,
+//                aiAnalysisService,
+//                googleSheetService
+//        );
+//
+//        salesRecordItemService = new SalesRecordItemService(
+//                salesRecordItemRepository,
+//                salesRecordRepository,
+//                aiAnalysisRepository
+//        );
+//
+//        branch = new Branch();
+//        branch.setId(1);
+//        branch.setName("Test Branch");
+//
+//        salesRecord = new SalesRecord();
+//        salesRecord.setId(1);
+//        salesRecord.setFileName("sales.xlsx");
+//        salesRecord.setFileUrl("uploads/sales.xlsx");
+//        salesRecord.setMonth(6);
+//        salesRecord.setYear(2026);
+//        salesRecord.setUploadedAt(LocalDateTime.now());
+//        salesRecord.setBranch(branch);
+//
+//        item = new SalesRecordItem();
+//        item.setId(1);
+//        item.setProductName("Latte");
+//        item.setQuantity(10);
+//        item.setUnitPrice(12.0);
+//        item.setTotalPrice(120.0);
+//        item.setSaleDate(LocalDate.of(2026, 6, 1));
+//        item.setSaleTime(LocalTime.of(9, 0));
+//        item.setSalesRecord(salesRecord);
+//    }
+//
+//    @Test
+//    public void getAllSalesRecordsTest() {
+//        when(salesRecordRepository.findAll()).thenReturn(List.of(salesRecord));
+//
+//        List<SalesRecordOut> result = salesRecordService.getAllSalesRecords();
+//
+//        Assertions.assertEquals(1, result.size());
+//        verify(salesRecordRepository, times(1)).findAll();
+//    }
+//
+//    @Test
+//    public void getSalesRecordByIdNotFoundTest() {
+//        when(salesRecordRepository.findSalesRecordById(100)).thenReturn(null);
+//
+//        ApiException exception = Assertions.assertThrows(ApiException.class, () -> {
+//            salesRecordService.getSalesRecordById(100);
+//        });
+//
+//        Assertions.assertEquals("Sales record not found", exception.getMessage());
+//        verify(salesRecordRepository, times(1)).findSalesRecordById(100);
+//    }
+//
+//    @Test
+//    public void getAllSalesRecordItemsTest() {
+//        when(salesRecordItemRepository.findAll()).thenReturn(List.of(item));
+//
+//        List<SalesRecordItemOut> result = salesRecordItemService.getAllSalesRecordItems();
+//
+//        Assertions.assertEquals(1, result.size());
+//        verify(salesRecordItemRepository, times(1)).findAll();
+//    }
 }

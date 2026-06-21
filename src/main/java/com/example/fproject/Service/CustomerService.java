@@ -14,6 +14,8 @@ import com.example.fproject.Model.*;
 import com.example.fproject.Repository.*;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -49,7 +51,7 @@ public class CustomerService {
         user.setFullName(dto.getFullName());
         user.setPhone(dto.getPhone());
         user.setEmail(dto.getEmail());
-        user.setPassword(dto.getPassword());
+        user.setPassword(new BCryptPasswordEncoder().encode(dto.getPassword()));
         user.setRole(RoleType.CUSTOMER);
         user.setEnabled(true);
 
@@ -70,31 +72,23 @@ public class CustomerService {
     public List<CustomerOut> getAllCustomers() {
         List<Customer> customers = customerRepository.findAll();
         List<CustomerOut> result = new ArrayList<>();
-
         for (Customer customer : customers) {
             result.add(mapToDTOOUT(customer));
         }
-
         return result;
     }
 
+    // يُستخدم للادمن (بالـ ID) وللـ customer نفسه (user.getId() == customer.getId() بسبب @MapsId)
     public CustomerOut getCustomerById(Integer customerId) {
         Customer customer = customerRepository.findCustomerById(customerId);
-
-        if (customer == null) {
-            throw new ApiException("Customer not found");
-        }
-
+        if (customer == null) throw new ApiException("Customer not found");
         return mapToDTOOUT(customer);
     }
 
     @Transactional
-    public CustomerOut updateCustomer(Integer customerId, CustomerIn dto) {
-        Customer customer = customerRepository.findCustomerById(customerId);
-
-        if (customer == null) {
-            throw new ApiException("Customer not found");
-        }
+    public CustomerOut updateCustomer(Integer userId, CustomerIn dto) {
+        Customer customer = customerRepository.findCustomerById(userId);
+        if (customer == null) throw new ApiException("Customer not found");
 
         User user = customer.getUser();
 
@@ -111,7 +105,7 @@ public class CustomerService {
         user.setFullName(dto.getFullName());
         user.setPhone(dto.getPhone());
         user.setEmail(dto.getEmail());
-        user.setPassword(dto.getPassword());
+        user.setPassword(new BCryptPasswordEncoder().encode(dto.getPassword()));
 
         userRepository.save(user);
 
@@ -126,12 +120,9 @@ public class CustomerService {
     }
 
     @Transactional
-    public void deleteCustomer(Integer customerId) {
-        Customer customer = customerRepository.findCustomerById(customerId);
-
-        if (customer == null) {
-            throw new ApiException("Customer not found");
-        }
+    public void deleteCustomer(Integer userId) {
+        Customer customer = customerRepository.findCustomerById(userId);
+        if (customer == null) throw new ApiException("Customer not found");
 
         if (customer.getCampaignMessages() != null && !customer.getCampaignMessages().isEmpty()) {
             throw new ApiException("Cannot delete customer because it has campaign messages");
@@ -149,63 +140,45 @@ public class CustomerService {
     public List<CustomerOut> getCustomersWithLocationConsent() {
         List<Customer> customers = customerRepository.findCustomersByLocationConsentTrue();
         List<CustomerOut> result = new ArrayList<>();
-
         for (Customer customer : customers) {
             result.add(mapToDTOOUT(customer));
         }
-
         return result;
     }
 
     public CustomerOut getCustomerByPhone(String phone) {
-        if (phone == null || phone.isBlank()) {
-            throw new ApiException("Phone is required");
-        }
-
+        if (phone == null || phone.isBlank()) throw new ApiException("Phone is required");
         Customer customer = customerRepository.findCustomerByUser_Phone(phone);
-
-        if (customer == null) {
-            throw new ApiException("Customer not found");
-        }
-
+        if (customer == null) throw new ApiException("Customer not found");
         return mapToDTOOUT(customer);
     }
 
     public List<CustomerOut> getCustomersInsideRadius(Integer branchId) {
         Branch branch = branchRepository.findBranchById(branchId);
-
-        if (branch == null) {
-            throw new ApiException("Branch not found");
-        }
-        if (branch.getLatitude() == null || branch.getLongitude() == null) {
+        if (branch == null) throw new ApiException("Branch not found");
+        if (branch.getLatitude() == null || branch.getLongitude() == null)
             throw new ApiException("Branch location coordinates are required");
-        }
-        if (branch.getCampaignRadiusMeters() == null || branch.getCampaignRadiusMeters() <= 0) {
+        if (branch.getCampaignRadiusMeters() == null || branch.getCampaignRadiusMeters() <= 0)
             throw new ApiException("Branch campaign radius is required");
-        }
 
         List<Customer> customers = customerRepository.findCustomersByLocationConsentTrue();
         List<CustomerOut> result = new ArrayList<>();
 
         for (Customer customer : customers) {
             if (customer.getLatitude() == null || customer.getLongitude() == null) continue;
-
             double distance = calculateDistanceInMeters(
                     branch.getLatitude(), branch.getLongitude(),
                     customer.getLatitude(), customer.getLongitude()
             );
-
             if (distance <= branch.getCampaignRadiusMeters()) {
                 result.add(mapToDTOOUT(customer));
             }
         }
-
         return result;
     }
 
     public List<CampaignResponseOut> getCampaignsInRadius(Integer customerId) {
         Customer customer = findCustomerWithLocationOrThrow(customerId);
-
         return campaignRepository.findAll()
                 .stream()
                 .filter(c -> isCustomerInCampaignRadius(customer, c))
@@ -215,7 +188,6 @@ public class CustomerService {
 
     public List<CampaignResponseOut> getActiveCampaignsInRadius(Integer customerId) {
         Customer customer = findCustomerWithLocationOrThrow(customerId);
-
         return campaignRepository.findAllByStatus(CampaignStatus.ACTIVE)
                 .stream()
                 .filter(c -> isCustomerInCampaignRadius(customer, c))
@@ -225,7 +197,6 @@ public class CustomerService {
 
     public List<CampaignResponseOut> getExpiredCampaignsInRadius(Integer customerId) {
         Customer customer = findCustomerWithLocationOrThrow(customerId);
-
         return campaignRepository.findAll()
                 .stream()
                 .filter(c -> c.getStatus() == CampaignStatus.COMPLETED
@@ -237,11 +208,9 @@ public class CustomerService {
 
     public List<CampaignResponseOut> getUsedCampaigns(Integer customerId) {
         findCustomerOrThrow(customerId);
-
         return qrRedemptionRepository.findAll()
                 .stream()
-                .filter(r -> r.getCustomer() != null
-                          && r.getCustomer().getId().equals(customerId))
+                .filter(r -> r.getCustomer() != null && r.getCustomer().getId().equals(customerId))
                 .map(QRRedemption::getCampaign)
                 .filter(c -> c != null)
                 .distinct()
@@ -249,10 +218,8 @@ public class CustomerService {
                 .toList();
     }
 
-
     public List<CampaignMessageResponseOut> getCustomerOffers(Integer customerId) {
         findCustomerOrThrow(customerId);
-
         return campaignMessageRepository.findAllByCustomerId(customerId)
                 .stream()
                 .map(this::mapMessageToOut)
@@ -261,19 +228,16 @@ public class CustomerService {
 
     public List<CampaignMessageResponseOut> getActiveMessages(Integer customerId) {
         findCustomerOrThrow(customerId);
-
         return campaignMessageRepository
                 .findAllByCustomerIdAndStatusOrderBySentAtDesc(customerId, MessageStatus.SENT)
                 .stream()
-                .filter(m -> m.getCampaign() != null
-                          && m.getCampaign().getStatus() == CampaignStatus.ACTIVE)
+                .filter(m -> m.getCampaign() != null && m.getCampaign().getStatus() == CampaignStatus.ACTIVE)
                 .map(this::mapMessageToOut)
                 .toList();
     }
 
     public List<CampaignMessageResponseOut> getAnsweredMessages(Integer customerId) {
         findCustomerOrThrow(customerId);
-
         return campaignMessageRepository.findAllByCustomerId(customerId)
                 .stream()
                 .filter(m -> m.getCustomerAnswer() != null)
@@ -283,7 +247,6 @@ public class CustomerService {
 
     public List<CampaignMessageResponseOut> getUnansweredMessages(Integer customerId) {
         findCustomerOrThrow(customerId);
-
         return campaignMessageRepository.findAllByCustomerId(customerId)
                 .stream()
                 .filter(m -> m.getCustomerAnswer() == null)
@@ -291,10 +254,8 @@ public class CustomerService {
                 .toList();
     }
 
-
     public List<QRCodeResponseOut> getCustomerQRCodes(Integer customerId) {
         findCustomerOrThrow(customerId);
-
         return campaignMessageRepository.findAllByCustomerId(customerId)
                 .stream()
                 .map(m -> m.getCampaign())
@@ -308,7 +269,6 @@ public class CustomerService {
 
     public List<QRCodeResponseOut> getAvailableQRCodes(Integer customerId) {
         findCustomerOrThrow(customerId);
-
         return campaignMessageRepository.findAllByCustomerId(customerId)
                 .stream()
                 .map(m -> m.getCampaign())
@@ -322,11 +282,9 @@ public class CustomerService {
 
     public List<QRCodeResponseOut> getUsedQRCodes(Integer customerId) {
         findCustomerOrThrow(customerId);
-
         return qrRedemptionRepository.findAll()
                 .stream()
-                .filter(r -> r.getCustomer() != null
-                          && r.getCustomer().getId().equals(customerId))
+                .filter(r -> r.getCustomer() != null && r.getCustomer().getId().equals(customerId))
                 .map(QRRedemption::getQrCode)
                 .filter(qr -> qr != null)
                 .distinct()
@@ -336,54 +294,39 @@ public class CustomerService {
 
     private Customer findCustomerOrThrow(Integer customerId) {
         Customer customer = customerRepository.findCustomerById(customerId);
-        if (customer == null) {
-            throw new ApiException("Customer not found");
-        }
+        if (customer == null) throw new ApiException("Customer not found");
         return customer;
     }
 
     private Customer findCustomerWithLocationOrThrow(Integer customerId) {
         Customer customer = findCustomerOrThrow(customerId);
-
-        if (!Boolean.TRUE.equals(customer.getLocationConsent())) {
+        if (!Boolean.TRUE.equals(customer.getLocationConsent()))
             throw new ApiException("Customer has not given location consent");
-        }
-        if (customer.getLatitude() == null || customer.getLongitude() == null) {
+        if (customer.getLatitude() == null || customer.getLongitude() == null)
             throw new ApiException("Customer location is not set");
-        }
         return customer;
     }
 
     private boolean isCustomerInCampaignRadius(Customer customer, Campaign campaign) {
         if (campaign.getBranch() == null) return false;
-
         Branch branch = campaign.getBranch();
         if (branch.getLatitude() == null || branch.getLongitude() == null) return false;
         if (branch.getCampaignRadiusMeters() == null) return false;
-
         double distance = calculateDistanceInMeters(
                 customer.getLatitude(), customer.getLongitude(),
-                branch.getLatitude(),  branch.getLongitude()
+                branch.getLatitude(), branch.getLongitude()
         );
-
         return distance <= branch.getCampaignRadiusMeters();
     }
 
     private double calculateDistanceInMeters(Double lat1, Double lon1, Double lat2, Double lon2) {
-        if (lat1 == null || lon1 == null || lat2 == null || lon2 == null) {
-            return Double.MAX_VALUE;
-        }
-
+        if (lat1 == null || lon1 == null || lat2 == null || lon2 == null) return Double.MAX_VALUE;
         final int earthRadiusMeters = 6371000;
         double latDistance = Math.toRadians(lat2 - lat1);
         double lonDistance = Math.toRadians(lon2 - lon1);
-
         double a = Math.sin(latDistance / 2) * Math.sin(latDistance / 2)
-                + Math.cos(Math.toRadians(lat1))
-                * Math.cos(Math.toRadians(lat2))
-                * Math.sin(lonDistance / 2)
-                * Math.sin(lonDistance / 2);
-
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                * Math.sin(lonDistance / 2) * Math.sin(lonDistance / 2);
         return earthRadiusMeters * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 
@@ -403,17 +346,9 @@ public class CustomerService {
 
     private CampaignResponseOut mapCampaignToOut(Campaign c) {
         return new CampaignResponseOut(
-                c.getId(),
-                c.getTitle(),
-                c.getDescription(),
-                c.getOfferText(),
-                c.getCampaignType(),
-                c.getStatus(),
-                c.getStartDateTime(),
-                c.getEndDateTime(),
-                c.getTargetCustomersCount(),
-                c.getSentCount(),
-                c.getRedeemedCount(),
+                c.getId(), c.getTitle(), c.getDescription(), c.getOfferText(),
+                c.getCampaignType(), c.getStatus(), c.getStartDateTime(), c.getEndDateTime(),
+                c.getTargetCustomersCount(), c.getSentCount(), c.getRedeemedCount(),
                 c.getBranch() != null ? c.getBranch().getId() : null,
                 c.getCampaignSuggestion() != null ? c.getCampaignSuggestion().getId() : null,
                 c.getAiQuestion() != null ? c.getAiQuestion().getId() : null,
@@ -424,13 +359,8 @@ public class CustomerService {
 
     private CampaignMessageResponseOut mapMessageToOut(CampaignMessage m) {
         return new CampaignMessageResponseOut(
-                m.getId(),
-                m.getMessageText(),
-                m.getDistanceKm(),
-                m.getDurationMinutes(),
-                m.getDistanceText(),
-                m.getStatus(),
-                m.getSentAt(),
+                m.getId(), m.getMessageText(), m.getDistanceKm(), m.getDurationMinutes(),
+                m.getDistanceText(), m.getStatus(), m.getSentAt(),
                 m.getCampaign() != null ? m.getCampaign().getId() : null,
                 m.getCustomer() != null ? m.getCustomer().getId() : null,
                 m.getCustomerAnswer() != null ? m.getCustomerAnswer().getId() : null
@@ -439,12 +369,8 @@ public class CustomerService {
 
     private QRCodeResponseOut mapQRCodeToOut(QRCode qr) {
         return new QRCodeResponseOut(
-                qr.getId(),
-                qr.getCode(),
-                qr.getQrImageBase64(),
-                qr.getMaxUsageCount(),
-                qr.getUsedCount(),
-                qr.getStatus(),
+                qr.getId(), qr.getCode(), qr.getQrImageBase64(),
+                qr.getMaxUsageCount(), qr.getUsedCount(), qr.getStatus(),
                 qr.getCampaign() != null ? qr.getCampaign().getId() : null
         );
     }

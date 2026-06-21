@@ -34,70 +34,64 @@ public class SubscriptionService {
 
     private static final int RENEWAL_WINDOW_DAYS = 7;
 
+    // PUBLIC — كل المستخدمين
     public List<SubscriptionPlanOut> getSubscriptionPlans() {
         return Arrays.stream(SubscriptionPlanType.values())
                 .map(plan -> new SubscriptionPlanOut(
-                        plan,
-                        plan.getPrice(),
-                        plan.getMaxStores(),
-                        plan.getMaxBranchesPerStore(),
-                        plan.getDurationMonths()
-                ))
-                .toList();
+                        plan, plan.getPrice(), plan.getMaxStores(),
+                        plan.getMaxBranchesPerStore(), plan.getDurationMonths()
+                )).toList();
     }
 
+    // ADMIN
     public List<Subscription> getAllSubscriptions() {
         return subscriptionRepository.findAll();
     }
 
+    // ADMIN
     public Subscription getSubscriptionById(Integer subscriptionId) {
         return findSubscriptionOrThrow(subscriptionId);
     }
 
-    public List<Subscription> getSubscriptionsByStoreOwner(Integer storeOwnerId) {
-        findStoreOwnerOrThrow(storeOwnerId);
-        return subscriptionRepository.findSubscriptionsByStoreOwnerId(storeOwnerId);
+    // STORE_OWNER — يجيب بياناته عن طريق userId من الـ token
+    public List<Subscription> getSubscriptionsByStoreOwner(Integer userId) {
+        StoreOwner owner = findStoreOwnerByUserIdOrThrow(userId);
+        return subscriptionRepository.findSubscriptionsByStoreOwnerId(owner.getId());
     }
 
-    public Subscription getActiveSubscription(Integer storeOwnerId) {
-        findStoreOwnerOrThrow(storeOwnerId);
-
+    // STORE_OWNER
+    public Subscription getActiveSubscription(Integer userId) {
+        StoreOwner owner = findStoreOwnerByUserIdOrThrow(userId);
         Subscription subscription = subscriptionRepository
-                .findFirstByStoreOwnerIdAndStatusOrderByEndDateDesc(storeOwnerId, SubscriptionStatus.ACTIVE);
-
+                .findFirstByStoreOwnerIdAndStatusOrderByEndDateDesc(owner.getId(), SubscriptionStatus.ACTIVE);
         if (subscription == null) throw new ApiException("No active subscription found");
-
         return subscription;
     }
 
-    public SubscriptionStatusOut getSubscriptionStatus(Integer storeOwnerId) {
-
-        findStoreOwnerOrThrow(storeOwnerId);
+    // STORE_OWNER
+    public SubscriptionStatusOut getSubscriptionStatus(Integer userId) {
+        StoreOwner owner = findStoreOwnerByUserIdOrThrow(userId);
 
         Subscription subscription = subscriptionRepository
-                .findFirstByStoreOwnerIdAndStatusOrderByEndDateDesc(storeOwnerId, SubscriptionStatus.ACTIVE);
+                .findFirstByStoreOwnerIdAndStatusOrderByEndDateDesc(owner.getId(), SubscriptionStatus.ACTIVE);
 
         if (subscription == null) {
             subscription = subscriptionRepository
-                    .findFirstByStoreOwnerIdAndStatusOrderByEndDateDesc(storeOwnerId, SubscriptionStatus.PENDING);
+                    .findFirstByStoreOwnerIdAndStatusOrderByEndDateDesc(owner.getId(), SubscriptionStatus.PENDING);
         }
 
         if (subscription == null) throw new ApiException("No subscription found for this store owner");
-
         return buildSubscriptionStatusOut(subscription);
     }
 
-
-    public StoreOwnerDashboardOut getStoreOwnerDashboard(Integer storeOwnerId) {
-
-        StoreOwner storeOwner = findStoreOwnerOrThrow(storeOwnerId);
+    // STORE_OWNER
+    public StoreOwnerDashboardOut getStoreOwnerDashboard(Integer userId) {
+        StoreOwner storeOwner = findStoreOwnerByUserIdOrThrow(userId);
 
         SubscriptionStatusOut subscriptionStatus = null;
-        try {
-            subscriptionStatus = getSubscriptionStatus(storeOwnerId);
-        } catch (ApiException ignored) { }
+        try { subscriptionStatus = getSubscriptionStatus(userId); } catch (ApiException ignored) {}
 
-        List<Store> stores = storeRepository.findStoresByStoreOwnerId(storeOwnerId);
+        List<Store> stores = storeRepository.findStoresByStoreOwnerId(storeOwner.getId());
         long activeStores  = stores.stream().filter(s -> s.getStatus() == StoreStatus.ACTIVE).count();
         long pendingStores = stores.stream().filter(s -> s.getStatus() == StoreStatus.PENDING).count();
 
@@ -113,26 +107,21 @@ public class SubscriptionService {
         for (Store store : stores) {
             for (Branch branch : branchRepository.findBranchesByStoreId(store.getId())) {
                 for (Campaign c : campaignRepository.findAllByBranchId(branch.getId())) {
-                    if (lastCampaign == null
-                            || c.getStartDateTime().isAfter(lastCampaign.getStartDateTime())) {
+                    if (lastCampaign == null || c.getStartDateTime().isAfter(lastCampaign.getStartDateTime()))
                         lastCampaign = c;
-                    }
                 }
             }
         }
 
-        SubscriptionLimitsOut limits = buildLimits(storeOwnerId, stores);
+        SubscriptionLimitsOut limits = buildLimits(storeOwner.getId(), stores);
 
         return new StoreOwnerDashboardOut(
                 storeOwner.getId(),
                 storeOwner.getUser().getFullName(),
                 storeOwner.getUser().getEmail(),
                 subscriptionStatus,
-                stores.size(),
-                (int) activeStores,
-                (int) pendingStores,
-                (int) totalBranches,
-                (int) activeBranches,
+                stores.size(), (int) activeStores, (int) pendingStores,
+                (int) totalBranches, (int) activeBranches,
                 lastCampaign != null ? lastCampaign.getId() : null,
                 lastCampaign != null ? lastCampaign.getTitle() : null,
                 lastCampaign != null ? lastCampaign.getStatus() : null,
@@ -140,38 +129,34 @@ public class SubscriptionService {
         );
     }
 
-
-    public SubscriptionLimitsOut getSubscriptionLimits(Integer storeOwnerId) {
-        findStoreOwnerOrThrow(storeOwnerId);
-        List<Store> stores = storeRepository.findStoresByStoreOwnerId(storeOwnerId);
-        return buildLimits(storeOwnerId, stores);
+    // STORE_OWNER
+    public SubscriptionLimitsOut getSubscriptionLimits(Integer userId) {
+        StoreOwner owner = findStoreOwnerByUserIdOrThrow(userId);
+        List<Store> stores = storeRepository.findStoresByStoreOwnerId(owner.getId());
+        return buildLimits(owner.getId(), stores);
     }
 
-    public CanCreateBranchOut canCreateBranch(Integer storeOwnerId, Integer storeId) {
-
-        findStoreOwnerOrThrow(storeOwnerId);
+    // STORE_OWNER
+    public CanCreateBranchOut canCreateBranch(Integer userId, Integer storeId) {
+        StoreOwner owner = findStoreOwnerByUserIdOrThrow(userId);
 
         Store store = storeRepository.findStoreById(storeId);
         if (store == null) throw new ApiException("Store not found");
 
-        if (!store.getStoreOwner().getId().equals(storeOwnerId)) {
+        if (!store.getStoreOwner().getId().equals(owner.getId()))
             throw new ApiException("Store does not belong to this store owner");
-        }
 
         Subscription subscription = subscriptionRepository
-                .findFirstByStoreOwnerIdAndStatusOrderByEndDateDesc(storeOwnerId, SubscriptionStatus.ACTIVE);
+                .findFirstByStoreOwnerIdAndStatusOrderByEndDateDesc(owner.getId(), SubscriptionStatus.ACTIVE);
 
         if (subscription == null) {
             subscription = subscriptionRepository
-                    .findFirstByStoreOwnerIdAndStatusOrderByEndDateDesc(storeOwnerId, SubscriptionStatus.PENDING);
+                    .findFirstByStoreOwnerIdAndStatusOrderByEndDateDesc(owner.getId(), SubscriptionStatus.PENDING);
         }
 
-        if (subscription == null) {
-            return new CanCreateBranchOut(false, 0, 0, 0, "No subscription found");
-        }
+        if (subscription == null) return new CanCreateBranchOut(false, 0, 0, 0, "No subscription found");
 
         int maxBranches = subscription.getPlanType().getMaxBranchesPerStore();
-
         long currentBranches = branchRepository.findBranchesByStoreId(storeId)
                 .stream()
                 .filter(b -> b.getStatus() == StoreStatus.ACTIVE || b.getStatus() == StoreStatus.PENDING)
@@ -179,7 +164,6 @@ public class SubscriptionService {
 
         boolean canCreate = currentBranches < maxBranches;
         int remaining     = (int) Math.max(maxBranches - currentBranches, 0);
-
         String message = canCreate
                 ? "You can add " + remaining + " more branch(es) to this store"
                 : "You have reached the maximum number of branches for your plan";
@@ -187,19 +171,18 @@ public class SubscriptionService {
         return new CanCreateBranchOut(canCreate, maxBranches, (int) currentBranches, remaining, message);
     }
 
+    // STORE_OWNER
     @Transactional
-    public String renewSubscription(Integer storeOwnerId, String newPlanTypeText) {
+    public String renewSubscription(Integer userId, String newPlanTypeText) {
+        StoreOwner owner = findStoreOwnerByUserIdOrThrow(userId);
 
-        findStoreOwnerOrThrow(storeOwnerId);
-
-        Subscription currentSubscription = findCurrentSubscriptionForRenewal(storeOwnerId);
+        Subscription currentSubscription = findCurrentSubscriptionForRenewal(owner.getId());
 
         SubscriptionStatus currentStatus = currentSubscription.getStatus();
         long daysRemaining = ChronoUnit.DAYS.between(LocalDate.now(), currentSubscription.getEndDate());
 
         boolean isExpiredOrCancelled = currentStatus == SubscriptionStatus.EXPIRED
                 || currentStatus == SubscriptionStatus.CANCELLED;
-
         boolean isInRenewalWindow = currentStatus == SubscriptionStatus.ACTIVE
                 && daysRemaining <= RENEWAL_WINDOW_DAYS;
 
@@ -219,17 +202,16 @@ public class SubscriptionService {
             subscriptionRepository.save(currentSubscription);
         }
 
-        return lemonSqueezyService.createSubscriptionCheckout(newPlanTypeText, storeOwnerId);
+        return lemonSqueezyService.createSubscriptionCheckout(newPlanTypeText, owner.getId());
     }
 
+    // STORE_OWNER — يلغي اشتراك بالـ subscriptionId
     @Transactional
     public void cancelSubscription(Integer subscriptionId) {
-
         Subscription subscription = findSubscriptionOrThrow(subscriptionId);
 
-        if (subscription.getStatus() == SubscriptionStatus.CANCELLED) {
+        if (subscription.getStatus() == SubscriptionStatus.CANCELLED)
             throw new ApiException("Subscription is already cancelled");
-        }
 
         if (subscription.getStatus() == SubscriptionStatus.ACTIVE
                 && subscription.getLemonSubscriptionId() != null
@@ -240,68 +222,59 @@ public class SubscriptionService {
         subscription.setStatus(SubscriptionStatus.CANCELLED);
         subscription.setLemonStatus("cancelled");
         subscriptionRepository.save(subscription);
-
         deactivateStoresAndBranches(subscription);
     }
 
+    // ADMIN
     @Transactional
     public void checkExpiredSubscriptions() {
+        List<Subscription> expired = subscriptionRepository
+                .findSubscriptionsByStatusAndEndDateBefore(SubscriptionStatus.ACTIVE, LocalDate.now());
 
-        List<Subscription> expiredSubscriptions = subscriptionRepository
-                .findSubscriptionsByStatusAndEndDateBefore(
-                        SubscriptionStatus.ACTIVE,
-                        LocalDate.now()
-                );
-
-        for (Subscription subscription : expiredSubscriptions) {
+        for (Subscription subscription : expired) {
             subscription.setStatus(SubscriptionStatus.EXPIRED);
             subscriptionRepository.save(subscription);
             deactivateStoresAndBranches(subscription);
         }
     }
 
+    // ── helpers ──────────────────────────────────────────────────────────────
 
+    private StoreOwner findStoreOwnerByUserIdOrThrow(Integer userId) {
+        StoreOwner owner = storeOwnerRepository.findStoreOwnerByUserId(userId);
+        if (owner == null) throw new ApiException("Store owner not found");
+        return owner;
+    }
 
     private SubscriptionLimitsOut buildLimits(Integer storeOwnerId, List<Store> stores) {
-
         Subscription subscription = subscriptionRepository
                 .findFirstByStoreOwnerIdAndStatusOrderByEndDateDesc(storeOwnerId, SubscriptionStatus.ACTIVE);
-
         if (subscription == null) {
             subscription = subscriptionRepository
                     .findFirstByStoreOwnerIdAndStatusOrderByEndDateDesc(storeOwnerId, SubscriptionStatus.PENDING);
         }
-
-        if (subscription == null) {
-            return new SubscriptionLimitsOut(null, 0, 0, 0, 0, 0, 0, false, false);
-        }
+        if (subscription == null) return new SubscriptionLimitsOut(null, 0, 0, 0, 0, 0, 0, false, false);
 
         int maxStores   = subscription.getPlanType().getMaxStores();
         int maxBranches = subscription.getPlanType().getMaxBranchesPerStore();
 
         long usedStores = stores.stream()
-                .filter(s -> s.getStatus() == StoreStatus.ACTIVE || s.getStatus() == StoreStatus.PENDING)
-                .count();
-
+                .filter(s -> s.getStatus() == StoreStatus.ACTIVE || s.getStatus() == StoreStatus.PENDING).count();
         long usedBranches = stores.stream()
                 .flatMap(s -> branchRepository.findBranchesByStoreId(s.getId()).stream())
-                .filter(b -> b.getStatus() == StoreStatus.ACTIVE || b.getStatus() == StoreStatus.PENDING)
-                .count();
+                .filter(b -> b.getStatus() == StoreStatus.ACTIVE || b.getStatus() == StoreStatus.PENDING).count();
 
         return new SubscriptionLimitsOut(
                 subscription.getPlanType().name(),
-                maxStores,   (int) usedStores,   maxStores   - (int) usedStores,
+                maxStores, (int) usedStores, maxStores - (int) usedStores,
                 maxBranches, (int) usedBranches, maxBranches - (int) usedBranches,
-                usedStores < maxStores,
-                true
+                usedStores < maxStores, true
         );
     }
 
     private SubscriptionStatusOut buildSubscriptionStatusOut(Subscription subscription) {
-
         LocalDate today    = LocalDate.now();
         LocalDate endDate  = subscription.getEndDate();
-
         long daysRemaining = ChronoUnit.DAYS.between(today, endDate);
         boolean isExpired  = endDate.isBefore(today);
         SubscriptionStatus status = subscription.getStatus();
@@ -311,18 +284,11 @@ public class SubscriptionService {
                 || isExpired
                 || (status == SubscriptionStatus.ACTIVE && daysRemaining <= RENEWAL_WINDOW_DAYS);
 
-        String message = buildStatusMessage(status, daysRemaining, isExpired);
-
         return new SubscriptionStatusOut(
-                subscription.getId(),
-                subscription.getPlanType(),
-                status,
-                subscription.getStartDate(),
-                endDate,
-                Math.max(daysRemaining, 0),
-                isExpired,
-                canRenew,
-                message
+                subscription.getId(), subscription.getPlanType(), status,
+                subscription.getStartDate(), endDate,
+                Math.max(daysRemaining, 0), isExpired, canRenew,
+                buildStatusMessage(status, daysRemaining, isExpired)
         );
     }
 
@@ -337,7 +303,6 @@ public class SubscriptionService {
     }
 
     private Subscription findCurrentSubscriptionForRenewal(Integer storeOwnerId) {
-
         Subscription active = subscriptionRepository
                 .findFirstByStoreOwnerIdAndStatusOrderByEndDateDesc(storeOwnerId, SubscriptionStatus.ACTIVE);
         if (active != null) return active;
@@ -354,14 +319,11 @@ public class SubscriptionService {
     }
 
     private void deactivateStoresAndBranches(Subscription subscription) {
-
         List<Store> stores = storeRepository.findStoresByStoreOwnerId(subscription.getStoreOwner().getId());
-
         for (Store store : stores) {
             if (store.getStatus() == StoreStatus.ACTIVE) {
                 store.setStatus(StoreStatus.INACTIVE);
                 storeRepository.save(store);
-
                 for (Branch branch : branchRepository.findBranchesByStoreId(store.getId())) {
                     if (branch.getStatus() == StoreStatus.ACTIVE) {
                         branch.setStatus(StoreStatus.INACTIVE);
@@ -376,11 +338,5 @@ public class SubscriptionService {
         Subscription subscription = subscriptionRepository.findSubscriptionById(subscriptionId);
         if (subscription == null) throw new ApiException("Subscription not found");
         return subscription;
-    }
-
-    private StoreOwner findStoreOwnerOrThrow(Integer storeOwnerId) {
-        StoreOwner storeOwner = storeOwnerRepository.findStoreOwnerById(storeOwnerId);
-        if (storeOwner == null) throw new ApiException("Store owner not found");
-        return storeOwner;
     }
 }

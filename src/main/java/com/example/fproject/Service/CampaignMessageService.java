@@ -4,14 +4,8 @@ import com.example.fproject.Api.ApiException;
 import com.example.fproject.DTO.IN.CampaignMessageRequestIn;
 import com.example.fproject.DTO.OUT.CampaignMessageResponseOut;
 import com.example.fproject.Enum.MessageStatus;
-import com.example.fproject.Model.Campaign;
-import com.example.fproject.Model.CampaignMessage;
-import com.example.fproject.Model.Customer;
-import com.example.fproject.Model.CustomerAnswer;
-import com.example.fproject.Repository.CampaignMessageRepository;
-import com.example.fproject.Repository.CampaignRepository;
-import com.example.fproject.Repository.CustomerAnswerRepository;
-import com.example.fproject.Repository.CustomerRepository;
+import com.example.fproject.Model.*;
+import com.example.fproject.Repository.*;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Service;
@@ -27,164 +21,164 @@ public class CampaignMessageService {
     private final CampaignRepository campaignRepository;
     private final CustomerRepository customerRepository;
     private final CustomerAnswerRepository customerAnswerRepository;
+    private final StoreOwnerRepository storeOwnerRepository;
     private final ModelMapper modelMapper;
 
     public List<CampaignMessageResponseOut> getAllCampaignMessages() {
-        List<CampaignMessageResponseOut> messages = new ArrayList<>();
-        for (CampaignMessage message : campaignMessageRepository.findAll()) {
-            messages.add(mapCampaignMessage(message));
-        }
-        return messages;
+        List<CampaignMessageResponseOut> result = new ArrayList<>();
+        for (CampaignMessage m : campaignMessageRepository.findAll()) result.add(mapCampaignMessage(m));
+        return result;
     }
 
-    public CampaignMessageResponseOut getCampaignMessageById(Integer campaignMessageId) {
-        return mapCampaignMessage(checkCampaignMessage(campaignMessageId));
+    public CampaignMessageResponseOut getCampaignMessageById(Integer userId, Integer campaignMessageId) {
+        CampaignMessage m = checkCampaignMessage(campaignMessageId);
+        verifyOwnership(userId, m.getCampaign());
+        return mapCampaignMessage(m);
     }
 
-    public List<CampaignMessageResponseOut> getMessagesByCampaign(Integer campaignId) {
-        checkCampaign(campaignId);
-        List<CampaignMessageResponseOut> messages = new ArrayList<>();
-        for (CampaignMessage message : campaignMessageRepository.findAllByCampaignId(campaignId)) {
-            messages.add(mapCampaignMessage(message));
-        }
-        return messages;
+    public List<CampaignMessageResponseOut> getMessagesByCampaign(Integer userId, Integer campaignId) {
+        Campaign campaign = checkCampaign(campaignId);
+        verifyOwnership(userId, campaign);
+        List<CampaignMessageResponseOut> result = new ArrayList<>();
+        for (CampaignMessage m : campaignMessageRepository.findAllByCampaignId(campaignId))
+            result.add(mapCampaignMessage(m));
+        return result;
     }
 
+    // ADMIN — بدون تحقق ملكية
     public List<CampaignMessageResponseOut> getMessagesByCustomer(Integer customerId) {
-        checkCustomer(customerId);
-        List<CampaignMessageResponseOut> messages = new ArrayList<>();
-        for (CampaignMessage message : campaignMessageRepository.findAllByCustomerId(customerId)) {
-            messages.add(mapCampaignMessage(message));
-        }
-        return messages;
+        if (!customerRepository.existsById(customerId)) throw new ApiException("Customer not found");
+        List<CampaignMessageResponseOut> result = new ArrayList<>();
+        for (CampaignMessage m : campaignMessageRepository.findAllByCustomerId(customerId))
+            result.add(mapCampaignMessage(m));
+        return result;
     }
 
-    public CampaignMessageResponseOut getOpenMessageForCustomerPhone(String phone) {
+    public CampaignMessageResponseOut getOpenMessageForCustomerPhone(Integer userId, String phone) {
         Customer customer = checkCustomerByPhone(phone);
-        for (CampaignMessage message : campaignMessageRepository
+        for (CampaignMessage m : campaignMessageRepository
                 .findAllByCustomerIdAndStatusOrderBySentAtDesc(customer.getId(), MessageStatus.SENT)) {
-            if (message.getCustomerAnswer() == null) {
-                return mapCampaignMessage(message);
+            if (m.getCustomerAnswer() == null) {
+                verifyOwnership(userId, m.getCampaign());
+                return mapCampaignMessage(m);
             }
         }
         throw new ApiException("No open campaign message found for this customer");
     }
 
-    public void markMessageAsSent(Integer campaignMessageId) {
-        CampaignMessage message = checkCampaignMessage(campaignMessageId);
-        if (message.getStatus() == MessageStatus.SENT) {
-            throw new ApiException("Campaign message is already marked as sent");
-        }
-        message.setStatus(MessageStatus.SENT);
-        campaignMessageRepository.save(message);
-    }
-
-    public void markMessageAsAnswered(Integer campaignMessageId) {
-        CampaignMessage message = checkCampaignMessage(campaignMessageId);
-        if (message.getCustomerAnswer() == null) {
-            throw new ApiException("Campaign message has no customer answer");
-        }
-        campaignMessageRepository.save(message);
-    }
-
-    public void addCampaignMessage(CampaignMessageRequestIn dto) {
+    public void addCampaignMessage(Integer userId, CampaignMessageRequestIn dto) {
+        Campaign campaign = checkCampaign(dto.getCampaignId());
+        verifyOwnership(userId, campaign);
         validateCampaignMessage(dto, null);
-        CampaignMessage campaignMessage = new CampaignMessage();
-        setCampaignMessage(campaignMessage, dto);
-        campaignMessageRepository.save(campaignMessage);
+        CampaignMessage m = new CampaignMessage();
+        setCampaignMessage(m, dto);
+        campaignMessageRepository.save(m);
     }
 
-    public void updateCampaignMessage(Integer campaignMessageId, CampaignMessageRequestIn dto) {
+    public void updateCampaignMessage(Integer userId, Integer campaignMessageId, CampaignMessageRequestIn dto) {
         CampaignMessage old = checkCampaignMessage(campaignMessageId);
+        verifyOwnership(userId, old.getCampaign());
         validateCampaignMessage(dto, campaignMessageId);
         setCampaignMessage(old, dto);
         campaignMessageRepository.save(old);
     }
 
-    public void deleteCampaignMessage(Integer campaignMessageId) {
-        // Business note: this CRUD method exists for full coverage, but real workflow may keep sent messages for tracking and reports.
-        campaignMessageRepository.delete(checkCampaignMessage(campaignMessageId));
+    public void markMessageAsSent(Integer userId, Integer campaignMessageId) {
+        CampaignMessage m = checkCampaignMessage(campaignMessageId);
+        verifyOwnership(userId, m.getCampaign());
+        if (m.getStatus() == MessageStatus.SENT) throw new ApiException("Campaign message is already marked as sent");
+        m.setStatus(MessageStatus.SENT);
+        campaignMessageRepository.save(m);
     }
 
-    private void setCampaignMessage(CampaignMessage campaignMessage, CampaignMessageRequestIn dto) {
-        Campaign campaign = checkCampaign(dto.getCampaignId());
-        Customer customer = checkCustomer(dto.getCustomerId());
-        CustomerAnswer customerAnswer = checkCustomerAnswer(dto.getCustomerAnswerId());
-        validateLinkedCustomerAnswer(customerAnswer, campaign, customer);
-        campaignMessage.setMessageText(dto.getMessageText());
-        campaignMessage.setDistanceKm(dto.getDistanceKm());
-        campaignMessage.setDurationMinutes(dto.getDurationMinutes());
-        campaignMessage.setDistanceText(dto.getDistanceText());
-        campaignMessage.setStatus(dto.getStatus());
-        campaignMessage.setSentAt(dto.getSentAt());
-        campaignMessage.setCampaign(campaign);
-        campaignMessage.setCustomer(customer);
-        campaignMessage.setCustomerAnswer(customerAnswer);
+    public void markMessageAsAnswered(Integer userId, Integer campaignMessageId) {
+        CampaignMessage m = checkCampaignMessage(campaignMessageId);
+        verifyOwnership(userId, m.getCampaign());
+        if (m.getCustomerAnswer() == null) throw new ApiException("Campaign message has no customer answer");
+        campaignMessageRepository.save(m);
+    }
+
+    public void deleteCampaignMessage(Integer userId, Integer campaignMessageId) {
+        CampaignMessage m = checkCampaignMessage(campaignMessageId);
+        verifyOwnership(userId, m.getCampaign());
+        campaignMessageRepository.delete(m);
+    }
+
+    // ── helpers ──────────────────────────────────────────────────────────────
+
+    private void verifyOwnership(Integer userId, Campaign campaign) {
+        StoreOwner owner = storeOwnerRepository.findStoreOwnerByUserId(userId);
+        if (owner == null || campaign.getBranch() == null
+                || !campaign.getBranch().getStore().getStoreOwner().getId().equals(owner.getId()))
+            throw new ApiException("You do not have permission to access this resource");
+    }
+
+    private void setCampaignMessage(CampaignMessage m, CampaignMessageRequestIn dto) {
+        Campaign campaign     = checkCampaign(dto.getCampaignId());
+        Customer customer     = checkCustomer(dto.getCustomerId());
+        CustomerAnswer answer = checkCustomerAnswer(dto.getCustomerAnswerId());
+        validateLinkedCustomerAnswer(answer, campaign, customer);
+        m.setMessageText(dto.getMessageText());
+        m.setDistanceKm(dto.getDistanceKm());
+        m.setDurationMinutes(dto.getDurationMinutes());
+        m.setDistanceText(dto.getDistanceText());
+        m.setStatus(dto.getStatus());
+        m.setSentAt(dto.getSentAt());
+        m.setCampaign(campaign);
+        m.setCustomer(customer);
+        m.setCustomerAnswer(answer);
     }
 
     private void validateCampaignMessage(CampaignMessageRequestIn dto, Integer campaignMessageId) {
-        Boolean exists = campaignMessageRepository.existsByCampaignIdAndCustomerId(dto.getCampaignId(), dto.getCustomerId());
-        if (Boolean.TRUE.equals(exists) && campaignMessageId == null) {
+        if (Boolean.TRUE.equals(campaignMessageRepository.existsByCampaignIdAndCustomerId(
+                dto.getCampaignId(), dto.getCustomerId())) && campaignMessageId == null)
             throw new ApiException("Campaign message already exists for this customer");
-        }
     }
 
-    private CampaignMessage checkCampaignMessage(Integer campaignMessageId) {
-        return campaignMessageRepository.findById(campaignMessageId)
+    private CampaignMessage checkCampaignMessage(Integer id) {
+        return campaignMessageRepository.findById(id)
                 .orElseThrow(() -> new ApiException("Campaign message not found"));
     }
 
-    private Campaign checkCampaign(Integer campaignId) {
-        return campaignRepository.findById(campaignId)
+    private Campaign checkCampaign(Integer id) {
+        return campaignRepository.findById(id)
                 .orElseThrow(() -> new ApiException("Campaign not found"));
     }
 
-    private Customer checkCustomer(Integer customerId) {
-        return customerRepository.findById(customerId)
+    private Customer checkCustomer(Integer id) {
+        return customerRepository.findById(id)
                 .orElseThrow(() -> new ApiException("Customer not found"));
     }
 
     private Customer checkCustomerByPhone(String phone) {
-        if (phone == null || phone.isBlank()) {
-            throw new ApiException("Phone is required");
-        }
-        String normalizedPhone = normalizePhone(phone);
-        for (Customer customer : customerRepository.findAll()) {
-            if (customer.getUser() != null
-                    && customer.getUser().getPhone() != null
-                    && normalizePhone(customer.getUser().getPhone()).equals(normalizedPhone)) {
-                return customer;
-            }
+        if (phone == null || phone.isBlank()) throw new ApiException("Phone is required");
+        String normalized = phone.replace("whatsapp:", "").trim();
+        for (Customer c : customerRepository.findAll()) {
+            if (c.getUser() != null && c.getUser().getPhone() != null
+                    && c.getUser().getPhone().replace("whatsapp:", "").trim().equals(normalized))
+                return c;
         }
         throw new ApiException("Customer not found");
     }
 
-    private String normalizePhone(String phone) {
-        if (phone == null || phone.isBlank()) {
-            throw new ApiException("Phone is required");
-        }
-        return phone.replace("whatsapp:", "").trim();
-    }
-
-    private CustomerAnswer checkCustomerAnswer(Integer customerAnswerId) {
-        if (customerAnswerId == null) return null;
-        return customerAnswerRepository.findById(customerAnswerId)
+    private CustomerAnswer checkCustomerAnswer(Integer id) {
+        if (id == null) return null;
+        return customerAnswerRepository.findById(id)
                 .orElseThrow(() -> new ApiException("Customer answer not found"));
     }
 
-    private void validateLinkedCustomerAnswer(CustomerAnswer customerAnswer, Campaign campaign, Customer customer) {
-        if (customerAnswer == null) return;
-        if (!customerAnswer.getCampaign().getId().equals(campaign.getId())
-                || !customerAnswer.getCustomer().getId().equals(customer.getId())) {
+    private void validateLinkedCustomerAnswer(CustomerAnswer answer, Campaign campaign, Customer customer) {
+        if (answer == null) return;
+        if (!answer.getCampaign().getId().equals(campaign.getId())
+                || !answer.getCustomer().getId().equals(customer.getId()))
             throw new ApiException("Customer answer does not belong to this campaign message");
-        }
     }
 
-    private CampaignMessageResponseOut mapCampaignMessage(CampaignMessage campaignMessage) {
-        CampaignMessageResponseOut out = modelMapper.map(campaignMessage, CampaignMessageResponseOut.class);
-        out.setCampaignId(campaignMessage.getCampaign() == null ? null : campaignMessage.getCampaign().getId());
-        out.setCustomerId(campaignMessage.getCustomer() == null ? null : campaignMessage.getCustomer().getId());
-        out.setCustomerAnswerId(campaignMessage.getCustomerAnswer() == null ? null : campaignMessage.getCustomerAnswer().getId());
+    private CampaignMessageResponseOut mapCampaignMessage(CampaignMessage m) {
+        CampaignMessageResponseOut out = modelMapper.map(m, CampaignMessageResponseOut.class);
+        out.setCampaignId(m.getCampaign() == null ? null : m.getCampaign().getId());
+        out.setCustomerId(m.getCustomer() == null ? null : m.getCustomer().getId());
+        out.setCustomerAnswerId(m.getCustomerAnswer() == null ? null : m.getCustomerAnswer().getId());
         return out;
     }
 }
