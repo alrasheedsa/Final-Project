@@ -150,7 +150,9 @@ public class CampaignMessageService {
         }
         String normalizedPhone = normalizePhone(phone);
         for (Customer customer : customerRepository.findAll()) {
-            if (customer.getUser() != null && normalizePhone(customer.getUser().getPhone()).equals(normalizedPhone)) {
+            if (customer.getUser() != null
+                    && customer.getUser().getPhone() != null
+                    && normalizePhone(customer.getUser().getPhone()).equals(normalizedPhone)) {
                 return customer;
             }
         }
@@ -158,14 +160,10 @@ public class CampaignMessageService {
     }
 
     private String normalizePhone(String phone) {
-        String value = phone.replace("whatsapp:", "").replaceAll("[^0-9]", "");
-        if (value.startsWith("966")) {
-            return "0" + value.substring(3);
+        if (phone == null || phone.isBlank()) {
+            throw new ApiException("Phone is required");
         }
-        if (value.startsWith("5")) {
-            return "0" + value;
-        }
-        return value;
+        return phone.replace("whatsapp:", "").trim();
     }
 
     private CustomerAnswer checkCustomerAnswer(Integer customerAnswerId) {

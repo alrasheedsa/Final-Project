@@ -18,5 +18,6 @@ public class QRRedemptionCodeIn {
     private String code;
 
     @NotEmpty(message = "Customer phone is required")
+    @Pattern(regexp = "^\\+966\\d{9}$", message = "Customer phone must be a valid Saudi number starting with +966")
     private String customerPhone;
 }
