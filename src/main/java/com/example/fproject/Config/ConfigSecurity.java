@@ -41,7 +41,18 @@ public class ConfigSecurity {
                                 "/api/v1/subscription/plans"
                         ).permitAll()
 
-                        // ===== ADMIN only =====
+                        // ===== CUSTOMER only =====
+                        .requestMatchers(
+                                "/api/v1/customer/my",
+                                "/api/v1/customer/update",
+                                "/api/v1/customer/delete",
+                                "/api/v1/customer/my/**",
+                                "/api/v1/customer-answers/answer/**",
+                                "/api/v1/qr-redemptions/redeem-by-code",
+                                "/api/v1/qr-redemptions/redeem-by-qr/**"
+                        ).hasAuthority("CUSTOMER")
+
+                        // ===== ADMIN only  =====
                         .requestMatchers(
                                 // Store Owner
                                 "/api/v1/store-owner/get",
@@ -117,6 +128,7 @@ public class ConfigSecurity {
                                 "/api/v1/holidays/**",
                                 // QR
                                 "/api/v1/qr-codes/**",
+                                "/api/v1/qr-redemptions/**",
                                 // Subscription
                                 "/api/v1/subscription/my",
                                 "/api/v1/subscription/my/**",
@@ -124,27 +136,14 @@ public class ConfigSecurity {
                                 // Payment
                                 "/api/v1/payment/subscribe/**",
                                 "/api/v1/payment/subscription",
-                                // Customer Answers (STORE_OWNER يشوف إجابات عملائه)
+                                // Customer Answers
                                 "/api/v1/customer-answers/get/**",
                                 "/api/v1/customer-answers/campaign-message/**",
                                 "/api/v1/customer-answers/campaign/**",
                                 "/api/v1/customer-answers/add",
                                 "/api/v1/customer-answers/update/**",
-                                "/api/v1/customer-answers/deleted/**",
-                                // QR Redemptions
-                                "/api/v1/qr-redemptions/**"
+                                "/api/v1/customer-answers/deleted/**"
                         ).hasAuthority("STORE_OWNER")
-
-                        // ===== CUSTOMER only =====
-                        .requestMatchers(
-                                "/api/v1/customer/my",
-                                "/api/v1/customer/update",
-                                "/api/v1/customer/delete",
-                                "/api/v1/customer/my/**",
-                                "/api/v1/customer-answers/answer/**",
-                                "/api/v1/qr-redemptions/redeem-by-code",
-                                "/api/v1/qr-redemptions/redeem-by-qr/**"
-                        ).hasAuthority("CUSTOMER")
 
                         .anyRequest().authenticated()
                 )
