@@ -1,4 +1,4 @@
-package com.example.fproject;
+package com.example.fproject.Raghad_JunitTest;
 
 import com.example.fproject.Enum.RoleType;
 import com.example.fproject.Enum.StoreStatus;
@@ -24,7 +24,7 @@ import java.util.List;
 
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-public class RaghadRepositoryTest {
+public class RepositoryTest {
 
     @Autowired
     UserRepository userRepository;

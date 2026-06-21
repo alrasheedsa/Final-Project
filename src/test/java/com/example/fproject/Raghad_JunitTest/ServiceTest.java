@@ -1,4 +1,4 @@
-package com.example.fproject;
+package com.example.fproject.Raghad_JunitTest;
 
 import com.example.fproject.Api.ApiException;
 import com.example.fproject.DTO.OUT.SalesRecordItemOut;
@@ -31,7 +31,7 @@ import java.util.List;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-public class RaghadServiceTest {
+public class ServiceTest {
 
     SalesRecordService salesRecordService;
     SalesRecordItemService salesRecordItemService;
