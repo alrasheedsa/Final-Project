@@ -248,14 +248,8 @@ public class QRRedemptionService {
     }
 
     private String normalizeStoredPhone(String phone) {
-        String value = phone.replace("whatsapp:", "").replaceAll("[^0-9]", "");
-        if (value.startsWith("966")) {
-            return "0" + value.substring(3);
-        }
-        if (value.startsWith("5")) {
-            return "0" + value;
-        }
-        return value;
+        validateText(phone, "Customer phone is required");
+        return phone.replace("whatsapp:", "").trim();
     }
 
     private void validateText(String value, String message) {
