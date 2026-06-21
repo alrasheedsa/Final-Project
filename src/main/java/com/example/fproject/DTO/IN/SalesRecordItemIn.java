@@ -32,7 +32,4 @@ public class SalesRecordItemIn {
 
     @NotNull(message = "Sale time is required")
     private LocalTime saleTime;
-
-    @NotNull(message = "Sales record id is required")
-    private Integer salesRecordId;
 }
