@@ -70,16 +70,10 @@ public class SubscriptionController {
         subscriptionService.cancelSubscription(subscriptionId);
         return ResponseEntity.status(200).body(new ApiResponse("Subscription cancelled successfully"));
     }
- 
-    @PutMapping("/expire/{subscriptionId}")
-    public ResponseEntity<?> expireSubscription(@PathVariable Integer subscriptionId) {
-        subscriptionService.expireSubscription(subscriptionId);
-        return ResponseEntity.status(200).body(new ApiResponse("Subscription expired successfully"));
-    }
 
     @PutMapping("/check-expired")
     public ResponseEntity<?> checkExpiredSubscriptions() {
         subscriptionService.checkExpiredSubscriptions();
-        return ResponseEntity.status(200).body(new ApiResponse("Expired subscriptions checked successfully"));
+        return ResponseEntity.status(200).body(new ApiResponse("Expired subscriptions checked and updated successfully"));
     }
 }

@@ -245,25 +245,21 @@ public class SubscriptionService {
     }
 
     @Transactional
-    public void expireSubscription(Integer subscriptionId) {
-
-        Subscription subscription = findSubscriptionOrThrow(subscriptionId);
-        subscription.setStatus(SubscriptionStatus.EXPIRED);
-        subscriptionRepository.save(subscription);
-
-        deactivateStoresAndBranches(subscription);
-    }
-
-    @Transactional
     public void checkExpiredSubscriptions() {
-        for (Subscription subscription : subscriptionRepository.findAllByStatus(SubscriptionStatus.ACTIVE)) {
-            if (subscription.getEndDate() != null && subscription.getEndDate().isBefore(LocalDate.now())) {
-                subscription.setStatus(SubscriptionStatus.EXPIRED);
-                subscriptionRepository.save(subscription);
-                deactivateStoresAndBranches(subscription);
-            }
+
+        List<Subscription> expiredSubscriptions = subscriptionRepository
+                .findSubscriptionsByStatusAndEndDateBefore(
+                        SubscriptionStatus.ACTIVE,
+                        LocalDate.now()
+                );
+
+        for (Subscription subscription : expiredSubscriptions) {
+            subscription.setStatus(SubscriptionStatus.EXPIRED);
+            subscriptionRepository.save(subscription);
+            deactivateStoresAndBranches(subscription);
         }
     }
+
 
 
     private SubscriptionLimitsOut buildLimits(Integer storeOwnerId, List<Store> stores) {
