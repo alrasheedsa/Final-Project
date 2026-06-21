@@ -2,19 +2,13 @@ package com.example.fproject.Controller;
 
 import com.example.fproject.Api.ApiResponse;
 import com.example.fproject.DTO.IN.CustomerAnswerRequestIn;
+import com.example.fproject.Model.User;
 import com.example.fproject.Service.CustomerAnswerService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/customer-answers")
@@ -23,50 +17,58 @@ public class CustomerAnswerController {
 
     private final CustomerAnswerService customerAnswerService;
 
+    // ADMIN
     @GetMapping("/get")
     public ResponseEntity<?> getAllCustomerAnswers() {
         return ResponseEntity.status(200).body(customerAnswerService.getAllCustomerAnswers());
     }
 
+    // STORE_OWNER
     @GetMapping("/get/{customerAnswerId}")
-    public ResponseEntity<?> getCustomerAnswerById(@PathVariable Integer customerAnswerId) {
-        return ResponseEntity.status(200).body(customerAnswerService.getCustomerAnswerById(customerAnswerId));
+    public ResponseEntity<?> getCustomerAnswerById(@AuthenticationPrincipal User user, @PathVariable Integer customerAnswerId) {
+        return ResponseEntity.status(200).body(customerAnswerService.getCustomerAnswerById(user.getId(), customerAnswerId));
     }
 
+    // STORE_OWNER
     @GetMapping("/campaign-message/{campaignMessageId}")
-    public ResponseEntity<?> getCustomerAnswerByCampaignMessage(@PathVariable Integer campaignMessageId) {
-        return ResponseEntity.status(200).body(customerAnswerService.getCustomerAnswerByCampaignMessage(campaignMessageId));
+    public ResponseEntity<?> getCustomerAnswerByCampaignMessage(@AuthenticationPrincipal User user, @PathVariable Integer campaignMessageId) {
+        return ResponseEntity.status(200).body(customerAnswerService.getCustomerAnswerByCampaignMessage(user.getId(), campaignMessageId));
     }
 
+    // STORE_OWNER
     @GetMapping("/campaign/{campaignId}")
-    public ResponseEntity<?> getAnswersByCampaign(@PathVariable Integer campaignId) {
-        return ResponseEntity.status(200).body(customerAnswerService.getAnswersByCampaign(campaignId));
+    public ResponseEntity<?> getAnswersByCampaign(@AuthenticationPrincipal User user, @PathVariable Integer campaignId) {
+        return ResponseEntity.status(200).body(customerAnswerService.getAnswersByCampaign(user.getId(), campaignId));
     }
 
+    // CUSTOMER — يجاوب على رسالة حملة
     @PostMapping("/answer/{campaignMessageId}")
-    public ResponseEntity<?> answerCampaignMessage(@PathVariable Integer campaignMessageId,
+    public ResponseEntity<?> answerCampaignMessage(@AuthenticationPrincipal User user,
+                                                   @PathVariable Integer campaignMessageId,
                                                    @RequestParam String answer) {
-        return ResponseEntity.status(200).body(customerAnswerService.answerCampaignMessage(campaignMessageId, answer));
+        return ResponseEntity.status(200).body(customerAnswerService.answerCampaignMessage(user.getId(), campaignMessageId, answer));
     }
 
+    // STORE_OWNER
     @PostMapping("/add")
-    public ResponseEntity<?> addCustomerAnswer(@RequestBody @Valid CustomerAnswerRequestIn customerAnswerRequestIn) {
-        customerAnswerService.addCustomerAnswer(customerAnswerRequestIn);
+    public ResponseEntity<?> addCustomerAnswer(@AuthenticationPrincipal User user, @RequestBody @Valid CustomerAnswerRequestIn customerAnswerRequestIn) {
+        customerAnswerService.addCustomerAnswer(user.getId(), customerAnswerRequestIn);
         return ResponseEntity.status(200).body(new ApiResponse("Customer answer added successfully"));
     }
 
+    // STORE_OWNER
     @PutMapping("/update/{customerAnswerId}")
-    public ResponseEntity<?> updateCustomerAnswer(@PathVariable Integer customerAnswerId,
+    public ResponseEntity<?> updateCustomerAnswer(@AuthenticationPrincipal User user,
+                                                  @PathVariable Integer customerAnswerId,
                                                   @RequestBody @Valid CustomerAnswerRequestIn customerAnswerRequestIn) {
-        // Business note: endpoint exists for CRUD coverage; workflow may restrict answer updates after submission.
-        customerAnswerService.updateCustomerAnswer(customerAnswerId, customerAnswerRequestIn);
+        customerAnswerService.updateCustomerAnswer(user.getId(), customerAnswerId, customerAnswerRequestIn);
         return ResponseEntity.status(200).body(new ApiResponse("Customer answer updated successfully"));
     }
 
+    // STORE_OWNER
     @DeleteMapping("/deleted/{customerAnswerId}")
-    public ResponseEntity<?> deleteCustomerAnswer(@PathVariable Integer customerAnswerId) {
-        // Business note: endpoint exists for CRUD coverage; workflow may keep customer answers for campaign evaluation.
-        customerAnswerService.deleteCustomerAnswer(customerAnswerId);
+    public ResponseEntity<?> deleteCustomerAnswer(@AuthenticationPrincipal User user, @PathVariable Integer customerAnswerId) {
+        customerAnswerService.deleteCustomerAnswer(user.getId(), customerAnswerId);
         return ResponseEntity.status(200).body(new ApiResponse("Customer answer deleted successfully"));
     }
 }

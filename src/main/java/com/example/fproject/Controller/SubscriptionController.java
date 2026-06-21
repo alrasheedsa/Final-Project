@@ -1,76 +1,89 @@
-
 package com.example.fproject.Controller;
- 
+
 import com.example.fproject.Api.ApiResponse;
+import com.example.fproject.Model.User;
 import com.example.fproject.Service.SubscriptionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
- 
+
 @RestController
 @RequestMapping("/api/v1/subscription")
 @RequiredArgsConstructor
 public class SubscriptionController {
- 
+
     private final SubscriptionService subscriptionService;
- 
+
+    // PUBLIC — كل المستخدمين يشوفون الخطط
     @GetMapping("/plans")
     public ResponseEntity<?> getSubscriptionPlans() {
         return ResponseEntity.status(200).body(subscriptionService.getSubscriptionPlans());
     }
 
+    // ADMIN
     @GetMapping("/get")
     public ResponseEntity<?> getAllSubscriptions() {
         return ResponseEntity.status(200).body(subscriptionService.getAllSubscriptions());
     }
- 
+
+    // ADMIN
     @GetMapping("/get/{subscriptionId}")
     public ResponseEntity<?> getSubscriptionById(@PathVariable Integer subscriptionId) {
         return ResponseEntity.status(200).body(subscriptionService.getSubscriptionById(subscriptionId));
     }
- 
-    @GetMapping("/store-owner/{storeOwnerId}")
-    public ResponseEntity<?> getSubscriptionsByStoreOwner(@PathVariable Integer storeOwnerId) {
-        return ResponseEntity.status(200).body(subscriptionService.getSubscriptionsByStoreOwner(storeOwnerId));
-    }
- 
-    @GetMapping("/active/{storeOwnerId}")
-    public ResponseEntity<?> getActiveSubscription(@PathVariable Integer storeOwnerId) {
-        return ResponseEntity.status(200).body(subscriptionService.getActiveSubscription(storeOwnerId));
-    }
- 
-    @GetMapping("/status/{storeOwnerId}")
-    public ResponseEntity<?> getSubscriptionStatus(@PathVariable Integer storeOwnerId) {
-        return ResponseEntity.status(200).body(subscriptionService.getSubscriptionStatus(storeOwnerId));
+
+    // STORE_OWNER — يجيب ID من الـ token
+    @GetMapping("/my")
+    public ResponseEntity<?> getMySubscriptions(@AuthenticationPrincipal User user) {
+        return ResponseEntity.status(200).body(subscriptionService.getSubscriptionsByStoreOwner(user.getId()));
     }
 
-    @GetMapping("/store-owner/{storeOwnerId}/dashboard")
-    public ResponseEntity<?> getStoreOwnerDashboard(@PathVariable Integer storeOwnerId) {
-        return ResponseEntity.status(200).body(subscriptionService.getStoreOwnerDashboard(storeOwnerId));
-    }
- 
-    @GetMapping("/{storeOwnerId}/limits")
-    public ResponseEntity<?> getSubscriptionLimits(@PathVariable Integer storeOwnerId) {
-        return ResponseEntity.status(200).body(subscriptionService.getSubscriptionLimits(storeOwnerId));
-    }
- 
-    @GetMapping("/{storeOwnerId}/can-create-branch/{storeId}")
-    public ResponseEntity<?> canCreateBranch(@PathVariable Integer storeOwnerId, @PathVariable Integer storeId) {
-        return ResponseEntity.status(200).body(subscriptionService.canCreateBranch(storeOwnerId, storeId));
+    // STORE_OWNER — يجيب ID من الـ token
+    @GetMapping("/my/active")
+    public ResponseEntity<?> getMyActiveSubscription(@AuthenticationPrincipal User user) {
+        return ResponseEntity.status(200).body(subscriptionService.getActiveSubscription(user.getId()));
     }
 
-    @PostMapping("/renew/{storeOwnerId}/{newPlanType}")
-    public ResponseEntity<?> renewSubscription(@PathVariable Integer storeOwnerId, @PathVariable String newPlanType) {
-        String checkoutUrl = subscriptionService.renewSubscription(storeOwnerId, newPlanType);
+    // STORE_OWNER — يجيب ID من الـ token
+    @GetMapping("/my/status")
+    public ResponseEntity<?> getMySubscriptionStatus(@AuthenticationPrincipal User user) {
+        return ResponseEntity.status(200).body(subscriptionService.getSubscriptionStatus(user.getId()));
+    }
+
+    // STORE_OWNER — يجيب ID من الـ token
+    @GetMapping("/my/dashboard")
+    public ResponseEntity<?> getMyDashboard(@AuthenticationPrincipal User user) {
+        return ResponseEntity.status(200).body(subscriptionService.getStoreOwnerDashboard(user.getId()));
+    }
+
+    // STORE_OWNER — يجيب ID من الـ token
+    @GetMapping("/my/limits")
+    public ResponseEntity<?> getMySubscriptionLimits(@AuthenticationPrincipal User user) {
+        return ResponseEntity.status(200).body(subscriptionService.getSubscriptionLimits(user.getId()));
+    }
+
+    // STORE_OWNER — يجيب ID من الـ token
+    @GetMapping("/my/can-create-branch/{storeId}")
+    public ResponseEntity<?> canCreateBranch(@AuthenticationPrincipal User user, @PathVariable Integer storeId) {
+        return ResponseEntity.status(200).body(subscriptionService.canCreateBranch(user.getId(), storeId));
+    }
+
+    // STORE_OWNER — يجيب ID من الـ token
+    @PostMapping("/my/renew/{newPlanType}")
+    public ResponseEntity<?> renewSubscription(@AuthenticationPrincipal User user, @PathVariable String newPlanType) {
+        String checkoutUrl = subscriptionService.renewSubscription(user.getId(), newPlanType);
         return ResponseEntity.status(200).body(new ApiResponse(checkoutUrl));
     }
- 
+
+    // STORE_OWNER
     @PutMapping("/cancel/{subscriptionId}")
     public ResponseEntity<?> cancelSubscription(@PathVariable Integer subscriptionId) {
         subscriptionService.cancelSubscription(subscriptionId);
         return ResponseEntity.status(200).body(new ApiResponse("Subscription cancelled successfully"));
     }
 
+    // ADMIN
     @PutMapping("/check-expired")
     public ResponseEntity<?> checkExpiredSubscriptions() {
         subscriptionService.checkExpiredSubscriptions();

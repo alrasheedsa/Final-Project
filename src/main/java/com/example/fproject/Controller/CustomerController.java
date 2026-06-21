@@ -2,10 +2,12 @@ package com.example.fproject.Controller;
 
 import com.example.fproject.Api.ApiResponse;
 import com.example.fproject.DTO.IN.CustomerIn;
+import com.example.fproject.Model.User;
 import com.example.fproject.Service.CustomerService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -21,95 +23,119 @@ public class CustomerController {
         return ResponseEntity.status(200).body(new ApiResponse("Customer registered successfully"));
     }
 
+    // ADMIN
     @GetMapping("/get")
     public ResponseEntity<?> getAllCustomers() {
         return ResponseEntity.status(200).body(customerService.getAllCustomers());
     }
 
+    // ADMIN
     @GetMapping("/get/{customerId}")
     public ResponseEntity<?> getCustomerById(@PathVariable Integer customerId) {
         return ResponseEntity.status(200).body(customerService.getCustomerById(customerId));
     }
 
+    // ADMIN
     @GetMapping("/location-consent")
     public ResponseEntity<?> getCustomersWithLocationConsent() {
         return ResponseEntity.status(200).body(customerService.getCustomersWithLocationConsent());
     }
 
-    @PutMapping("/update/{customerId}")
-    public ResponseEntity<?> updateCustomer(@PathVariable Integer customerId, @Valid @RequestBody CustomerIn dto) {
-        customerService.updateCustomer(customerId, dto);
-        return ResponseEntity.status(200).body(new ApiResponse("Customer updated successfully"));
-    }
-
-    @DeleteMapping("/delete/{customerId}")
-    public ResponseEntity<?> deleteCustomer(@PathVariable Integer customerId) {
-        customerService.deleteCustomer(customerId);
-        return ResponseEntity.status(200).body(new ApiResponse("Customer deleted successfully"));
-    }
-
+    // ADMIN
     @GetMapping("/get-by-phone")
     public ResponseEntity<?> getCustomerByPhone(@RequestParam String phone) {
         return ResponseEntity.status(200).body(customerService.getCustomerByPhone(phone));
     }
 
+    // ADMIN
     @GetMapping("/inside-radius/{branchId}")
     public ResponseEntity<?> getCustomersInsideRadius(@PathVariable Integer branchId) {
         return ResponseEntity.status(200).body(customerService.getCustomersInsideRadius(branchId));
     }
 
-    @GetMapping("/{customerId}/campaigns/in-radius")
-    public ResponseEntity<?> getCampaignsInRadius(@PathVariable Integer customerId) {
-        return ResponseEntity.status(200).body(customerService.getCampaignsInRadius(customerId));
+    // CUSTOMER — بياناته هو
+    @GetMapping("/my")
+    public ResponseEntity<?> getMyProfile(@AuthenticationPrincipal User user) {
+        return ResponseEntity.status(200).body(customerService.getCustomerById(user.getId()));
     }
 
-    @GetMapping("/{customerId}/campaigns/active")
-    public ResponseEntity<?> getActiveCampaigns(@PathVariable Integer customerId) {
-        return ResponseEntity.status(200).body(customerService.getActiveCampaignsInRadius(customerId));
+    // CUSTOMER
+    @PutMapping("/update")
+    public ResponseEntity<?> updateCustomer(@AuthenticationPrincipal User user, @Valid @RequestBody CustomerIn dto) {
+        customerService.updateCustomer(user.getId(), dto);
+        return ResponseEntity.status(200).body(new ApiResponse("Customer updated successfully"));
     }
 
-    @GetMapping("/{customerId}/campaigns/expired")
-    public ResponseEntity<?> getExpiredCampaigns(@PathVariable Integer customerId) {
-        return ResponseEntity.status(200).body(customerService.getExpiredCampaignsInRadius(customerId));
+    // CUSTOMER
+    @DeleteMapping("/delete")
+    public ResponseEntity<?> deleteCustomer(@AuthenticationPrincipal User user) {
+        customerService.deleteCustomer(user.getId());
+        return ResponseEntity.status(200).body(new ApiResponse("Customer deleted successfully"));
     }
 
-    @GetMapping("/{customerId}/campaigns/used")
-    public ResponseEntity<?> getUsedCampaigns(@PathVariable Integer customerId) {
-        return ResponseEntity.status(200).body(customerService.getUsedCampaigns(customerId));
+    // CUSTOMER
+    @GetMapping("/my/campaigns/in-radius")
+    public ResponseEntity<?> getCampaignsInRadius(@AuthenticationPrincipal User user) {
+        return ResponseEntity.status(200).body(customerService.getCampaignsInRadius(user.getId()));
     }
 
-    @GetMapping("/{customerId}/offers")
-    public ResponseEntity<?> getCustomerOffers(@PathVariable Integer customerId) {
-        return ResponseEntity.status(200).body(customerService.getCustomerOffers(customerId));
+    // CUSTOMER
+    @GetMapping("/my/campaigns/active")
+    public ResponseEntity<?> getActiveCampaigns(@AuthenticationPrincipal User user) {
+        return ResponseEntity.status(200).body(customerService.getActiveCampaignsInRadius(user.getId()));
     }
 
-    @GetMapping("/{customerId}/campaign-messages/active")
-    public ResponseEntity<?> getActiveMessages(@PathVariable Integer customerId) {
-        return ResponseEntity.status(200).body(customerService.getActiveMessages(customerId));
+    // CUSTOMER
+    @GetMapping("/my/campaigns/expired")
+    public ResponseEntity<?> getExpiredCampaigns(@AuthenticationPrincipal User user) {
+        return ResponseEntity.status(200).body(customerService.getExpiredCampaignsInRadius(user.getId()));
     }
 
-    @GetMapping("/{customerId}/campaign-messages/answered")
-    public ResponseEntity<?> getAnsweredMessages(@PathVariable Integer customerId) {
-        return ResponseEntity.status(200).body(customerService.getAnsweredMessages(customerId));
+    // CUSTOMER
+    @GetMapping("/my/campaigns/used")
+    public ResponseEntity<?> getUsedCampaigns(@AuthenticationPrincipal User user) {
+        return ResponseEntity.status(200).body(customerService.getUsedCampaigns(user.getId()));
     }
 
-    @GetMapping("/{customerId}/campaign-messages/unanswered")
-    public ResponseEntity<?> getUnansweredMessages(@PathVariable Integer customerId) {
-        return ResponseEntity.status(200).body(customerService.getUnansweredMessages(customerId));
+    // CUSTOMER
+    @GetMapping("/my/offers")
+    public ResponseEntity<?> getCustomerOffers(@AuthenticationPrincipal User user) {
+        return ResponseEntity.status(200).body(customerService.getCustomerOffers(user.getId()));
     }
 
-    @GetMapping("/{customerId}/qr-codes")
-    public ResponseEntity<?> getCustomerQRCodes(@PathVariable Integer customerId) {
-        return ResponseEntity.status(200).body(customerService.getCustomerQRCodes(customerId));
+    // CUSTOMER
+    @GetMapping("/my/campaign-messages/active")
+    public ResponseEntity<?> getActiveMessages(@AuthenticationPrincipal User user) {
+        return ResponseEntity.status(200).body(customerService.getActiveMessages(user.getId()));
     }
 
-    @GetMapping("/{customerId}/available-qr")
-    public ResponseEntity<?> getAvailableQRCodes(@PathVariable Integer customerId) {
-        return ResponseEntity.status(200).body(customerService.getAvailableQRCodes(customerId));
+    // CUSTOMER
+    @GetMapping("/my/campaign-messages/answered")
+    public ResponseEntity<?> getAnsweredMessages(@AuthenticationPrincipal User user) {
+        return ResponseEntity.status(200).body(customerService.getAnsweredMessages(user.getId()));
     }
 
-    @GetMapping("/{customerId}/used-qr")
-    public ResponseEntity<?> getUsedQRCodes(@PathVariable Integer customerId) {
-        return ResponseEntity.status(200).body(customerService.getUsedQRCodes(customerId));
+    // CUSTOMER
+    @GetMapping("/my/campaign-messages/unanswered")
+    public ResponseEntity<?> getUnansweredMessages(@AuthenticationPrincipal User user) {
+        return ResponseEntity.status(200).body(customerService.getUnansweredMessages(user.getId()));
+    }
+
+    // CUSTOMER
+    @GetMapping("/my/qr-codes")
+    public ResponseEntity<?> getCustomerQRCodes(@AuthenticationPrincipal User user) {
+        return ResponseEntity.status(200).body(customerService.getCustomerQRCodes(user.getId()));
+    }
+
+    // CUSTOMER
+    @GetMapping("/my/available-qr")
+    public ResponseEntity<?> getAvailableQRCodes(@AuthenticationPrincipal User user) {
+        return ResponseEntity.status(200).body(customerService.getAvailableQRCodes(user.getId()));
+    }
+
+    // CUSTOMER
+    @GetMapping("/my/used-qr")
+    public ResponseEntity<?> getUsedQRCodes(@AuthenticationPrincipal User user) {
+        return ResponseEntity.status(200).body(customerService.getUsedQRCodes(user.getId()));
     }
 }

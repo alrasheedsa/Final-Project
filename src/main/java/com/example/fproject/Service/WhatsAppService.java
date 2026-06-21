@@ -233,7 +233,7 @@ public class WhatsAppService {
             return "No open campaign message has been sent";
         }
 
-        CustomerAnswerResponseOut answer = customerAnswerService.answerCampaignMessage(message.getId(), selectedOption);
+        CustomerAnswerResponseOut answer = customerAnswerService.answerCampaignMessage(customer.getId(),message.getId(), selectedOption);
 
         if (Boolean.TRUE.equals(answer.getCorrect())) {
             Campaign campaign = message.getCampaign();

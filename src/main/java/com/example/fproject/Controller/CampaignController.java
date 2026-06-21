@@ -2,19 +2,13 @@ package com.example.fproject.Controller;
 
 import com.example.fproject.Api.ApiResponse;
 import com.example.fproject.DTO.IN.CampaignRequestIn;
+import com.example.fproject.Model.User;
 import com.example.fproject.Service.CampaignService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/campaigns")
@@ -23,168 +17,198 @@ public class CampaignController {
 
     private final CampaignService campaignService;
 
+    // ADMIN
     @GetMapping("/get")
     public ResponseEntity<?> getAllCampaigns() {
         return ResponseEntity.status(200).body(campaignService.getAllCampaigns());
     }
 
+    // STORE_OWNER
     @GetMapping("/get/{campaignId}")
-    public ResponseEntity<?> getCampaignById(@PathVariable Integer campaignId) {
-        return ResponseEntity.status(200).body(campaignService.getCampaignById(campaignId));
+    public ResponseEntity<?> getCampaignById(@AuthenticationPrincipal User user, @PathVariable Integer campaignId) {
+        return ResponseEntity.status(200).body(campaignService.getCampaignById(user.getId(), campaignId));
     }
 
+    // STORE_OWNER
     @GetMapping("/branch/{branchId}")
-    public ResponseEntity<?> getCampaignsByBranchId(@PathVariable Integer branchId) {
-        return ResponseEntity.status(200).body(campaignService.getCampaignsByBranchId(branchId));
+    public ResponseEntity<?> getCampaignsByBranchId(@AuthenticationPrincipal User user, @PathVariable Integer branchId) {
+        return ResponseEntity.status(200).body(campaignService.getCampaignsByBranchId(user.getId(), branchId));
     }
 
+    // STORE_OWNER
     @GetMapping("/branch/{branchId}/active")
-    public ResponseEntity<?> getActiveCampaignsByBranch(@PathVariable Integer branchId) {
-        return ResponseEntity.status(200).body(campaignService.getActiveCampaignsByBranch(branchId));
+    public ResponseEntity<?> getActiveCampaignsByBranch(@AuthenticationPrincipal User user, @PathVariable Integer branchId) {
+        return ResponseEntity.status(200).body(campaignService.getActiveCampaignsByBranch(user.getId(), branchId));
     }
 
+    // STORE_OWNER
     @GetMapping("/branch/{branchId}/scheduled")
-    public ResponseEntity<?> getScheduledCampaignsByBranch(@PathVariable Integer branchId) {
-        return ResponseEntity.status(200).body(campaignService.getScheduledCampaignsByBranch(branchId));
+    public ResponseEntity<?> getScheduledCampaignsByBranch(@AuthenticationPrincipal User user, @PathVariable Integer branchId) {
+        return ResponseEntity.status(200).body(campaignService.getScheduledCampaignsByBranch(user.getId(), branchId));
     }
 
+    // STORE_OWNER
     @GetMapping("/branch/{branchId}/completed")
-    public ResponseEntity<?> getCompletedCampaignsByBranch(@PathVariable Integer branchId) {
-        return ResponseEntity.status(200).body(campaignService.getCompletedCampaignsByBranch(branchId));
+    public ResponseEntity<?> getCompletedCampaignsByBranch(@AuthenticationPrincipal User user, @PathVariable Integer branchId) {
+        return ResponseEntity.status(200).body(campaignService.getCompletedCampaignsByBranch(user.getId(), branchId));
     }
 
+    // STORE_OWNER
     @GetMapping("/details/{campaignId}")
-    public ResponseEntity<?> getCampaignDetails(@PathVariable Integer campaignId) {
-        return ResponseEntity.status(200).body(campaignService.getCampaignDetails(campaignId));
+    public ResponseEntity<?> getCampaignDetails(@AuthenticationPrincipal User user, @PathVariable Integer campaignId) {
+        return ResponseEntity.status(200).body(campaignService.getCampaignDetails(user.getId(), campaignId));
     }
 
+    // STORE_OWNER
     @GetMapping("/{campaignId}/dashboard")
-    public ResponseEntity<?> getCampaignDashboard(@PathVariable Integer campaignId) {
-        return ResponseEntity.status(200).body(campaignService.getCampaignDashboard(campaignId));
+    public ResponseEntity<?> getCampaignDashboard(@AuthenticationPrincipal User user, @PathVariable Integer campaignId) {
+        return ResponseEntity.status(200).body(campaignService.getCampaignDashboard(user.getId(), campaignId));
     }
 
+    // STORE_OWNER
     @GetMapping("/{campaignId}/qr-status")
-    public ResponseEntity<?> getCampaignQRStatus(@PathVariable Integer campaignId) {
-        return ResponseEntity.status(200).body(campaignService.getCampaignQRStatus(campaignId));
+    public ResponseEntity<?> getCampaignQRStatus(@AuthenticationPrincipal User user, @PathVariable Integer campaignId) {
+        return ResponseEntity.status(200).body(campaignService.getCampaignQRStatus(user.getId(), campaignId));
     }
 
+    // STORE_OWNER
     @GetMapping("/max-customers/{campaignId}")
-    public ResponseEntity<?> getMaxCustomers(@PathVariable Integer campaignId) {
-        return ResponseEntity.status(200).body(campaignService.getMaxCustomers(campaignId));
+    public ResponseEntity<?> getMaxCustomers(@AuthenticationPrincipal User user, @PathVariable Integer campaignId) {
+        return ResponseEntity.status(200).body(campaignService.getMaxCustomers(user.getId(), campaignId));
     }
 
+    // STORE_OWNER
     @GetMapping("/used-coupons/{campaignId}")
-    public ResponseEntity<?> getUsedCoupons(@PathVariable Integer campaignId) {
-        return ResponseEntity.status(200).body(campaignService.getUsedCoupons(campaignId));
+    public ResponseEntity<?> getUsedCoupons(@AuthenticationPrincipal User user, @PathVariable Integer campaignId) {
+        return ResponseEntity.status(200).body(campaignService.getUsedCoupons(user.getId(), campaignId));
     }
 
+    // STORE_OWNER
     @GetMapping("/remaining-coupons/{campaignId}")
-    public ResponseEntity<?> getRemainingCoupons(@PathVariable Integer campaignId) {
-        return ResponseEntity.status(200).body(campaignService.getRemainingCoupons(campaignId));
+    public ResponseEntity<?> getRemainingCoupons(@AuthenticationPrincipal User user, @PathVariable Integer campaignId) {
+        return ResponseEntity.status(200).body(campaignService.getRemainingCoupons(user.getId(), campaignId));
     }
 
+    // STORE_OWNER
     @GetMapping("/usage-rate/{campaignId}")
-    public ResponseEntity<?> getUsageRate(@PathVariable Integer campaignId) {
-        return ResponseEntity.status(200).body(campaignService.getUsageRate(campaignId));
+    public ResponseEntity<?> getUsageRate(@AuthenticationPrincipal User user, @PathVariable Integer campaignId) {
+        return ResponseEntity.status(200).body(campaignService.getUsageRate(user.getId(), campaignId));
     }
 
+    // STORE_OWNER
     @GetMapping("/timing/{campaignId}")
-    public ResponseEntity<?> getCampaignTiming(@PathVariable Integer campaignId) {
-        return ResponseEntity.status(200).body(campaignService.getCampaignTiming(campaignId));
+    public ResponseEntity<?> getCampaignTiming(@AuthenticationPrincipal User user, @PathVariable Integer campaignId) {
+        return ResponseEntity.status(200).body(campaignService.getCampaignTiming(user.getId(), campaignId));
     }
 
+    // STORE_OWNER
     @GetMapping("/type/{campaignId}")
-    public ResponseEntity<?> getCampaignType(@PathVariable Integer campaignId) {
-        return ResponseEntity.status(200).body(campaignService.getCampaignType(campaignId));
+    public ResponseEntity<?> getCampaignType(@AuthenticationPrincipal User user, @PathVariable Integer campaignId) {
+        return ResponseEntity.status(200).body(campaignService.getCampaignType(user.getId(), campaignId));
     }
 
+    // STORE_OWNER
     @GetMapping("/question/{campaignId}")
-    public ResponseEntity<?> getCampaignQuestion(@PathVariable Integer campaignId) {
-        return ResponseEntity.status(200).body(campaignService.getCampaignQuestion(campaignId));
+    public ResponseEntity<?> getCampaignQuestion(@AuthenticationPrincipal User user, @PathVariable Integer campaignId) {
+        return ResponseEntity.status(200).body(campaignService.getCampaignQuestion(user.getId(), campaignId));
     }
 
+    // STORE_OWNER
     @GetMapping("/source/{campaignId}")
-    public ResponseEntity<?> getCampaignSource(@PathVariable Integer campaignId) {
-        return ResponseEntity.status(200).body(campaignService.getCampaignSource(campaignId));
+    public ResponseEntity<?> getCampaignSource(@AuthenticationPrincipal User user, @PathVariable Integer campaignId) {
+        return ResponseEntity.status(200).body(campaignService.getCampaignSource(user.getId(), campaignId));
     }
 
+    // STORE_OWNER
     @PostMapping("/create-from-suggestion")
-    public ResponseEntity<?> createCampaignFromSuggestion(@RequestParam Integer suggestionId,
+    public ResponseEntity<?> createCampaignFromSuggestion(@AuthenticationPrincipal User user,
+                                                          @RequestParam Integer suggestionId,
                                                           @RequestParam Integer branchId) {
-        return ResponseEntity.status(200).body(campaignService.createCampaignFromSuggestion(suggestionId, branchId));
+        return ResponseEntity.status(200).body(campaignService.createCampaignFromSuggestion(user.getId(), suggestionId, branchId));
     }
 
+    // STORE_OWNER
     @PostMapping("/add")
-    public ResponseEntity<?> addCampaign(@RequestBody @Valid CampaignRequestIn campaignRequestIn) {
-        campaignService.addCampaign(campaignRequestIn);
+    public ResponseEntity<?> addCampaign(@AuthenticationPrincipal User user, @RequestBody @Valid CampaignRequestIn campaignRequestIn) {
+        campaignService.addCampaign(user.getId(), campaignRequestIn);
         return ResponseEntity.status(200).body(new ApiResponse("Campaign added successfully"));
     }
 
+    // STORE_OWNER
     @PutMapping("/approve/{campaignId}")
-    public ResponseEntity<?> approveCampaign(@PathVariable Integer campaignId) {
-        campaignService.approveCampaign(campaignId);
+    public ResponseEntity<?> approveCampaign(@AuthenticationPrincipal User user, @PathVariable Integer campaignId) {
+        campaignService.approveCampaign(user.getId(), campaignId);
         return ResponseEntity.status(200).body(new ApiResponse("Campaign approved successfully"));
     }
 
+    // STORE_OWNER
     @PutMapping("/cancel/{campaignId}")
-    public ResponseEntity<?> cancelCampaign(@PathVariable Integer campaignId) {
-        campaignService.cancelCampaign(campaignId);
+    public ResponseEntity<?> cancelCampaign(@AuthenticationPrincipal User user, @PathVariable Integer campaignId) {
+        campaignService.cancelCampaign(user.getId(), campaignId);
         return ResponseEntity.status(200).body(new ApiResponse("Campaign canceled successfully"));
     }
 
+    // STORE_OWNER
     @PutMapping("/start/{campaignId}")
-    public ResponseEntity<?> startCampaign(@PathVariable Integer campaignId) {
-        campaignService.startCampaign(campaignId);
+    public ResponseEntity<?> startCampaign(@AuthenticationPrincipal User user, @PathVariable Integer campaignId) {
+        campaignService.startCampaign(user.getId(), campaignId);
         return ResponseEntity.status(200).body(new ApiResponse("Campaign started successfully"));
     }
 
+    // STORE_OWNER
     @PutMapping("/complete/{campaignId}")
-    public ResponseEntity<?> completeCampaign(@PathVariable Integer campaignId) {
-        campaignService.completeCampaign(campaignId);
+    public ResponseEntity<?> completeCampaign(@AuthenticationPrincipal User user, @PathVariable Integer campaignId) {
+        campaignService.completeCampaign(user.getId(), campaignId);
         return ResponseEntity.status(200).body(new ApiResponse("Campaign completed successfully"));
     }
 
+    // STORE_OWNER
     @PutMapping("/stop/{campaignId}")
-    public ResponseEntity<?> stopCampaign(@PathVariable Integer campaignId) {
-        campaignService.stopCampaign(campaignId);
+    public ResponseEntity<?> stopCampaign(@AuthenticationPrincipal User user, @PathVariable Integer campaignId) {
+        campaignService.stopCampaign(user.getId(), campaignId);
         return ResponseEntity.status(200).body(new ApiResponse("Campaign stopped successfully"));
     }
 
+    // STORE_OWNER
     @PostMapping("/send/{campaignId}")
-    public ResponseEntity<?> sendCampaign(@PathVariable Integer campaignId) {
-        campaignService.sendCampaign(campaignId);
+    public ResponseEntity<?> sendCampaign(@AuthenticationPrincipal User user, @PathVariable Integer campaignId) {
+        campaignService.sendCampaign(user.getId(), campaignId);
         return ResponseEntity.status(200).body(new ApiResponse("Campaign sent successfully"));
     }
 
+    // ADMIN
     @PutMapping("/expire-finished")
     public ResponseEntity<?> expireFinishedCampaigns() {
         campaignService.expireFinishedCampaigns();
         return ResponseEntity.status(200).body(new ApiResponse("Finished campaigns expired successfully"));
     }
 
+    // ADMIN
     @PutMapping("/check-finished")
     public ResponseEntity<?> checkFinishedCampaigns() {
         campaignService.expireFinishedCampaigns();
         return ResponseEntity.status(200).body(new ApiResponse("Finished campaigns checked successfully"));
     }
 
+    // ADMIN
     @PutMapping("/start-ready")
     public ResponseEntity<?> startReadyCampaigns() {
         campaignService.startReadyCampaigns();
         return ResponseEntity.status(200).body(new ApiResponse("Ready campaigns started successfully"));
     }
 
+    // STORE_OWNER
     @PutMapping("/update/{campaignId}")
-    public ResponseEntity<?> updateCampaign(@PathVariable Integer campaignId,
+    public ResponseEntity<?> updateCampaign(@AuthenticationPrincipal User user, @PathVariable Integer campaignId,
                                             @RequestBody @Valid CampaignRequestIn campaignRequestIn) {
-        campaignService.updateCampaign(campaignId, campaignRequestIn);
+        campaignService.updateCampaign(user.getId(), campaignId, campaignRequestIn);
         return ResponseEntity.status(200).body(new ApiResponse("Campaign updated successfully"));
     }
 
+    // STORE_OWNER
     @DeleteMapping("/deleted/{campaignId}")
-    public ResponseEntity<?> deleteCampaign(@PathVariable Integer campaignId) {
-        // Business note: endpoint exists for CRUD coverage; workflow may cancel campaign instead of hard delete.
-        campaignService.deleteCampaign(campaignId);
+    public ResponseEntity<?> deleteCampaign(@AuthenticationPrincipal User user, @PathVariable Integer campaignId) {
+        campaignService.deleteCampaign(user.getId(), campaignId);
         return ResponseEntity.status(200).body(new ApiResponse("Campaign deleted successfully"));
     }
 }

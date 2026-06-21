@@ -12,9 +12,9 @@ import com.example.fproject.Repository.SubscriptionRepository;
 import com.example.fproject.Repository.UserRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -26,9 +26,9 @@ public class StoreOwnerService {
     private final StoreRepository storeRepository;
     private final SubscriptionRepository subscriptionRepository;
 
+
     @Transactional
     public StoreOwnerOut registerStoreOwner(StoreOwnerIn dto) {
-
 
         if (userRepository.existsUserByEmail(dto.getEmail())) {
             throw new ApiException("Email already exists");
@@ -42,7 +42,7 @@ public class StoreOwnerService {
         user.setFullName(dto.getFullName());
         user.setPhone(dto.getPhone());
         user.setEmail(dto.getEmail());
-        user.setPassword(dto.getPassword());
+        user.setPassword(new BCryptPasswordEncoder().encode(dto.getPassword()));
         user.setRole(RoleType.STORE_OWNER);
         user.setEnabled(false);
         userRepository.save(user);
@@ -52,7 +52,6 @@ public class StoreOwnerService {
         storeOwnerRepository.save(storeOwner);
 
         return mapToOut(storeOwner);
-
     }
 
     public List<StoreOwnerOut> getAllStoreOwners() {
@@ -62,13 +61,21 @@ public class StoreOwnerService {
                 .toList();
     }
 
+    // للادمن — يجيب بالـ ID المباشر
     public StoreOwnerOut getStoreOwnerById(Integer storeOwnerId) {
-        return mapToOut(findStoreOwnerOrThrow(storeOwnerId));
+        StoreOwner storeOwner = storeOwnerRepository.findStoreOwnerById(storeOwnerId);
+        if (storeOwner == null) throw new ApiException("Store owner not found");
+        return mapToOut(storeOwner);
+    }
+
+    // للـ STORE_OWNER — يجيب بياناته عن طريق userId من الـ token
+    public StoreOwnerOut getMyProfile(Integer userId) {
+        return mapToOut(findStoreOwnerByUserIdOrThrow(userId));
     }
 
     @Transactional
-    public StoreOwnerOut updateStoreOwner(Integer storeOwnerId, StoreOwnerIn dto) {
-        StoreOwner storeOwner = findStoreOwnerOrThrow(storeOwnerId);
+    public StoreOwnerOut updateStoreOwner(Integer userId, StoreOwnerIn dto) {
+        StoreOwner storeOwner = findStoreOwnerByUserIdOrThrow(userId);
         User user = storeOwner.getUser();
 
         if (!user.getEmail().equals(dto.getEmail())
@@ -84,7 +91,7 @@ public class StoreOwnerService {
         user.setFullName(dto.getFullName());
         user.setPhone(dto.getPhone());
         user.setEmail(dto.getEmail());
-        user.setPassword(dto.getPassword());
+        user.setPassword(new BCryptPasswordEncoder().encode(dto.getPassword()));
 
         userRepository.save(user);
 
@@ -92,15 +99,14 @@ public class StoreOwnerService {
     }
 
     @Transactional
-    public void deleteStoreOwner(Integer storeOwnerId) {
+    public void deleteStoreOwner(Integer userId) {
+        StoreOwner storeOwner = findStoreOwnerByUserIdOrThrow(userId);
 
-        StoreOwner storeOwner = findStoreOwnerOrThrow(storeOwnerId);
-
-        if (!storeRepository.findStoresByStoreOwnerId(storeOwnerId).isEmpty()) {
+        if (!storeRepository.findStoresByStoreOwnerId(storeOwner.getId()).isEmpty()) {
             throw new ApiException("Cannot delete store owner because it has stores");
         }
 
-        if (!subscriptionRepository.findSubscriptionsByStoreOwnerId(storeOwnerId).isEmpty()) {
+        if (!subscriptionRepository.findSubscriptionsByStoreOwnerId(storeOwner.getId()).isEmpty()) {
             throw new ApiException("Cannot delete store owner because it has subscriptions");
         }
 
@@ -109,11 +115,9 @@ public class StoreOwnerService {
         userRepository.delete(user);
     }
 
-    private StoreOwner findStoreOwnerOrThrow(Integer storeOwnerId) {
-        StoreOwner storeOwner = storeOwnerRepository.findStoreOwnerById(storeOwnerId);
-        if (storeOwner == null) {
-            throw new ApiException("Store owner not found");
-        }
+    private StoreOwner findStoreOwnerByUserIdOrThrow(Integer userId) {
+        StoreOwner storeOwner = storeOwnerRepository.findStoreOwnerByUserId(userId);
+        if (storeOwner == null) throw new ApiException("Store owner not found");
         return storeOwner;
     }
 
