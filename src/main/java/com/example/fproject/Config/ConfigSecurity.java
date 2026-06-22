@@ -60,7 +60,6 @@ public class ConfigSecurity {
                                 // Customer
                                 "/api/v1/customer/get",
                                 "/api/v1/customer/get/**",
-                                "/api/v1/customer/location-consent",
                                 "/api/v1/customer/get-by-phone",
                                 "/api/v1/customer/inside-radius/**",
                                 // Store
@@ -82,6 +81,11 @@ public class ConfigSecurity {
                                 // Campaign Message
                                 "/api/v1/campaign-messages/get",
                                 "/api/v1/campaign-messages/customer/**",
+                                // Payment
+                                "/api/v1/payment/get",
+                                "/api/v1/payment/get/**",
+                                "/api/v1/payment/mark-failed/**",
+                                "/api/v1/payment/delete/**",
                                 // Others
                                 "/api/v1/ai-analysis/get",
                                 "/api/v1/ai-questions/get",
@@ -133,16 +137,18 @@ public class ConfigSecurity {
                                 "/api/v1/subscription/my",
                                 "/api/v1/subscription/my/**",
                                 "/api/v1/subscription/cancel/**",
-                                // Payment
-                                "/api/v1/payment/subscribe/**",
-                                "/api/v1/payment/subscription/**",
                                 // Customer Answers
                                 "/api/v1/customer-answers/get/**",
                                 "/api/v1/customer-answers/campaign-message/**",
                                 "/api/v1/customer-answers/campaign/**",
                                 "/api/v1/customer-answers/add",
                                 "/api/v1/customer-answers/update/**",
-                                "/api/v1/customer-answers/deleted/**"
+                                "/api/v1/customer-answers/deleted/**",
+                                // Payment
+                                "/api/v1/payment/subscribe/**",
+                                "/api/v1/payment/subscription",
+                                "/api/v1/payment/my-payments",
+                                "/api/v1/payment/my-payments/**"
                         ).hasAuthority("STORE_OWNER")
 
                         .anyRequest().authenticated()

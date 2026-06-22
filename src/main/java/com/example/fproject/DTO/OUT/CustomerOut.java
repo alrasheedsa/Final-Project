@@ -1,6 +1,5 @@
 package com.example.fproject.DTO.OUT;
 
-import com.example.fproject.Enum.RoleType;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -24,9 +23,5 @@ public class CustomerOut {
 
     private String locationUrl;
 
-    private Double latitude;
 
-    private Double longitude;
-
-    private Boolean locationConsent;
 }

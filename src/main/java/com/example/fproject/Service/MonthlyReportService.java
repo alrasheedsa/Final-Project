@@ -3,11 +3,8 @@ package com.example.fproject.Service;
 import com.example.fproject.Api.ApiException;
 import com.example.fproject.DTO.IN.MonthlyReportIn;
 import com.example.fproject.DTO.OUT.MonthlyReportOut;
-import com.example.fproject.Model.Branch;
-import com.example.fproject.Model.MonthlyReport;
-import com.example.fproject.Model.SalesRecord;
-import com.example.fproject.Model.SalesRecordItem;
-import com.example.fproject.Model.StoreOwner;
+import com.example.fproject.Enum.CampaignStatus;
+import com.example.fproject.Model.*;
 import com.example.fproject.Repository.*;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +27,7 @@ public class MonthlyReportService {
     private final ITextService iTextService;
     private final OpenAiService openAiService;
     private final EmailService emailService;
+    private final CampaignRepository campaignRepository;
 
     @Transactional
     public MonthlyReportOut generateMonthlyReport(Integer userId, Integer branchId, MonthlyReportIn dto) {
@@ -222,9 +220,27 @@ public class MonthlyReportService {
 
     private String generateAiSummary(Branch branch, MonthlyReportIn dto, SalesStats stats) {
         try {
+            // جيب تقرير الشهر السابق للمقارنة
             int prevMonth = dto.getMonth() == 1 ? 12 : dto.getMonth() - 1;
             int prevYear  = dto.getMonth() == 1 ? dto.getYear() - 1 : dto.getYear();
-            MonthlyReport prev = monthlyReportRepository.findMonthlyReportByBranchIdAndMonthAndYear(branch.getId(), prevMonth, prevYear);
+            MonthlyReport prev = monthlyReportRepository
+                    .findMonthlyReportByBranchIdAndMonthAndYear(branch.getId(), prevMonth, prevYear);
+
+            // جيب الحملات المكتملة على هذا الفرع
+            List<Campaign> campaigns = campaignRepository.findAllByBranchId(branch.getId())
+                    .stream()
+                    .filter(c -> c.getStatus() == CampaignStatus.COMPLETED
+                            || c.getStatus() == CampaignStatus.EXPIRED
+                            || c.getStatus() == CampaignStatus.ACTIVE
+                            || c.getStatus() == CampaignStatus.STOPPED)
+                    .filter(c -> c.getStartDateTime() != null
+                            && c.getStartDateTime().getMonthValue() == dto.getMonth()
+                            && c.getStartDateTime().getYear() == dto.getYear())
+                    .toList();
+
+            // ابنِ ملخص الحملات
+            String campaignSummary = buildCampaignSummary(campaigns);
+
             if (prev != null) {
                 return openAiService.generateMonthlyReportComparisonSummary(
                         branch.getStore().getName(), branch.getName(),
@@ -235,15 +251,41 @@ public class MonthlyReportService {
                         prev.getTopProducts(), prev.getLowProducts()
                 );
             }
+
             return openAiService.generateMonthlyReportSummary(
                     branch.getStore().getName(), branch.getName(),
                     dto.getMonth(), dto.getYear(), stats.totalSales(), stats.totalQuantity(),
                     stats.topProducts(), stats.lowProducts(), stats.surplusProducts(),
-                    stats.peakHours(), stats.slowHours()
+                    stats.peakHours(), stats.slowHours(),
+                    campaignSummary  // ← أضف هذا
             );
+
         } catch (Exception e) {
             return "AI summary could not be generated at this time.";
         }
+    }
+
+    private String buildCampaignSummary(List<Campaign> campaigns) {
+        if (campaigns == null || campaigns.isEmpty())
+            return "No campaigns were run during this period.";
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("Campaigns run this month: ").append(campaigns.size()).append("\n");
+
+        for (Campaign c : campaigns) {
+            sb.append("- Campaign: ").append(c.getTitle())
+                    .append(", Type: ").append(c.getCampaignType())
+                    .append(", Status: ").append(c.getStatus())
+                    .append(", Sent: ").append(c.getSentCount())
+                    .append(", Redeemed: ").append(c.getRedeemedCount());
+
+            if (c.getSentCount() != null && c.getSentCount() > 0) {
+                double rate = (c.getRedeemedCount() * 100.0) / c.getSentCount();
+                sb.append(String.format(", Conversion: %.1f%%", rate));
+            }
+            sb.append("\n");
+        }
+        return sb.toString();
     }
 
     private String formatTopProducts(Map<String, Double> map, boolean highest) {

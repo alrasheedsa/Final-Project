@@ -744,35 +744,40 @@ public class OpenAiService {
             String lowProducts,
             String surplusProducts,
             String peakHours,
-            String slowHours
+            String slowHours,
+            String campaignSummary  // ← جديد
     ) {
         validateApiKey();
         validateText(storeName, "Store name is required");
         validateText(branchName, "Branch name is required");
 
         String prompt = """
-                You are a business analyst for a retail platform.
-                Analyze the following monthly report data and write an executive summary in English for the store owner.
+            You are a business analyst for a retail platform.
+            Analyze the following monthly report data and write an executive summary in English for the store owner.
 
-                Rules:
-                - Use only the provided data, do not invent numbers or information.
-                - Write a clear paragraph of 3 to 5 sentences.
-                - Mention sales performance, strongest and weakest products, and peak/slow hours.
-                - End with one or two practical recommendations to improve sales.
-                - Return plain English text only, no JSON and no Markdown.
+            Rules:
+            - Use only the provided data, do not invent numbers or information.
+            - Write a clear paragraph of 3 to 5 sentences.
+            - Mention sales performance, strongest and weakest products, and peak/slow hours.
+            - If campaigns were run, analyze their impact on sales and customer engagement.
+            - End with one or two practical recommendations to improve sales.
+            - Return plain English text only, no JSON and no Markdown.
 
-                Store: %s
-                Branch: %s
-                Month: %s
-                Year: %s
-                Total Sales (SAR): %.2f
-                Total Quantity Sold: %s
-                Top Products: %s
-                Low Products: %s
-                Products Suggested for Promotion: %s
-                Peak Hour: %s
-                Slow Hour: %s
-                """.formatted(
+            Store: %s
+            Branch: %s
+            Month: %s
+            Year: %s
+            Total Sales (SAR): %.2f
+            Total Quantity Sold: %s
+            Top Products: %s
+            Low Products: %s
+            Products Suggested for Promotion: %s
+            Peak Hour: %s
+            Slow Hour: %s
+
+            === Campaign Performance This Month ===
+            %s
+            """.formatted(
                 storeName,
                 branchName,
                 month,
@@ -783,13 +788,15 @@ public class OpenAiService {
                 lowProducts,
                 surplusProducts,
                 peakHours,
-                slowHours
+                slowHours,
+                campaignSummary != null ? campaignSummary : "No campaigns were run during this period."
         );
 
         String summary = extractAssistantContent(sendPrompt(prompt)).trim();
         validateText(summary, "OpenAI returned an empty monthly report summary");
         return summary;
     }
+
 
     public String generateMonthlyReportComparisonSummary(
             String storeName,

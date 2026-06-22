@@ -26,9 +26,6 @@ public class Customer {
     @Column(nullable = false)
     private Double longitude;
 
-    @Column(nullable = false)
-    private Boolean locationConsent;
-
     @OneToOne
     @MapsId
     @JoinColumn(name = "user_id", unique = true)

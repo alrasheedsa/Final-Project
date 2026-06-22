@@ -4,8 +4,10 @@ import com.example.fproject.Api.ApiException;
 import com.example.fproject.DTO.OUT.PaymentOut;
 import com.example.fproject.Enum.PaymentStatus;
 import com.example.fproject.Model.Payment;
+import com.example.fproject.Model.StoreOwner;
 import com.example.fproject.Model.Subscription;
 import com.example.fproject.Repository.PaymentRepository;
+import com.example.fproject.Repository.StoreOwnerRepository;
 import com.example.fproject.Repository.SubscriptionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -19,6 +21,8 @@ public class PaymentService {
 
     private final PaymentRepository paymentRepository;
     private final SubscriptionRepository subscriptionRepository;
+    private final StoreOwnerRepository storeOwnerRepository;
+
 
     public List<PaymentOut> getAllPayments() {
 
@@ -43,33 +47,38 @@ public class PaymentService {
         return mapToDTOOUT(payment);
     }
 
-    public List<PaymentOut> getPaymentsBySubscriptionId(Integer subscriptionId) {
 
-        Subscription subscription = subscriptionRepository.findSubscriptionById(subscriptionId);
+    // STORE_OWNER — يجيب كل مدفوعاته عن طريق userId
+    public List<PaymentOut> getPaymentsByUserId(Integer userId) {
+        StoreOwner owner = storeOwnerRepository.findStoreOwnerByUserId(userId);
+        if (owner == null) throw new ApiException("Store owner not found");
 
-        if (subscription == null) {
-            throw new ApiException("Subscription not found");
-        }
+        List<Subscription> subscriptions = subscriptionRepository
+                .findSubscriptionsByStoreOwnerId(owner.getId());
 
-        List<Payment> payments = paymentRepository.findPaymentsBySubscriptionId(subscriptionId);
         List<PaymentOut> result = new ArrayList<>();
-
-        for (Payment payment : payments) {
-            result.add(mapToDTOOUT(payment));
+        for (Subscription subscription : subscriptions) {
+            List<Payment> payments = paymentRepository
+                    .findPaymentsBySubscriptionId(subscription.getId());
+            for (Payment payment : payments) result.add(mapToDTOOUT(payment));
         }
-
         return result;
     }
 
-    public List<PaymentOut> getPaymentsByStatus(PaymentStatus status) {
+    // STORE_OWNER — يجيب مدفوعات اشتراك معين مع تحقق الملكية
+    public List<PaymentOut> getPaymentsBySubscriptionId(Integer userId, Integer subscriptionId) {
+        StoreOwner owner = storeOwnerRepository.findStoreOwnerByUserId(userId);
+        if (owner == null) throw new ApiException("Store owner not found");
 
-        List<Payment> payments = paymentRepository.findPaymentsByStatus(status);
+        Subscription subscription = subscriptionRepository.findSubscriptionById(subscriptionId);
+        if (subscription == null) throw new ApiException("Subscription not found");
+
+        if (!subscription.getStoreOwner().getId().equals(owner.getId()))
+            throw new ApiException("You do not have permission to access this subscription");
+
+        List<Payment> payments = paymentRepository.findPaymentsBySubscriptionId(subscriptionId);
         List<PaymentOut> result = new ArrayList<>();
-
-        for (Payment payment : payments) {
-            result.add(mapToDTOOUT(payment));
-        }
-
+        for (Payment payment : payments) result.add(mapToDTOOUT(payment));
         return result;
     }
 

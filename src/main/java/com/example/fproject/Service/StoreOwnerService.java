@@ -28,7 +28,7 @@ public class StoreOwnerService {
 
 
     @Transactional
-    public StoreOwnerOut registerStoreOwner(StoreOwnerIn dto) {
+    public void registerStoreOwner(StoreOwnerIn dto) {
 
         if (userRepository.existsUserByEmail(dto.getEmail())) {
             throw new ApiException("Email already exists");
@@ -51,7 +51,6 @@ public class StoreOwnerService {
         storeOwner.setUser(user);
         storeOwnerRepository.save(storeOwner);
 
-        return mapToOut(storeOwner);
     }
 
     public List<StoreOwnerOut> getAllStoreOwners() {
@@ -74,7 +73,7 @@ public class StoreOwnerService {
     }
 
     @Transactional
-    public StoreOwnerOut updateStoreOwner(Integer userId, StoreOwnerIn dto) {
+    public void updateStoreOwner(Integer userId, StoreOwnerIn dto) {
         StoreOwner storeOwner = findStoreOwnerByUserIdOrThrow(userId);
         User user = storeOwner.getUser();
 
@@ -95,7 +94,6 @@ public class StoreOwnerService {
 
         userRepository.save(user);
 
-        return mapToOut(storeOwner);
     }
 
     @Transactional

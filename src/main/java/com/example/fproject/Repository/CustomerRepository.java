@@ -11,7 +11,5 @@ public interface CustomerRepository extends JpaRepository<Customer, Integer> {
 
     Customer findCustomerById(Integer id);
 
-    List<Customer> findCustomersByLocationConsentTrue();
-
     Customer findCustomerByUser_Phone(String phone);
 }
