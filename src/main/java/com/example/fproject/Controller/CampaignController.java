@@ -2,6 +2,8 @@ package com.example.fproject.Controller;
 
 import com.example.fproject.Api.ApiResponse;
 import com.example.fproject.DTO.IN.CampaignRequestIn;
+import com.example.fproject.DTO.OUT.CampaignResponseOut;
+import com.example.fproject.DTO.OUT.CampaignStatusOut;
 import com.example.fproject.Model.User;
 import com.example.fproject.Service.CampaignService;
 import jakarta.validation.Valid;
@@ -9,6 +11,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDateTime;
 
 @RestController
 @RequestMapping("/api/v1/campaigns")
@@ -138,21 +142,24 @@ public class CampaignController {
     @PutMapping("/approve/{campaignId}")
     public ResponseEntity<?> approveCampaign(@AuthenticationPrincipal User user, @PathVariable Integer campaignId) {
         campaignService.approveCampaign(user.getId(), campaignId);
-        return ResponseEntity.status(200).body(new ApiResponse("Campaign approved successfully"));
+        CampaignResponseOut c = campaignService.getCampaignById(user.getId(), campaignId);
+        return ResponseEntity.status(200).body(new CampaignStatusOut(c.getId(), c.getStatus(), LocalDateTime.now()));
     }
 
     // STORE_OWNER
     @PutMapping("/cancel/{campaignId}")
     public ResponseEntity<?> cancelCampaign(@AuthenticationPrincipal User user, @PathVariable Integer campaignId) {
         campaignService.cancelCampaign(user.getId(), campaignId);
-        return ResponseEntity.status(200).body(new ApiResponse("Campaign canceled successfully"));
+        CampaignResponseOut c = campaignService.getCampaignById(user.getId(), campaignId);
+        return ResponseEntity.status(200).body(new CampaignStatusOut(c.getId(), c.getStatus(), LocalDateTime.now()));
     }
 
     // STORE_OWNER
     @PutMapping("/start/{campaignId}")
     public ResponseEntity<?> startCampaign(@AuthenticationPrincipal User user, @PathVariable Integer campaignId) {
         campaignService.startCampaign(user.getId(), campaignId);
-        return ResponseEntity.status(200).body(new ApiResponse("Campaign started successfully"));
+        CampaignResponseOut c = campaignService.getCampaignById(user.getId(), campaignId);
+        return ResponseEntity.status(200).body(new CampaignStatusOut(c.getId(), c.getStatus(), LocalDateTime.now()));
     }
 
     // STORE_OWNER
@@ -166,14 +173,14 @@ public class CampaignController {
     @PutMapping("/stop/{campaignId}")
     public ResponseEntity<?> stopCampaign(@AuthenticationPrincipal User user, @PathVariable Integer campaignId) {
         campaignService.stopCampaign(user.getId(), campaignId);
-        return ResponseEntity.status(200).body(new ApiResponse("Campaign stopped successfully"));
+        CampaignResponseOut c = campaignService.getCampaignById(user.getId(), campaignId);
+        return ResponseEntity.status(200).body(new CampaignStatusOut(c.getId(), c.getStatus(), LocalDateTime.now()));
     }
 
     // STORE_OWNER
     @PostMapping("/send/{campaignId}")
     public ResponseEntity<?> sendCampaign(@AuthenticationPrincipal User user, @PathVariable Integer campaignId) {
-        campaignService.sendCampaign(user.getId(), campaignId);
-        return ResponseEntity.status(200).body(new ApiResponse("Campaign sent successfully"));
+        return ResponseEntity.status(200).body(campaignService.sendCampaign(user.getId(), campaignId));
     }
 
     // ADMIN

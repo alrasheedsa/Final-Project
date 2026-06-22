@@ -135,7 +135,7 @@ public class ConfigSecurity {
                                 "/api/v1/subscription/cancel/**",
                                 // Payment
                                 "/api/v1/payment/subscribe/**",
-                                "/api/v1/payment/subscription",
+                                "/api/v1/payment/subscription/**",
                                 // Customer Answers
                                 "/api/v1/customer-answers/get/**",
                                 "/api/v1/customer-answers/campaign-message/**",
