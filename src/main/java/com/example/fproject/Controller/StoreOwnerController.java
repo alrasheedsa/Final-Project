@@ -21,8 +21,8 @@ public class StoreOwnerController {
 
     @PostMapping("/register")
     public ResponseEntity<?> registerStoreOwner(@Valid @RequestBody StoreOwnerIn dto) {
-        StoreOwnerOut out = storeOwnerService.registerStoreOwner(dto);
-        return ResponseEntity.status(200).body(new AuthUserOut(out.getId(), out.getFullName(), out.getEmail(), "STORE_OWNER"));
+        storeOwnerService.registerStoreOwner(dto);
+        return ResponseEntity.status(200).body(new ApiResponse("Store owner registered successfully!"));
     }
 
     // ADMIN

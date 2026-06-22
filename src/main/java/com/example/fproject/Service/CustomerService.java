@@ -35,7 +35,7 @@ public class CustomerService {
     private final QRRedemptionRepository qrRedemptionRepository;
 
     @Transactional
-    public CustomerOut registerCustomer(CustomerIn dto) {
+    public void registerCustomer(CustomerIn dto) {
 
         if (userRepository.existsUserByEmail(dto.getEmail())) {
             throw new ApiException("Email already exists");
@@ -65,7 +65,6 @@ public class CustomerService {
 
         customerRepository.save(customer);
 
-        return mapToDTOOUT(customer);
     }
 
     public List<CustomerOut> getAllCustomers() {
@@ -85,7 +84,7 @@ public class CustomerService {
     }
 
     @Transactional
-    public CustomerOut updateCustomer(Integer userId, CustomerIn dto) {
+    public void updateCustomer(Integer userId, CustomerIn dto) {
         Customer customer = customerRepository.findCustomerById(userId);
         if (customer == null) throw new ApiException("Customer not found");
 
@@ -114,7 +113,6 @@ public class CustomerService {
 
         customerRepository.save(customer);
 
-        return mapToDTOOUT(customer);
     }
 
     @Transactional
@@ -144,15 +142,6 @@ public class CustomerService {
         customer.setLongitude(coordinates[1]);
         customer.setLocationUrl(url);
         customerRepository.save(customer);
-    }
-
-    public List<CustomerOut> getCustomersWithLocationConsent() {
-        List<Customer> customers = customerRepository.findAll();
-        List<CustomerOut> result = new ArrayList<>();
-        for (Customer customer : customers) {
-            result.add(mapToDTOOUT(customer));
-        }
-        return result;
     }
 
     public CustomerOut getCustomerByPhone(String phone) {
@@ -344,9 +333,7 @@ public class CustomerService {
                 customer.getUser().getPhone(),
                 customer.getUser().getEmail(),
                 customer.getUser().getCreatedAt(),
-                customer.getLocationUrl(),
-                customer.getLatitude(),
-                customer.getLongitude()
+                customer.getLocationUrl()
         );
     }
 

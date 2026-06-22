@@ -230,7 +230,9 @@ public class MonthlyReportService {
             List<Campaign> campaigns = campaignRepository.findAllByBranchId(branch.getId())
                     .stream()
                     .filter(c -> c.getStatus() == CampaignStatus.COMPLETED
-                            || c.getStatus() == CampaignStatus.EXPIRED)
+                            || c.getStatus() == CampaignStatus.EXPIRED
+                            || c.getStatus() == CampaignStatus.ACTIVE
+                            || c.getStatus() == CampaignStatus.STOPPED)
                     .filter(c -> c.getStartDateTime() != null
                             && c.getStartDateTime().getMonthValue() == dto.getMonth()
                             && c.getStartDateTime().getYear() == dto.getYear())

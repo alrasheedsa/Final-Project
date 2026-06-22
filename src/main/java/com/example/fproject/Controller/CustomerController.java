@@ -2,8 +2,6 @@ package com.example.fproject.Controller;
 
 import com.example.fproject.Api.ApiResponse;
 import com.example.fproject.DTO.IN.CustomerIn;
-import com.example.fproject.DTO.OUT.AuthUserOut;
-import com.example.fproject.DTO.OUT.CustomerOut;
 import com.example.fproject.Model.User;
 import com.example.fproject.Service.CustomerService;
 import jakarta.validation.Valid;
@@ -21,8 +19,8 @@ public class CustomerController {
 
     @PostMapping("/register")
     public ResponseEntity<?> registerCustomer(@Valid @RequestBody CustomerIn dto) {
-        CustomerOut out = customerService.registerCustomer(dto);
-        return ResponseEntity.status(200).body(new AuthUserOut(out.getId(), out.getFullName(), out.getEmail(), "CUSTOMER"));
+        customerService.registerCustomer(dto);
+        return ResponseEntity.status(200).body(new ApiResponse("Customer registered successfully!"));
     }
 
     // ADMIN
@@ -35,12 +33,6 @@ public class CustomerController {
     @GetMapping("/get/{customerId}")
     public ResponseEntity<?> getCustomerById(@PathVariable Integer customerId) {
         return ResponseEntity.status(200).body(customerService.getCustomerById(customerId));
-    }
-
-    // ADMIN
-    @GetMapping("/location-consent")
-    public ResponseEntity<?> getCustomersWithLocationConsent() {
-        return ResponseEntity.status(200).body(customerService.getCustomersWithLocationConsent());
     }
 
     // ADMIN

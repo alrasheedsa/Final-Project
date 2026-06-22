@@ -7,7 +7,6 @@ import com.example.fproject.DTO.OUT.StoreOwnerDashboardOut;
 import com.example.fproject.DTO.OUT.SubscriptionLimitsOut;
 import com.example.fproject.DTO.OUT.SubscriptionPlanOut;
 import com.example.fproject.DTO.OUT.SubscriptionStatusOut;
-import com.example.fproject.Enum.CampaignStatus;
 import com.example.fproject.Enum.StoreStatus;
 import com.example.fproject.Enum.SubscriptionPlanType;
 import com.example.fproject.Enum.SubscriptionStatus;
@@ -36,7 +35,6 @@ public class SubscriptionService {
 
     private static final int RENEWAL_WINDOW_DAYS = 7;
 
-    // PUBLIC — كل المستخدمين
     public List<SubscriptionPlanOut> getSubscriptionPlans() {
         return Arrays.stream(SubscriptionPlanType.values())
                 .map(plan -> new SubscriptionPlanOut(
@@ -45,23 +43,19 @@ public class SubscriptionService {
                 )).toList();
     }
 
-    // ADMIN
     public List<Subscription> getAllSubscriptions() {
         return subscriptionRepository.findAll();
     }
 
-    // ADMIN
     public Subscription getSubscriptionById(Integer subscriptionId) {
         return findSubscriptionOrThrow(subscriptionId);
     }
 
-    // STORE_OWNER — يجيب بياناته عن طريق userId من الـ token
     public List<Subscription> getSubscriptionsByStoreOwner(Integer userId) {
         StoreOwner owner = findStoreOwnerByUserIdOrThrow(userId);
         return subscriptionRepository.findSubscriptionsByStoreOwnerId(owner.getId());
     }
 
-    // STORE_OWNER
     public Subscription getActiveSubscription(Integer userId) {
         StoreOwner owner = findStoreOwnerByUserIdOrThrow(userId);
         Subscription subscription = subscriptionRepository
@@ -70,7 +64,6 @@ public class SubscriptionService {
         return subscription;
     }
 
-    // STORE_OWNER
     public SubscriptionStatusOut getSubscriptionStatus(Integer userId) {
         StoreOwner owner = findStoreOwnerByUserIdOrThrow(userId);
 
@@ -86,7 +79,6 @@ public class SubscriptionService {
         return buildSubscriptionStatusOut(subscription);
     }
 
-    // STORE_OWNER
     public StoreOwnerDashboardOut getStoreOwnerDashboard(Integer userId) {
         StoreOwner storeOwner = findStoreOwnerByUserIdOrThrow(userId);
 
@@ -131,14 +123,12 @@ public class SubscriptionService {
         );
     }
 
-    // STORE_OWNER
     public SubscriptionLimitsOut getSubscriptionLimits(Integer userId) {
         StoreOwner owner = findStoreOwnerByUserIdOrThrow(userId);
         List<Store> stores = storeRepository.findStoresByStoreOwnerId(owner.getId());
         return buildLimits(owner.getId(), stores);
     }
 
-    // STORE_OWNER
     public CanCreateBranchOut canCreateBranch(Integer userId, Integer storeId) {
         StoreOwner owner = findStoreOwnerByUserIdOrThrow(userId);
 
@@ -173,7 +163,6 @@ public class SubscriptionService {
         return new CanCreateBranchOut(canCreate, maxBranches, (int) currentBranches, remaining, message);
     }
 
-    // STORE_OWNER
     @Transactional
     public String renewSubscription(Integer userId, String newPlanTypeText) {
         StoreOwner owner = findStoreOwnerByUserIdOrThrow(userId);
@@ -207,14 +196,13 @@ public class SubscriptionService {
         return lemonSqueezyService.createSubscriptionCheckout(newPlanTypeText, owner.getId());
     }
 
-    // STORE_OWNER — يلغي اشتراك بالـ subscriptionId
     @Transactional
     public void cancelSubscription(Integer userId, Integer subscriptionId) {
+        StoreOwner owner = findStoreOwnerByUserIdOrThrow(userId);
         Subscription subscription = findSubscriptionOrThrow(subscriptionId);
 
-        StoreOwner owner = findStoreOwnerByUserIdOrThrow(userId);
-        if (subscription.getStoreOwner() == null || !subscription.getStoreOwner().getId().equals(owner.getId()))
-            throw new ApiException("You do not have permission to access this resource");
+        if (!subscription.getStoreOwner().getId().equals(owner.getId()))
+            throw new ApiException("You do not have permission to cancel this subscription");
 
         if (subscription.getStatus() == SubscriptionStatus.CANCELLED)
             throw new ApiException("Subscription is already cancelled");
@@ -231,25 +219,19 @@ public class SubscriptionService {
         deactivateStoresAndBranches(subscription);
     }
 
-    // ADMIN
     @Transactional
-    public ExpiryResultOut checkExpiredSubscriptions() {
+    public String checkExpiredSubscriptions() {
         List<Subscription> expired = subscriptionRepository
                 .findSubscriptionsByStatusAndEndDateBefore(SubscriptionStatus.ACTIVE, LocalDate.now());
 
-        int deactivatedStores = 0;
-        int deactivatedBranches = 0;
         for (Subscription subscription : expired) {
             subscription.setStatus(SubscriptionStatus.EXPIRED);
             subscriptionRepository.save(subscription);
-            int[] counts = deactivateStoresAndBranches(subscription);
-            deactivatedStores += counts[0];
-            deactivatedBranches += counts[1];
+            deactivateStoresAndBranches(subscription);
         }
 
-        return new ExpiryResultOut(expired.size(), deactivatedStores, deactivatedBranches, LocalDateTime.now());
+        return "Checked " + expired.size() + " expired subscription(s) and updated successfully";
     }
-
     // ── helpers ──────────────────────────────────────────────────────────────
 
     private StoreOwner findStoreOwnerByUserIdOrThrow(Integer userId) {
