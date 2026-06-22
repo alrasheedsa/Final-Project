@@ -1,0 +1,427 @@
+{
+  "info": {
+    "name": "Ala Darbak - FULL PROJECT FLOW",
+    "description": "اختبار الفلو الكامل للمشروع حسب مخطط الـ FlowChart.\n\nالمصادقة: HTTP Basic Auth (الإيميل + كلمة المرور). الأدوار: STORE_OWNER / CUSTOMER / ADMIN.\n\nالترتيب:\n01 التسجيل (Public)\n02 إعداد المتجر والفرع (STORE_OWNER)\n03 الاشتراك والدفع\n04 رفع المبيعات (Excel)\n05 تحليل AI\n06 اقتراح الحملة\n07 إنشاء الحملة\n08 سؤال AI (QUESTION_BASED)\n09 توليد QR\n10 إرسال الحملة (واتساب UltraMsg)\n11 استقبال رد العميل (UltraMsg Webhook)\n12 استبدال QR عند الكاشير\n13 نتائج الحملة\n14 التقرير الشهري (PDF)\n15 واجهات العميل\n16 [Admin] مهام n8n السابقة\n\nالمتغيرات في تبويب Variables — عدّل الإيميلات/كلمات المرور حسب حساباتك.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "basic",
+    "basic": [
+      { "key": "username", "value": "{{soEmail}}", "type": "string" },
+      { "key": "password", "value": "{{soPassword}}", "type": "string" }
+    ]
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080", "type": "string" },
+    { "key": "ngrokUrl", "value": "https://backtalk-ransack-cohesive.ngrok-free.dev", "type": "string" },
+
+    { "key": "soEmail", "value": "owner@test.com", "type": "string" },
+    { "key": "soPassword", "value": "Password1", "type": "string" },
+    { "key": "soPhone", "value": "+966500000001", "type": "string" },
+
+    { "key": "custEmail", "value": "customer@test.com", "type": "string" },
+    { "key": "custPassword", "value": "Password1", "type": "string" },
+    { "key": "customerPhone", "value": "+966532488571", "type": "string" },
+
+    { "key": "adminEmail", "value": "admin@test.com", "type": "string" },
+    { "key": "adminPassword", "value": "Password1", "type": "string" },
+
+    { "key": "storeOwnerId", "value": "", "type": "string" },
+    { "key": "storeId", "value": "", "type": "string" },
+    { "key": "branchId", "value": "", "type": "string" },
+    { "key": "salesRecordId", "value": "", "type": "string" },
+    { "key": "analysisId", "value": "", "type": "string" },
+    { "key": "suggestionId", "value": "", "type": "string" },
+    { "key": "campaignId", "value": "", "type": "string" },
+    { "key": "qrCodeId", "value": "", "type": "string" },
+    { "key": "qrCodeValue", "value": "", "type": "string" },
+    { "key": "reportId", "value": "", "type": "string" },
+    { "key": "planType", "value": "BASIC_MONTHLY", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "01 - التسجيل (Public)",
+      "auth": { "type": "noauth" },
+      "item": [
+        {
+          "name": "Register Store Owner",
+          "event": [
+            { "listen": "test", "script": { "type": "text/javascript", "exec": [
+              "try { var j = pm.response.json(); if (j.id) pm.collectionVariables.set('storeOwnerId', j.id); } catch(e){}",
+              "pm.test('status 200', () => pm.response.code === 200);"
+            ] } }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"fullName\": \"صاحب متجر تجريبي\",\n  \"phone\": \"{{soPhone}}\",\n  \"email\": \"{{soEmail}}\",\n  \"password\": \"{{soPassword}}\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/store-owner/register", "host": ["{{baseUrl}}"], "path": ["api","v1","store-owner","register"] }
+          }
+        },
+        {
+          "name": "Register Customer (مع الموقع والموافقة)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"fullName\": \"عميل تجريبي\",\n  \"phone\": \"{{customerPhone}}\",\n  \"email\": \"{{custEmail}}\",\n  \"password\": \"{{custPassword}}\",\n  \"locationUrl\": \"https://maps.google.com/?q=24.7136,46.6753\",\n  \"locationConsent\": true\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/customer/register", "host": ["{{baseUrl}}"], "path": ["api","v1","customer","register"] },
+            "description": "locationConsent=true ضروري عشان يستهدفه النظام في الحملات. غيّر الإحداثيات في locationUrl لتكون داخل نطاق الفرع."
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 - المتجر والفرع (STORE_OWNER)",
+      "item": [
+        {
+          "name": "My Profile (تأكيد تسجيل الدخول)",
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/store-owner/my", "host": ["{{baseUrl}}"], "path": ["api","v1","store-owner","my"] } }
+        },
+        {
+          "name": "Create Store",
+          "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "try { var j = pm.response.json(); if (j.id) pm.collectionVariables.set('storeId', j.id); } catch(e){}",
+            "pm.test('status 200', () => pm.response.code === 200);"
+          ] } } ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"قهوة علا دربك\",\n  \"businessType\": \"مقهى\",\n  \"commercialRegisterNo\": \"1010101010\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/store/add", "host": ["{{baseUrl}}"], "path": ["api","v1","store","add"] }
+          }
+        },
+        {
+          "name": "Activate Store (ADMIN)",
+          "auth": { "type": "basic", "basic": [ { "key": "username", "value": "{{adminEmail}}" }, { "key": "password", "value": "{{adminPassword}}" } ] },
+          "request": { "method": "PUT", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/store/activate/{{storeId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","store","activate","{{storeId}}"] }, "description": "تفعيل المتجر يحتاج صلاحية ADMIN." }
+        },
+        {
+          "name": "Create Branch",
+          "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "try { var j = pm.response.json(); if (j.id) pm.collectionVariables.set('branchId', j.id); } catch(e){}",
+            "pm.test('status 200', () => pm.response.code === 200);"
+          ] } } ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"فرع العليا\",\n  \"locationUrl\": \"https://maps.google.com/?q=24.7136,46.6753\",\n  \"campaignRadiusMeters\": 5000,\n  \"openingTime\": \"08:00\",\n  \"closingTime\": \"23:00\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/branch/add/{{storeId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","branch","add","{{storeId}}"] },
+            "description": "GoogleMapService يحلل الـ locationUrl ويستخرج الإحداثيات. campaignRadiusMeters = نطاق الاستهداف."
+          }
+        },
+        {
+          "name": "Activate Branch",
+          "request": { "method": "PUT", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/branch/activate/{{branchId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","branch","activate","{{branchId}}"] } }
+        },
+        {
+          "name": "Get Recommended Radius (ذكي)",
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/branch/recommended-radius/{{branchId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","branch","recommended-radius","{{branchId}}"] } }
+        },
+        {
+          "name": "Apply Recommended Radius (اختياري)",
+          "request": { "method": "PUT", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/branch/apply-recommended-radius/{{branchId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","branch","apply-recommended-radius","{{branchId}}"] } }
+        },
+        {
+          "name": "Branch Dashboard",
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/branch/{{branchId}}/dashboard", "host": ["{{baseUrl}}"], "path": ["api","v1","branch","{{branchId}}","dashboard"] } }
+        },
+        {
+          "name": "Customers In Radius Count",
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/branch/{{branchId}}/customers-in-radius/count", "host": ["{{baseUrl}}"], "path": ["api","v1","branch","{{branchId}}","customers-in-radius","count"] } }
+        }
+      ]
+    },
+    {
+      "name": "03 - الاشتراك والدفع",
+      "item": [
+        {
+          "name": "Get Plans (Public)",
+          "auth": { "type": "noauth" },
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/subscription/plans", "host": ["{{baseUrl}}"], "path": ["api","v1","subscription","plans"] } }
+        },
+        {
+          "name": "Create Subscription Checkout (LemonSqueezy)",
+          "request": { "method": "POST", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/payment/subscribe/{{planType}}/{{storeOwnerId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","payment","subscribe","{{planType}}","{{storeOwnerId}}"] },
+            "description": "يرجع رابط checkout من LemonSqueezy. افتح الرابط وادفع — بعدها الـ webhook يفعّل الاشتراك تلقائياً.\n\nملاحظة: رفع المبيعات يحتاج اشتراك فعّال. لو تختبر بدون دفع حقيقي، فعّل الاشتراك يدوياً في الـ DB أو استخدم بيانات seeded." }
+        },
+        {
+          "name": "My Subscription Status",
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/subscription/my/status", "host": ["{{baseUrl}}"], "path": ["api","v1","subscription","my","status"] } }
+        },
+        {
+          "name": "My Subscription Dashboard",
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/subscription/my/dashboard", "host": ["{{baseUrl}}"], "path": ["api","v1","subscription","my","dashboard"] } }
+        }
+      ]
+    },
+    {
+      "name": "04 - رفع المبيعات (Excel)",
+      "item": [
+        {
+          "name": "Upload Sales Record (Excel)",
+          "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "try { var j = pm.response.json(); if (j.id) pm.collectionVariables.set('salesRecordId', j.id); } catch(e){}",
+            "pm.test('status 200', () => pm.response.code === 200);"
+          ] } } ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": [], "description": "اختر ملف .xlsx — مثال موجود في uploads/sales-records/" },
+                { "key": "month", "value": "6", "type": "text" },
+                { "key": "year", "value": "2026", "type": "text" }
+              ]
+            },
+            "url": { "raw": "{{baseUrl}}/api/v1/sales-record/add/branch/{{branchId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","sales-record","add","branch","{{branchId}}"] },
+            "description": "multipart/form-data. حقل file = ملف Excel. ExcelService يقرأ المنتجات والكميات والأسعار. اختر الملف من زر Select Files."
+          }
+        },
+        {
+          "name": "Get Sales Records By Branch",
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/sales-record/get-by-branch/{{branchId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","sales-record","get-by-branch","{{branchId}}"] } }
+        },
+        {
+          "name": "Get Sales Record Items",
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/sales-record-item/get-by-sales-record/{{salesRecordId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","sales-record-item","get-by-sales-record","{{salesRecordId}}"] } }
+        }
+      ]
+    },
+    {
+      "name": "05 - تحليل AI",
+      "item": [
+        {
+          "name": "Get Analysis By Sales Record",
+          "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "try { var j = pm.response.json(); if (j.id) pm.collectionVariables.set('analysisId', j.id); } catch(e){}"
+          ] } } ],
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/ai-analysis/get-by-sales-record/{{salesRecordId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","ai-analysis","get-by-sales-record","{{salesRecordId}}"] },
+            "description": "OpenAiService يولّد التحليل تلقائياً عند رفع المبيعات. هذا يرجعه ويحفظ analysisId." }
+        },
+        {
+          "name": "Latest Analysis By Branch",
+          "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "try { var j = pm.response.json(); if (j.id) pm.collectionVariables.set('analysisId', j.id); } catch(e){}"
+          ] } } ],
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/ai-analysis/latest/branch/{{branchId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","ai-analysis","latest","branch","{{branchId}}"] } }
+        },
+        { "name": "Analysis Dashboard", "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/ai-analysis/{{analysisId}}/dashboard", "host": ["{{baseUrl}}"], "path": ["api","v1","ai-analysis","{{analysisId}}","dashboard"] } } },
+        { "name": "Total Sales", "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/ai-analysis/total-sales/{{analysisId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","ai-analysis","total-sales","{{analysisId}}"] } } },
+        { "name": "Peak Hours", "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/ai-analysis/peak-hours/{{analysisId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","ai-analysis","peak-hours","{{analysisId}}"] } } },
+        { "name": "Slow Hours", "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/ai-analysis/slow-hours/{{analysisId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","ai-analysis","slow-hours","{{analysisId}}"] } } },
+        { "name": "Confidence", "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/ai-analysis/confidence/{{analysisId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","ai-analysis","confidence","{{analysisId}}"] } } },
+        { "name": "Sales Chart", "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/ai-analysis/chart/{{analysisId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","ai-analysis","chart","{{analysisId}}"] } } },
+        { "name": "Recommendations", "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/ai-analysis/recommendations/{{analysisId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","ai-analysis","recommendations","{{analysisId}}"] } } },
+        { "name": "Top Products", "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/ai-analysis/top-products/{{analysisId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","ai-analysis","top-products","{{analysisId}}"] } } },
+        { "name": "Low Products", "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/ai-analysis/low-products/{{analysisId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","ai-analysis","low-products","{{analysisId}}"] } } },
+        { "name": "Best Recommendation", "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/ai-analysis/best-recommendation/{{analysisId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","ai-analysis","best-recommendation","{{analysisId}}"] } } },
+        { "name": "Suggested Campaign Ready?", "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/ai-analysis/suggested-campaign-ready/{{analysisId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","ai-analysis","suggested-campaign-ready","{{analysisId}}"] } } },
+        { "name": "Send Analysis Summary Email", "request": { "method": "POST", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/ai-analysis/{{analysisId}}/send-email-summary", "host": ["{{baseUrl}}"], "path": ["api","v1","ai-analysis","{{analysisId}}","send-email-summary"] } } }
+      ]
+    },
+    {
+      "name": "06 - اقتراح الحملة",
+      "item": [
+        {
+          "name": "Generate Suggestions (AI)",
+          "request": { "method": "POST", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/campaign-suggestion/generate/{{analysisId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","campaign-suggestion","generate","{{analysisId}}"] },
+            "description": "OpenAiService يولّد اقتراحات حملة من التحليل." }
+        },
+        {
+          "name": "Get Pending Suggestions",
+          "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "try { var j = pm.response.json(); if (Array.isArray(j) && j.length && j[0].id) pm.collectionVariables.set('suggestionId', j[0].id); } catch(e){}"
+          ] } } ],
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/campaign-suggestion/pending/analysis/{{analysisId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","campaign-suggestion","pending","analysis","{{analysisId}}"] },
+            "description": "يحفظ أول suggestionId تلقائياً." }
+        },
+        {
+          "name": "Add Suggestion Manually (بديل/اختياري)",
+          "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "try { var j = pm.response.json(); if (j.id) pm.collectionVariables.set('suggestionId', j.id); } catch(e){}"
+          ] } } ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"عرض تجريبي - خصم 25%\",\n  \"description\": \"حملة تجريبية\",\n  \"offerText\": \"خصم 25% على القهوة المختصة\",\n  \"campaignType\": \"DIRECT_OFFER\",\n  \"suggestedStartDate\": \"2026-06-22\",\n  \"suggestedEndDate\": \"2026-06-22\",\n  \"suggestedStartTime\": \"12:00:00\",\n  \"suggestedEndTime\": \"23:59:00\",\n  \"targetCustomersCount\": 2,\n  \"discountValue\": 25.0,\n  \"suggestedProductName\": \"قهوة مختصة\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/campaign-suggestion/add/analysis/{{analysisId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","campaign-suggestion","add","analysis","{{analysisId}}"] }
+          }
+        },
+        {
+          "name": "Reject + Regenerate (اختياري)",
+          "request": { "method": "PUT", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/campaign-suggestion/reject/{{suggestionId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","campaign-suggestion","reject","{{suggestionId}}"] } }
+        },
+        {
+          "name": "Approve Suggestion",
+          "request": { "method": "PUT", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/campaign-suggestion/approve/{{suggestionId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","campaign-suggestion","approve","{{suggestionId}}"] } }
+        }
+      ]
+    },
+    {
+      "name": "07 - إنشاء الحملة",
+      "item": [
+        {
+          "name": "Create Campaign From Suggestion",
+          "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "try { var j = pm.response.json(); if (j.id) pm.collectionVariables.set('campaignId', j.id); } catch(e){}",
+            "pm.test('status 200', () => pm.response.code === 200);"
+          ] } } ],
+          "request": { "method": "POST", "header": [],
+            "url": { "raw": "{{baseUrl}}/api/v1/campaigns/create-from-suggestion?suggestionId={{suggestionId}}&branchId={{branchId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","campaigns","create-from-suggestion"],
+              "query": [ { "key": "suggestionId", "value": "{{suggestionId}}" }, { "key": "branchId", "value": "{{branchId}}" } ] }
+          }
+        },
+        { "name": "Get Campaign Details", "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/campaigns/details/{{campaignId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","campaigns","details","{{campaignId}}"] } } },
+        { "name": "Get Campaign Type", "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/campaigns/type/{{campaignId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","campaigns","type","{{campaignId}}"] } } }
+      ]
+    },
+    {
+      "name": "08 - سؤال AI (QUESTION_BASED فقط)",
+      "item": [
+        { "name": "Generate AI Question For Campaign", "request": { "method": "POST", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/ai-questions/generate-for-campaign/{{campaignId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","ai-questions","generate-for-campaign","{{campaignId}}"] }, "description": "فقط إذا الحملة QUESTION_BASED." } },
+        { "name": "Regenerate Question", "request": { "method": "PUT", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/ai-questions/regenerate/{{campaignId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","ai-questions","regenerate","{{campaignId}}"] } } },
+        { "name": "Get Campaign Question", "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/campaigns/question/{{campaignId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","campaigns","question","{{campaignId}}"] } } }
+      ]
+    },
+    {
+      "name": "09 - توليد QR",
+      "item": [
+        {
+          "name": "Generate QR Code",
+          "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "try { var j = pm.response.json(); if (j.id) pm.collectionVariables.set('qrCodeId', j.id); if (j.code) pm.collectionVariables.set('qrCodeValue', j.code); } catch(e){}",
+            "pm.test('status 200', () => pm.response.code === 200);"
+          ] } } ],
+          "request": { "method": "POST", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/qr-codes/generate/{{campaignId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","qr-codes","generate","{{campaignId}}"] },
+            "description": "يحفظ qrCodeId و qrCodeValue (الكود) تلقائياً." }
+        },
+        { "name": "QR Status", "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/campaigns/{{campaignId}}/qr-status", "host": ["{{baseUrl}}"], "path": ["api","v1","campaigns","{{campaignId}}","qr-status"] } } },
+        { "name": "View QR Image (PNG)", "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/qr-codes/image/{{qrCodeId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","qr-codes","image","{{qrCodeId}}"] } } }
+      ]
+    },
+    {
+      "name": "10 - إرسال الحملة (UltraMsg)",
+      "item": [
+        { "name": "Approve Campaign", "request": { "method": "PUT", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/campaigns/approve/{{campaignId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","campaigns","approve","{{campaignId}}"] } } },
+        {
+          "name": "🚀 Send Campaign NOW (واتساب)",
+          "request": { "method": "POST", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/campaigns/send/{{campaignId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","campaigns","send","{{campaignId}}"] },
+            "description": "يرسل رسائل واتساب عبر UltraMsg لكل عميل داخل النطاق + locationConsent=true. يصير status=ACTIVE." }
+        },
+        { "name": "Campaign Messages After Send", "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/campaign-messages/campaign/{{campaignId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","campaign-messages","campaign","{{campaignId}}"] } } }
+      ]
+    },
+    {
+      "name": "11 - استقبال رد العميل (UltraMsg Webhook)",
+      "auth": { "type": "noauth" },
+      "item": [
+        {
+          "name": "📱 Customer Reply (محاكاة UltraMsg)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"event_type\": \"message_received\",\n  \"instanceId\": \"instance175230\",\n  \"data\": {\n    \"id\": \"false_966532488571@c.us_TEST001\",\n    \"from\": \"966532488571@c.us\",\n    \"to\": \"966500000001@c.us\",\n    \"body\": \"B\",\n    \"type\": \"chat\",\n    \"fromMe\": false\n  }\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/whatsapp/webhook", "host": ["{{baseUrl}}"], "path": ["api","v1","whatsapp","webhook"] },
+            "description": "نفس JSON اللي يرسله UltraMsg عند رد العميل. data.from = رقم العميل بصيغة UltraMsg. body = A/B/C.\n\nمهم: غيّر from ليطابق رقم العميل المسجّل، و body للإجابة المطلوبة." }
+        },
+        {
+          "name": "📱 Customer Reply (عبر ngrok)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"event_type\": \"message_received\",\n  \"instanceId\": \"instance175230\",\n  \"data\": {\n    \"from\": \"966532488571@c.us\",\n    \"body\": \"B\",\n    \"type\": \"chat\",\n    \"fromMe\": false\n  }\n}" },
+            "url": { "raw": "{{ngrokUrl}}/api/v1/whatsapp/webhook", "host": ["{{ngrokUrl}}"], "path": ["api","v1","whatsapp","webhook"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "12 - استبدال QR (الكاشير)",
+      "item": [
+        {
+          "name": "Cashier Check QR Code",
+          "request": { "method": "POST", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/qr-redemptions/cashier/check-code/{{qrCodeValue}}", "host": ["{{baseUrl}}"], "path": ["api","v1","qr-redemptions","cashier","check-code","{{qrCodeValue}}"] },
+            "description": "الكاشير يتحقق من صلاحية الكود قبل التطبيق." }
+        },
+        {
+          "name": "Cashier Redeem Code",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"code\": \"{{qrCodeValue}}\",\n  \"customerPhone\": \"{{customerPhone}}\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/qr-redemptions/cashier/redeem-code", "host": ["{{baseUrl}}"], "path": ["api","v1","qr-redemptions","cashier","redeem-code"] },
+            "description": "يطبّق العرض، يزيد usedCount و redeemedCount." }
+        },
+        {
+          "name": "Redeem By Code (من العميل - CUSTOMER)",
+          "auth": { "type": "basic", "basic": [ { "key": "username", "value": "{{custEmail}}" }, { "key": "password", "value": "{{custPassword}}" } ] },
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"code\": \"{{qrCodeValue}}\",\n  \"customerPhone\": \"{{customerPhone}}\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/qr-redemptions/redeem-by-code", "host": ["{{baseUrl}}"], "path": ["api","v1","qr-redemptions","redeem-by-code"] }
+          }
+        },
+        {
+          "name": "Redemptions By Campaign",
+          "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/qr-redemptions/campaign/{{campaignId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","qr-redemptions","campaign","{{campaignId}}"] } }
+        }
+      ]
+    },
+    {
+      "name": "13 - نتائج الحملة",
+      "item": [
+        { "name": "Complete Campaign (يدوي)", "request": { "method": "PUT", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/campaigns/complete/{{campaignId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","campaigns","complete","{{campaignId}}"] } } },
+        { "name": "Generate Campaign Result", "request": { "method": "POST", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/campaign-results/generate/{{campaignId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","campaign-results","generate","{{campaignId}}"] } } },
+        { "name": "Campaign Result Dashboard", "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/campaign-results/{{campaignId}}/dashboard", "host": ["{{baseUrl}}"], "path": ["api","v1","campaign-results","{{campaignId}}","dashboard"] } } },
+        { "name": "Total Sent", "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/campaign-results/total-sent/{{campaignId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","campaign-results","total-sent","{{campaignId}}"] } } },
+        { "name": "Correct Answers", "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/campaign-results/correct-answers/{{campaignId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","campaign-results","correct-answers","{{campaignId}}"] } } },
+        { "name": "Conversion Rate", "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/campaign-results/conversion-rate/{{campaignId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","campaign-results","conversion-rate","{{campaignId}}"] } } },
+        { "name": "QR Used", "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/campaign-results/qr-used/{{campaignId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","campaign-results","qr-used","{{campaignId}}"] } } }
+      ]
+    },
+    {
+      "name": "14 - التقرير الشهري (PDF)",
+      "item": [
+        {
+          "name": "Generate Monthly Report",
+          "event": [ { "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "try { var j = pm.response.json(); if (j.id) pm.collectionVariables.set('reportId', j.id); } catch(e){}"
+          ] } } ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"month\": 6,\n  \"year\": 2026\n}" },
+            "url": { "raw": "{{baseUrl}}/api/v1/monthly-report/generate/{{branchId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","monthly-report","generate","{{branchId}}"] }
+          }
+        },
+        { "name": "Download Report PDF", "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/monthly-report/download/{{reportId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","monthly-report","download","{{reportId}}"] }, "description": "يرجع ملف PDF. اضغط Send and Download لحفظه." } },
+        { "name": "Send Report Email", "request": { "method": "POST", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/monthly-report/send-email/{{reportId}}", "host": ["{{baseUrl}}"], "path": ["api","v1","monthly-report","send-email","{{reportId}}"] } } }
+      ]
+    },
+    {
+      "name": "15 - واجهات العميل (CUSTOMER)",
+      "auth": { "type": "basic", "basic": [ { "key": "username", "value": "{{custEmail}}" }, { "key": "password", "value": "{{custPassword}}" } ] },
+      "item": [
+        { "name": "My Profile", "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/customer/my", "host": ["{{baseUrl}}"], "path": ["api","v1","customer","my"] } } },
+        { "name": "My Campaigns In Radius", "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/customer/my/campaigns/in-radius", "host": ["{{baseUrl}}"], "path": ["api","v1","customer","my","campaigns","in-radius"] } } },
+        { "name": "My Active Campaigns", "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/customer/my/campaigns/active", "host": ["{{baseUrl}}"], "path": ["api","v1","customer","my","campaigns","active"] } } },
+        { "name": "My Offers", "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/customer/my/offers", "host": ["{{baseUrl}}"], "path": ["api","v1","customer","my","offers"] } } },
+        { "name": "My Active Messages", "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/customer/my/campaign-messages/active", "host": ["{{baseUrl}}"], "path": ["api","v1","customer","my","campaign-messages","active"] } } },
+        { "name": "My Available QR", "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/customer/my/available-qr", "host": ["{{baseUrl}}"], "path": ["api","v1","customer","my","available-qr"] } } },
+        { "name": "My Used QR", "request": { "method": "GET", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/customer/my/used-qr", "host": ["{{baseUrl}}"], "path": ["api","v1","customer","my","used-qr"] } } }
+      ]
+    },
+    {
+      "name": "16 - [Admin] مهام n8n السابقة",
+      "auth": { "type": "basic", "basic": [ { "key": "username", "value": "{{adminEmail}}" }, { "key": "password", "value": "{{adminPassword}}" } ] },
+      "item": [
+        { "name": "Start Ready Campaigns", "request": { "method": "PUT", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/campaigns/start-ready", "host": ["{{baseUrl}}"], "path": ["api","v1","campaigns","start-ready"] }, "description": "كان n8n يشغّلها كل دقيقة. ADMIN فقط." } },
+        { "name": "Expire Finished Campaigns", "request": { "method": "PUT", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/campaigns/expire-finished", "host": ["{{baseUrl}}"], "path": ["api","v1","campaigns","expire-finished"] } } },
+        { "name": "Generate Finished Campaign Results", "request": { "method": "POST", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/campaign-results/generate-finished", "host": ["{{baseUrl}}"], "path": ["api","v1","campaign-results","generate-finished"] } } },
+        { "name": "Check Expired Subscriptions", "request": { "method": "PUT", "header": [], "url": { "raw": "{{baseUrl}}/api/v1/subscription/check-expired", "host": ["{{baseUrl}}"], "path": ["api","v1","subscription","check-expired"] } } }
+      ]
+    }
+  ]
+}
