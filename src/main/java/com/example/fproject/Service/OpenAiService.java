@@ -187,22 +187,30 @@ public class OpenAiService {
         - QUESTION_BASED offerText should mention a reward after participation, not only a normal purchase discount.
         - Make the suggestions diverse. Do not repeat the same product in every suggestion unless the analysis only contains one suitable product.
 
-        JSON shape. Use the same keys exactly:
-        [
-          {
-            "title": "عنوان تسويقي مناسب للعميل",
-            "description": "وصف تسويقي مناسب للعميل بدون ذكر الركود أو ضعف المبيعات",
-            "offerText": "نص العرض الذي يمكن إرساله للعميل",
-            "campaignType": "DIRECT_OFFER",
-            "suggestedStartDate": "2026-06-23",
-            "suggestedEndDate": "2026-06-23",
-            "suggestedStartTime": "15:00",
-            "suggestedEndTime": "17:00",
-            "targetCustomersCount": 100,
-            "discountValue": 25,
-            "suggestedProductName": "اسم المنتج"
-          }
-        ]
+        Output format:
+        Return ONLY a valid JSON array.
+        The array must contain exactly the requested number of campaign suggestion objects.
+                
+        Each object must contain these keys exactly:
+        - "title": Arabic customer-facing campaign title.
+        - "description": Arabic customer-facing description. Do not mention slow sales, weak demand, recession, surplus, or dead hours.
+        - "offerText": Arabic offer message that can be sent to the customer.
+        - "campaignType": either "DIRECT_OFFER" or "QUESTION_BASED".
+        - "suggestedStartDate": real upcoming campaign start date in yyyy-MM-dd format, based on the scheduling rules.
+        - "suggestedEndDate": real upcoming campaign end date in yyyy-MM-dd format, usually the same as suggestedStartDate for short campaigns.
+        - "suggestedStartTime": campaign start time in HH:mm format, based on slowHours.
+        - "suggestedEndTime": campaign end time in HH:mm format, based on slowHours.
+        - "targetCustomersCount": realistic number of targeted customers.
+        - "discountValue": discount percentage from 0 to 100.
+        - "suggestedProductName": the product name used in the campaign.
+
+        Important:
+        - Do not use fixed sample dates.
+        - Do not use fixed sample times.
+        - Do not invent random dates.
+        - Do not invent random times.
+        - Dates must be upcoming dates only.
+        - Times must come from slowHours when available.
 
         AI analysis:
         %s
