@@ -240,21 +240,37 @@ public class CampaignSuggestionService {
     private List<CampaignSuggestionOut> generateAndSaveSuggestions(AIAnalysis aiAnalysis, Integer round, Subscription subscription) {
         String summary = buildAnalysisSummary(aiAnalysis);
         int count = getSuggestionCountByPlan(subscription.getPlanType());
+
         List<OpenAiService.CampaignSuggestionResult> aiResults =
                 openAiService.generateCampaignSuggestionsFromAIAnalysis(summary, round, count);
-        List<CampaignSuggestionOut> result = new ArrayList<>();
+
         for (OpenAiService.CampaignSuggestionResult r : aiResults) {
             validateGeneratedSuggestionTime(aiAnalysis, r);
+        }
+
+        List<CampaignSuggestionOut> result = new ArrayList<>();
+
+        for (OpenAiService.CampaignSuggestionResult r : aiResults) {
             CampaignSuggestion s = new CampaignSuggestion();
-            s.setTitle(r.title()); s.setDescription(r.description()); s.setOfferText(r.offerText());
-            s.setCampaignType(r.campaignType()); s.setSuggestedStartDate(r.suggestedStartDate());
-            s.setSuggestedEndDate(r.suggestedEndDate()); s.setSuggestedStartTime(r.suggestedStartTime());
-            s.setSuggestedEndTime(r.suggestedEndTime()); s.setTargetCustomersCount(r.targetCustomersCount());
-            s.setDiscountValue(r.discountValue()); s.setSuggestedProductName(r.suggestedProductName());
-            s.setSuggestionRound(r.suggestionRound()); s.setApprovalStatus(SuggestionStatus.PENDING);
+
+            s.setTitle(r.title());
+            s.setDescription(r.description());
+            s.setOfferText(r.offerText());
+            s.setCampaignType(r.campaignType());
+            s.setSuggestedStartDate(r.suggestedStartDate());
+            s.setSuggestedEndDate(r.suggestedEndDate());
+            s.setSuggestedStartTime(r.suggestedStartTime());
+            s.setSuggestedEndTime(r.suggestedEndTime());
+            s.setTargetCustomersCount(r.targetCustomersCount());
+            s.setDiscountValue(r.discountValue());
+            s.setSuggestedProductName(r.suggestedProductName());
+            s.setSuggestionRound(r.suggestionRound());
+            s.setApprovalStatus(SuggestionStatus.PENDING);
             s.setAiAnalysis(aiAnalysis);
+
             result.add(convertToOut(campaignSuggestionRepository.save(s)));
         }
+
         return result;
     }
 

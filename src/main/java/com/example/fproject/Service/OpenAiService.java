@@ -9,6 +9,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import com.example.fproject.Enum.CampaignType;
 
+import java.time.DayOfWeek;
+import java.time.format.DateTimeFormatter;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
@@ -40,44 +44,48 @@ public class OpenAiService {
         validateText(salesData, "Sales data is required");
 
         String prompt = """
-            You are an AI business analyst for a smart retail platform.
-            The platform helps stores use dead hours to create smart campaigns.
+        You are an AI business analyst for a smart retail platform.
+        The platform helps store owners identify weak sales opportunities and create smart campaigns.
 
-            Analyze the provided branch sales summary and return JSON only.
+        Analyze the provided branch sales summary and return JSON only.
 
-            Important rules:
-            - Return valid JSON only.
-            - Do not wrap the response in markdown.
-            - Do not add explanations outside the JSON.
-            - Every value must be a short Arabic text.
-            - Base your answer only on the provided sales data.
-            - If a value is unclear, write a reasonable Arabic explanation based on the data.
-            - Focus on dead hours, weak products, high-performing products, and campaign opportunities.
+        Important rules:
+        - Return valid JSON only.
+        - Do not wrap the response in markdown.
+        - Do not add explanations outside the JSON.
+        - Every value must be Arabic text.
+        - This analysis is internal and shown to the store owner only.
+        - It is allowed to mention ركود، ضعف المبيعات، أوقات ضعيفة، أيام ضعيفة، فائض المنتجات here.
+        - Base your answer only on the provided sales data.
+        - Do not invent weak days if the data does not clearly show them.
+        - If there is no clear weak day, say clearly: لا يوجد يوم ركود واضح من البيانات.
+        - If there is a clear slow hour range, write it in HH:mm-HH:mm format, for example: 15:00-17:00.
+        - If there are weak weekdays, mention the weekday names clearly in Arabic, for example: الأحد والثلاثاء.
 
-            Required JSON keys:
-            {
-              "topProducts": "Arabic text",
-              "lowProducts": "Arabic text",
-              "peakHours": "Arabic text",
-              "slowHours": "Arabic text",
-              "surplusProducts": "Arabic text",
-              "seasonalPatterns": "Arabic text",
-              "recommendation": "Arabic text",
-              "aiSummary": "Arabic text"
-            }
+        Required JSON keys:
+        {
+          "topProducts": "Arabic owner-facing text",
+          "lowProducts": "Arabic owner-facing text",
+          "peakHours": "Arabic owner-facing text",
+          "slowHours": "Arabic owner-facing text",
+          "surplusProducts": "Arabic owner-facing text",
+          "seasonalPatterns": "Arabic owner-facing text",
+          "recommendation": "Arabic owner-facing text",
+          "aiSummary": "Arabic owner-facing text"
+        }
 
-            What each key means:
-            - topProducts: products with strongest sales performance.
-            - lowProducts: products with weakest sales performance.
-            - peakHours: hours with strongest sales or revenue.
-            - slowHours: dead hours or weak selling periods.
-            - surplusProducts: products that may need promotion or clearance.
-            - seasonalPatterns: repeated pattern noticed from the month or hours.
-            - recommendation: one strategic recommendation for the store owner.
-            - aiSummary: short summary of the whole analysis.
+        What each key means:
+        - topProducts: strongest products by sales or quantity.
+        - lowProducts: weakest products by sales or quantity.
+        - peakHours: strongest hours during the day, preferably in HH:mm-HH:mm format.
+        - slowHours: dead hours or weak selling periods during the day, preferably in HH:mm-HH:mm format.
+        - surplusProducts: products that may need promotion or clearance.
+        - seasonalPatterns: repeated patterns from dates and times, including weak weekdays, weak dates, recurring slow days, or monthly patterns.
+        - recommendation: practical recommendation for the store owner.
+        - aiSummary: short executive summary of the whole analysis.
 
-            Sales summary:
-            """ + salesData;
+        Sales summary:
+        """ + salesData;
 
         String response = sendPrompt(prompt);
         String content = extractAssistantContent(response);
@@ -109,45 +117,111 @@ public class OpenAiService {
             throw new ApiException("Suggestion count must be positive");
         }
 
+        LocalDate today = LocalDate.now();
+        LocalTime now = LocalTime.now();
+        DayOfWeek todayDayOfWeek = today.getDayOfWeek();
+
         String prompt = """
-            Generate exactly %s campaign suggestions based on this AI analysis.
+        Generate exactly %s campaign suggestions based on this AI analysis.
 
-            Return JSON only.
-            Return a JSON array with exactly %s objects.
-            Use Arabic text for title, description, offerText, and suggestedProductName.
-            campaignType must be only DIRECT_OFFER or QUESTION_BASED.
-            suggestedStartDate and suggestedEndDate must use yyyy-MM-dd format.
-            suggestedStartTime and suggestedEndTime must use HH:mm format.
-            Branch opening and closing times are included in the AI analysis.
-            All suggested campaign times must be inside branch working hours.
-            suggestedStartTime must be same as or after branch opening time.
-            suggestedEndTime must be same as or before branch closing time.
-            Never suggest campaigns before opening time or after closing time.
-            suggestedStartDate must not be in the past.
-            suggestedEndDate must be same day or after suggestedStartDate.
-            discountValue must be between 0 and 100.
-            targetCustomersCount must be positive.
+        Return JSON only.
+        Return a JSON array with exactly %s objects.
+        Use Arabic text for title, description, offerText, and suggestedProductName.
 
-            JSON shape:
-            [
-              {
-                "title": "Arabic text",
-                "description": "Arabic text",
-                "offerText": "Arabic text",
-                "campaignType": "DIRECT_OFFER",
-                "suggestedStartDate": "2026-06-20",
-                "suggestedEndDate": "2026-06-20",
-                "suggestedStartTime": "15:00",
-                "suggestedEndTime": "17:00",
-                "targetCustomersCount": 100,
-                "discountValue": 25,
-                "suggestedProductName": "Arabic product name"
-              }
-            ]
+        Very important:
+        AIAnalysis is internal for the store owner.
+        CampaignSuggestion content should be customer-friendly because it may later become the real campaign content.
 
-            AI analysis:
-            %s
-            """.formatted(suggestionCount, suggestionCount, analysisSummary);
+        Customer-facing text rules:
+        - title, description, and offerText must be suitable for customers.                                                                              
+        - Never mention internal business problems to customers.
+        - Do not use these words in title, description, or offerText:
+        ركود، وقت ركود، أوقات الركود، فترات الركود، ضعف المبيعات، مبيعات ضعيفة، تصريف، فائض، منتجات راكدة.
+        - Do not include dates or times in title, description, or offerText.
+        - Dates and times must appear only in suggestedStartDate, suggestedEndDate, suggestedStartTime, and suggestedEndTime.
+        - Use positive marketing wording instead:
+        عرض لفترة محدودة، خصم خاص، فرصة مميزة، جرّب الآن، لا تفوّت العرض.
+        - The customer should feel it is a special offer, not that the store is trying to fix weak sales.
+
+        campaignType must be only one of these exact values:
+        - DIRECT_OFFER
+        - QUESTION_BASED
+
+        Current date and time:
+        - Today date is %s.
+        - Today day of week is %s.
+        - Current time is %s.
+
+        Scheduling rules:
+        - Use sales data patterns as the primary decision source.
+        - Use seasonalPatterns to understand weak days.
+        - Use slowHours to understand weak time ranges.
+        - Use holiday context as a seasonal factor, not as the only decision.
+        - If an upcoming holiday is relevant to the product and the branch is open, you may prioritize the holiday date or the day before it.
+        - If sales data shows a clearer weak day, prefer the weak day unless the holiday creates a stronger campaign opportunity.
+        - Do not assume every holiday increases visits.
+        - If a holiday is not relevant to the product or timing, ignore it and use the sales pattern.
+        - If weak weekdays are mentioned, choose a matching upcoming weekday.
+        - If a slow-hour time range is mentioned, use that time range.
+        - Do not choose a date or time in the past.
+        - Do not choose campaign times outside branch opening and closing hours.
+        - Do not choose random times.
+        - Do not copy sample values blindly.
+
+        Date and time format rules:
+        - suggestedStartDate and suggestedEndDate must be real dates in yyyy-MM-dd format.
+        - suggestedStartTime and suggestedEndTime must use HH:mm format.
+        - suggestedEndDate must be same day or after suggestedStartDate.
+        - suggestedEndTime must be after suggestedStartTime.
+
+        Business rules:
+        - discountValue must be between 0 and 100.
+        - targetCustomersCount must be positive.
+        - suggestedProductName must be based on products mentioned in the analysis when possible.
+        - Do not return null values.
+        - Do not add any explanation outside the JSON.
+        
+        Campaign content rules:
+        - If campaignType is DIRECT_OFFER, create a direct discount or product offer.
+        - If campaignType is QUESTION_BASED, make the title and description clearly invite the customer to answer a simple question or participate in a quick interaction.
+        - QUESTION_BASED offerText should mention a reward after participation, not only a normal purchase discount.
+        - Make the suggestions diverse. Do not repeat the same product in every suggestion unless the analysis only contains one suitable product.
+
+        Output format:
+        Return ONLY a valid JSON array.
+        The array must contain exactly the requested number of campaign suggestion objects.
+                
+        Each object must contain these keys exactly:
+        - "title": Arabic customer-facing campaign title.
+        - "description": Arabic customer-facing description. Do not mention slow sales, weak demand, recession, surplus, or dead hours.
+        - "offerText": Arabic offer message that can be sent to the customer.
+        - "campaignType": either "DIRECT_OFFER" or "QUESTION_BASED".
+        - "suggestedStartDate": real upcoming campaign start date in yyyy-MM-dd format, based on the scheduling rules.
+        - "suggestedEndDate": real upcoming campaign end date in yyyy-MM-dd format, usually the same as suggestedStartDate for short campaigns.
+        - "suggestedStartTime": campaign start time in HH:mm format, based on slowHours.
+        - "suggestedEndTime": campaign end time in HH:mm format, based on slowHours.
+        - "targetCustomersCount": realistic number of targeted customers.
+        - "discountValue": discount percentage from 0 to 100.
+        - "suggestedProductName": the product name used in the campaign.
+
+        Important:
+        - Do not use fixed sample dates.
+        - Do not use fixed sample times.
+        - Do not invent random dates.
+        - Do not invent random times.
+        - Dates must be upcoming dates only.
+        - Times must come from slowHours when available.
+
+        AI analysis:
+        %s
+        """.formatted(
+                suggestionCount,
+                suggestionCount,
+                today,
+                todayDayOfWeek,
+                now,
+                analysisSummary
+        );
 
         String response = sendPrompt(prompt);
         String content = extractAssistantContent(response);
@@ -163,9 +237,10 @@ public class OpenAiService {
             List<CampaignSuggestionResult> results = new ArrayList<>();
 
             for (JsonNode suggestionNode : jsonNode) {
-                String title = requiredJsonText(suggestionNode, "title");
-                String description = jsonText(suggestionNode, "description");
-                String offerText = requiredJsonText(suggestionNode, "offerText");
+                String title = sanitizeCustomerFacingText(requiredJsonText(suggestionNode, "title"));
+                String description = sanitizeCustomerFacingText(jsonText(suggestionNode, "description"));
+                String offerText = sanitizeCustomerFacingText(requiredJsonText(suggestionNode, "offerText"));
+
                 String campaignTypeText = requiredJsonText(suggestionNode, "campaignType");
                 String startDateText = requiredJsonText(suggestionNode, "suggestedStartDate");
                 String endDateText = requiredJsonText(suggestionNode, "suggestedEndDate");
@@ -173,13 +248,74 @@ public class OpenAiService {
                 String endTimeText = requiredJsonText(suggestionNode, "suggestedEndTime");
                 Integer targetCustomersCount = requiredJsonInteger(suggestionNode, "targetCustomersCount");
                 Double discountValue = requiredJsonDouble(suggestionNode, "discountValue");
-                String suggestedProductName = requiredJsonText(suggestionNode, "suggestedProductName");
+                String suggestedProductName = sanitizeCustomerFacingText(requiredJsonText(suggestionNode, "suggestedProductName"));
 
-                CampaignType campaignType = CampaignType.valueOf(campaignTypeText);
-                LocalDate suggestedStartDate = LocalDate.parse(startDateText);
-                LocalDate suggestedEndDate = LocalDate.parse(endDateText);
-                LocalTime suggestedStartTime = LocalTime.parse(startTimeText);
-                LocalTime suggestedEndTime = LocalTime.parse(endTimeText);
+                CampaignType campaignType;
+                try {
+                    campaignType = CampaignType.valueOf(campaignTypeText.trim());
+                } catch (Exception e) {
+                    throw new ApiException("AI returned invalid campaign type");
+                }
+
+                LocalDate aiSuggestedStartDate;
+                LocalDate aiSuggestedEndDate;
+                LocalTime aiSuggestedStartTime;
+                LocalTime aiSuggestedEndTime;
+
+                try {
+                    aiSuggestedStartDate = LocalDate.parse(startDateText.trim());
+                    aiSuggestedEndDate = LocalDate.parse(endDateText.trim());
+                    aiSuggestedStartTime = parseFlexibleTime(startTimeText);
+                    aiSuggestedEndTime = parseFlexibleTime(endTimeText);
+                } catch (Exception e) {
+                    throw new ApiException("AI returned invalid campaign date or time format");
+                }
+
+                LocalTime[] resolvedTimeRange = resolveCampaignTimeRange(
+                        analysisSummary,
+                        aiSuggestedStartTime,
+                        aiSuggestedEndTime
+                );
+
+                LocalTime suggestedStartTime = resolvedTimeRange[0];
+                LocalTime suggestedEndTime = resolvedTimeRange[1];
+
+                LocalDate suggestedStartDate = resolveCampaignStartDate(
+                        analysisSummary,
+                        aiSuggestedStartDate,
+                        suggestedStartTime,
+                        today,
+                        now
+                );
+
+                LocalDate suggestedEndDate = suggestedStartDate;
+
+                title = alignCustomerTextSchedule(title, suggestedStartDate, suggestedStartTime, suggestedEndTime, today);
+                description = alignCustomerTextSchedule(description, suggestedStartDate, suggestedStartTime, suggestedEndTime, today);
+                offerText = alignCustomerTextSchedule(offerText, suggestedStartDate, suggestedStartTime, suggestedEndTime, today);
+
+                targetCustomersCount = normalizeTargetCustomersCount(campaignType, targetCustomersCount);
+
+
+                if (aiSuggestedEndDate.isAfter(aiSuggestedStartDate)) {
+                    suggestedEndDate = aiSuggestedEndDate;
+                }
+
+                if (suggestedEndDate.isBefore(suggestedStartDate)) {
+                    suggestedEndDate = suggestedStartDate;
+                }
+
+                if (!suggestedEndTime.isAfter(suggestedStartTime)) {
+                    throw new ApiException("AI suggested campaign end time must be after start time");
+                }
+
+                if (targetCustomersCount == null || targetCustomersCount <= 0) {
+                    throw new ApiException("AI suggested target customers count must be positive");
+                }
+
+                if (discountValue < 0 || discountValue > 100) {
+                    throw new ApiException("AI suggested discount value must be between 0 and 100");
+                }
 
                 results.add(new CampaignSuggestionResult(
                         title,
@@ -198,11 +334,264 @@ public class OpenAiService {
             }
 
             return results;
+
         } catch (ApiException e) {
             throw e;
         } catch (Exception e) {
             throw new ApiException("Failed to parse AI campaign suggestions response");
         }
+    }
+
+
+    private LocalTime[] resolveCampaignTimeRange(String analysisSummary,
+                                                 LocalTime aiSuggestedStartTime,
+                                                 LocalTime aiSuggestedEndTime) {
+
+        LocalTime[] slowHoursRange = extractSlowHoursTimeRange(analysisSummary);
+
+        if (slowHoursRange != null && slowHoursRange[1].isAfter(slowHoursRange[0])) {
+            return slowHoursRange;
+        }
+
+        if (aiSuggestedStartTime != null && aiSuggestedEndTime != null && aiSuggestedEndTime.isAfter(aiSuggestedStartTime)) {
+            return new LocalTime[]{aiSuggestedStartTime, aiSuggestedEndTime};
+        }
+
+        throw new ApiException("Could not determine a valid campaign time range");
+    }
+
+    private LocalTime[] extractSlowHoursTimeRange(String analysisSummary) {
+        if (analysisSummary == null || analysisSummary.isBlank()) {
+            return null;
+        }
+
+        String[] lines = analysisSummary.split("\\R");
+
+        for (String line : lines) {
+            String lowerLine = line.toLowerCase();
+
+            if (lowerLine.contains("slow hours")
+                    || line.contains("أوقات الركود")
+                    || line.contains("وقت الركود")
+                    || line.contains("الأوقات الضعيفة")
+                    || line.contains("فترات الركود")) {
+
+                LocalTime[] range = extractFirstTimeRangeFromText(line);
+
+                if (range != null) {
+                    return range;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private LocalTime[] extractFirstTimeRangeFromText(String text) {
+        if (text == null || text.isBlank()) {
+            return null;
+        }
+
+        Pattern pattern = Pattern.compile("(\\d{1,2}:\\d{2})\\s*(?:-|–|—|إلى|الى|حتى|to)\\s*(\\d{1,2}:\\d{2})");
+        Matcher matcher = pattern.matcher(text);
+
+        if (matcher.find()) {
+            LocalTime start = parseFlexibleTime(matcher.group(1));
+            LocalTime end = parseFlexibleTime(matcher.group(2));
+            return new LocalTime[]{start, end};
+        }
+
+        return null;
+    }
+
+    private LocalTime parseFlexibleTime(String text) {
+        if (text == null || text.isBlank()) {
+            throw new ApiException("Invalid time value");
+        }
+
+        String value = text.trim();
+
+        if (value.matches("\\d:\\d{2}")) {
+            value = "0" + value;
+        }
+
+        return LocalTime.parse(value);
+    }
+
+    private LocalDate resolveCampaignStartDate(String analysisSummary,
+                                               LocalDate aiSuggestedDate,
+                                               LocalTime suggestedStartTime,
+                                               LocalDate today,
+                                               LocalTime now) {
+
+        List<DayOfWeek> weakDays = extractWeakDaysFromAnalysis(analysisSummary);
+
+        if (!weakDays.isEmpty()) {
+            return getNearestUpcomingWeakDate(weakDays, suggestedStartTime, today, now);
+        }
+
+        if (aiSuggestedDate.isBefore(today)) {
+            return today;
+        }
+
+        if (aiSuggestedDate.isEqual(today) && !suggestedStartTime.isAfter(now)) {
+            return today.plusDays(1);
+        }
+
+        return aiSuggestedDate;
+    }
+
+    private List<DayOfWeek> extractWeakDaysFromAnalysis(String analysisSummary) {
+        List<DayOfWeek> weakDays = new ArrayList<>();
+
+        if (analysisSummary == null || analysisSummary.isBlank()) {
+            return weakDays;
+        }
+
+        if (analysisSummary.contains("الأحد") || analysisSummary.contains("الاحد") || analysisSummary.contains("Sunday")) {
+            weakDays.add(DayOfWeek.SUNDAY);
+        }
+
+        if (analysisSummary.contains("الإثنين") || analysisSummary.contains("الاثنين") || analysisSummary.contains("الأثنين") || analysisSummary.contains("Monday")) {
+            weakDays.add(DayOfWeek.MONDAY);
+        }
+
+        if (analysisSummary.contains("الثلاثاء") || analysisSummary.contains("Tuesday")) {
+            weakDays.add(DayOfWeek.TUESDAY);
+        }
+
+        if (analysisSummary.contains("الأربعاء") || analysisSummary.contains("الاربعاء") || analysisSummary.contains("Wednesday")) {
+            weakDays.add(DayOfWeek.WEDNESDAY);
+        }
+
+        if (analysisSummary.contains("الخميس") || analysisSummary.contains("Thursday")) {
+            weakDays.add(DayOfWeek.THURSDAY);
+        }
+
+        if (analysisSummary.contains("الجمعة") || analysisSummary.contains("Friday")) {
+            weakDays.add(DayOfWeek.FRIDAY);
+        }
+
+        if (analysisSummary.contains("السبت") || analysisSummary.contains("Saturday")) {
+            weakDays.add(DayOfWeek.SATURDAY);
+        }
+
+        return weakDays;
+    }
+
+    private LocalDate getNearestUpcomingWeakDate(List<DayOfWeek> weakDays,
+                                                 LocalTime suggestedStartTime,
+                                                 LocalDate today,
+                                                 LocalTime now) {
+
+        for (int i = 0; i <= 21; i++) {
+            LocalDate candidateDate = today.plusDays(i);
+
+            if (weakDays.contains(candidateDate.getDayOfWeek())) {
+                if (i == 0 && !suggestedStartTime.isAfter(now)) {
+                    continue;
+                }
+
+                return candidateDate;
+            }
+        }
+
+        return today.plusDays(1);
+    }
+
+
+    private String sanitizeCustomerFacingText(String text) {
+        if (text == null || text.isBlank()) {
+            return text;
+        }
+
+        String cleanText = text;
+
+        cleanText = cleanText.replace("خلال فترات الركود", "خلال فترة العرض المحدودة");
+        cleanText = cleanText.replace("خلال أوقات الركود", "خلال فترة العرض المحدودة");
+        cleanText = cleanText.replace("خلال وقت الركود", "خلال فترة العرض المحدودة");
+        cleanText = cleanText.replace("في فترات الركود", "في فترة العرض المحدودة");
+        cleanText = cleanText.replace("في أوقات الركود", "في فترة العرض المحدودة");
+        cleanText = cleanText.replace("في وقت الركود", "في فترة العرض المحدودة");
+
+        cleanText = cleanText.replace("فترات الركود", "فترة العرض المحدودة");
+        cleanText = cleanText.replace("أوقات الركود", "فترة العرض المحدودة");
+        cleanText = cleanText.replace("وقت الركود", "فترة العرض المحدودة");
+        cleanText = cleanText.replace("الركود", "العرض");
+
+        cleanText = cleanText.replace("ضعف المبيعات", "الفترة المحدودة");
+        cleanText = cleanText.replace("مبيعات ضعيفة", "فترة محدودة");
+        cleanText = cleanText.replace("المبيعات الضعيفة", "الفترة المحدودة");
+
+        cleanText = cleanText.replace("تصريف", "تجربة");
+        cleanText = cleanText.replace("الفائض", "المميز");
+        cleanText = cleanText.replace("فائض", "مميز");
+        cleanText = cleanText.replace("منتجات راكدة", "منتجات مختارة");
+
+        return cleanText.trim();
+    }
+
+    private String alignCustomerTextSchedule(String text,
+                                             LocalDate suggestedStartDate,
+                                             LocalTime suggestedStartTime,
+                                             LocalTime suggestedEndTime,
+                                             LocalDate today) {
+
+        if (text == null || text.isBlank()) {
+            return text;
+        }
+
+        String cleanText = sanitizeCustomerFacingText(text);
+
+        cleanText = cleanText.replaceAll(
+                "\\s*(?:من|بين)?\\s*\\d{1,2}:\\d{2}(?::\\d{2})?\\s*(?:-|–|—|إلى|الى|حتى|to)\\s*\\d{1,2}:\\d{2}(?::\\d{2})?",
+                ""
+        );
+
+        cleanText = cleanText.replace("اليوم فقط", "لفترة محدودة");
+        cleanText = cleanText.replace("اليوم", "لفترة محدودة");
+        cleanText = cleanText.replace("غدًا", "لفترة محدودة");
+        cleanText = cleanText.replace("غدا", "لفترة محدودة");
+        cleanText = cleanText.replace("بكرة", "لفترة محدودة");
+
+        cleanText = cleanText.replaceAll("\\s{2,}", " ");
+        cleanText = cleanText.replace(" ،", "،");
+        cleanText = cleanText.replace(" !", "!");
+        cleanText = cleanText.replace(" .", ".");
+        cleanText = cleanText.replace("،!", "!");
+        cleanText = cleanText.replace("،.", ".");
+
+        return cleanText.trim();
+    }
+
+    private Integer normalizeTargetCustomersCount(CampaignType campaignType, Integer aiTargetCustomersCount) {
+        int min;
+        int max;
+        int defaultValue;
+
+        if (campaignType == CampaignType.QUESTION_BASED) {
+            min = 40;
+            max = 80;
+            defaultValue = 50;
+        } else {
+            min = 80;
+            max = 150;
+            defaultValue = 100;
+        }
+
+        if (aiTargetCustomersCount == null || aiTargetCustomersCount <= 0) {
+            return defaultValue;
+        }
+
+        if (aiTargetCustomersCount < min) {
+            return min;
+        }
+
+        if (aiTargetCustomersCount > max) {
+            return max;
+        }
+
+        return aiTargetCustomersCount;
     }
 
     public String generateCampaignSuggestion(String analysis) {
