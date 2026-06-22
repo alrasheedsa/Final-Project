@@ -217,7 +217,7 @@ public class CampaignService {
         Branch branch = campaign.getBranch();
         Integer sentCount = 0;
 
-        for (Customer customer : customerRepository.findCustomersByLocationConsentTrue()) {
+        for (Customer customer : customerRepository.findAll()) {
             if (sentCount >= campaign.getTargetCustomersCount()) break;
             if (customer.getUser() == null || customer.getUser().getPhone() == null
                     || customer.getUser().getPhone().isBlank()) continue;

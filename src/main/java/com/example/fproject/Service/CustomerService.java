@@ -62,7 +62,6 @@ public class CustomerService {
         customer.setLocationUrl(dto.getLocationUrl());
         customer.setLatitude(coordinates[0]);
         customer.setLongitude(coordinates[1]);
-        customer.setLocationConsent(dto.getLocationConsent());
 
         customerRepository.save(customer);
 
@@ -112,7 +111,6 @@ public class CustomerService {
         customer.setLocationUrl(dto.getLocationUrl());
         customer.setLatitude(coordinates[0]);
         customer.setLongitude(coordinates[1]);
-        customer.setLocationConsent(dto.getLocationConsent());
 
         customerRepository.save(customer);
 
@@ -137,8 +135,19 @@ public class CustomerService {
         userRepository.delete(user);
     }
 
+    public void updateLocation(Integer userId, String url) {
+        Customer customer = customerRepository.findCustomerById(userId);
+        if (customer == null) throw new ApiException("Customer not found");
+
+        double[] coordinates = googleMapService.extractLocationFromLink(url);
+        customer.setLatitude(coordinates[0]);
+        customer.setLongitude(coordinates[1]);
+        customer.setLocationUrl(url);
+        customerRepository.save(customer);
+    }
+
     public List<CustomerOut> getCustomersWithLocationConsent() {
-        List<Customer> customers = customerRepository.findCustomersByLocationConsentTrue();
+        List<Customer> customers = customerRepository.findAll();
         List<CustomerOut> result = new ArrayList<>();
         for (Customer customer : customers) {
             result.add(mapToDTOOUT(customer));
@@ -161,7 +170,7 @@ public class CustomerService {
         if (branch.getCampaignRadiusMeters() == null || branch.getCampaignRadiusMeters() <= 0)
             throw new ApiException("Branch campaign radius is required");
 
-        List<Customer> customers = customerRepository.findCustomersByLocationConsentTrue();
+        List<Customer> customers = customerRepository.findAll();
         List<CustomerOut> result = new ArrayList<>();
 
         for (Customer customer : customers) {
@@ -300,8 +309,6 @@ public class CustomerService {
 
     private Customer findCustomerWithLocationOrThrow(Integer customerId) {
         Customer customer = findCustomerOrThrow(customerId);
-        if (!Boolean.TRUE.equals(customer.getLocationConsent()))
-            throw new ApiException("Customer has not given location consent");
         if (customer.getLatitude() == null || customer.getLongitude() == null)
             throw new ApiException("Customer location is not set");
         return customer;
@@ -339,8 +346,7 @@ public class CustomerService {
                 customer.getUser().getCreatedAt(),
                 customer.getLocationUrl(),
                 customer.getLatitude(),
-                customer.getLongitude(),
-                customer.getLocationConsent()
+                customer.getLongitude()
         );
     }
 

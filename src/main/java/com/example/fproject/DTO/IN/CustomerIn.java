@@ -28,7 +28,4 @@ public class CustomerIn {
 
     @NotBlank(message = "Location URL is required")
     private String locationUrl;
-
-    @NotNull(message = "Location consent is required")
-    private Boolean locationConsent;
 }

@@ -138,4 +138,11 @@ public class CustomerController {
     public ResponseEntity<?> getUsedQRCodes(@AuthenticationPrincipal User user) {
         return ResponseEntity.status(200).body(customerService.getUsedQRCodes(user.getId()));
     }
+
+    // CUSTOMER — يحدث موقعه
+    @PutMapping("/my/update-location")
+    public ResponseEntity<?> updateLocation(@AuthenticationPrincipal User user, @RequestParam String url) {
+        customerService.updateLocation(user.getId(), url);
+        return ResponseEntity.status(200).body(new ApiResponse("Location updated successfully"));
+    }
 }

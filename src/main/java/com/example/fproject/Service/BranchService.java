@@ -205,7 +205,7 @@ public class BranchService {
         if (branch.getLatitude() == null || branch.getLongitude() == null)
             throw new ApiException("Branch location coordinates are missing");
 
-        List<Customer> customers = customerRepository.findCustomersByLocationConsentTrue();
+        List<Customer> customers = customerRepository.findAll();
 
         int within500   = countCustomersInsideRadius(branch, customers, 500);
         int within1500  = countCustomersInsideRadius(branch, customers, 1500);
@@ -288,7 +288,7 @@ public class BranchService {
         int currentRadius     = branch.getCampaignRadiusMeters() != null ? branch.getCampaignRadiusMeters() : 0;
         int recommendedRadius = branch.getRecommendedRadiusMeters() != null ? branch.getRecommendedRadiusMeters() : 0;
 
-        List<Customer> customers = customerRepository.findCustomersByLocationConsentTrue();
+        List<Customer> customers = customerRepository.findAll();
         int customersInCurrent     = countCustomersInsideRadius(branch, customers, currentRadius);
         int customersInRecommended = recommendedRadius > 0
                 ? countCustomersInsideRadius(branch, customers, recommendedRadius) : 0;
@@ -366,7 +366,7 @@ public class BranchService {
     private int countCustomersInRadius(Branch branch) {
         if (branch.getLatitude() == null || branch.getLongitude() == null
                 || branch.getCampaignRadiusMeters() == null) return 0;
-        List<Customer> customers = customerRepository.findCustomersByLocationConsentTrue();
+        List<Customer> customers = customerRepository.findAll();
         return countCustomersInsideRadius(branch, customers, branch.getCampaignRadiusMeters());
     }
 

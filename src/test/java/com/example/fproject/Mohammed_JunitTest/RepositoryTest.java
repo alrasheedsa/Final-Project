@@ -70,7 +70,6 @@ public class RepositoryTest {
         customer.setLocationUrl("https://maps.google.com/?q=24.6900,46.7200");
         customer.setLatitude(24.6900);
         customer.setLongitude(46.7200);
-        customer.setLocationConsent(true);
         customerRepository.save(customer);
 
         store = new Store();

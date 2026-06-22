@@ -28,5 +28,4 @@ public class CustomerOut {
 
     private Double longitude;
 
-    private Boolean locationConsent;
 }

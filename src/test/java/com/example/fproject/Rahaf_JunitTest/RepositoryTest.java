@@ -73,7 +73,6 @@ public class RepositoryTest {
         customer.setLocationUrl("https://maps.google.com/?q=24.6900,46.7200");
         customer.setLatitude(24.6900);
         customer.setLongitude(46.7200);
-        customer.setLocationConsent(true);
         customerRepository.save(customer);
 
         store = new Store();
@@ -153,11 +152,11 @@ public class RepositoryTest {
     }
 
     @Test
-    public void findCustomersByLocationConsentTrueTest() {
-        List<Customer> result = customerRepository.findCustomersByLocationConsentTrue();
+    public void findCustomerByPhoneTest() {
+        Customer result = customerRepository.findCustomerByUser_Phone(customerUser.getPhone());
 
-        Assertions.assertThat(result).isNotEmpty();
-        result.forEach(c -> Assertions.assertThat(c.getLocationConsent()).isTrue());
+        Assertions.assertThat(result).isNotNull();
+        Assertions.assertThat(result.getUser().getPhone()).isEqualTo(customerUser.getPhone());
     }
 
     @Test

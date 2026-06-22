@@ -66,7 +66,6 @@ public class ServiceTest {
         customer.setUser(customerUser);
         customer.setLatitude(24.6900);
         customer.setLongitude(46.7200);
-        customer.setLocationConsent(true);
         customer.setLocationUrl("https://maps.google.com/?q=24.6900,46.7200");
 
         subscription = new Subscription();
@@ -93,9 +92,9 @@ public class ServiceTest {
 
     @Test
     public void getSubscriptionStatus_Active_ReturnsCorrectStatus() {
-        when(storeOwnerRepository.findStoreOwnerById(1)).thenReturn(storeOwner);
+        when(storeOwnerRepository.findStoreOwnerByUserId(1)).thenReturn(storeOwner);
         when(subscriptionRepository.findFirstByStoreOwnerIdAndStatusOrderByEndDateDesc(
-                1, SubscriptionStatus.ACTIVE)).thenReturn(subscription);
+                storeOwner.getId(), SubscriptionStatus.ACTIVE)).thenReturn(subscription);
 
         SubscriptionStatusOut result = subscriptionService.getSubscriptionStatus(1);
 
@@ -108,11 +107,11 @@ public class ServiceTest {
 
     @Test
     public void getSubscriptionStatus_NoSubscription_ThrowsException() {
-        when(storeOwnerRepository.findStoreOwnerById(1)).thenReturn(storeOwner);
+        when(storeOwnerRepository.findStoreOwnerByUserId(1)).thenReturn(storeOwner);
         when(subscriptionRepository.findFirstByStoreOwnerIdAndStatusOrderByEndDateDesc(
-                1, SubscriptionStatus.ACTIVE)).thenReturn(null);
+                storeOwner.getId(), SubscriptionStatus.ACTIVE)).thenReturn(null);
         when(subscriptionRepository.findFirstByStoreOwnerIdAndStatusOrderByEndDateDesc(
-                1, SubscriptionStatus.PENDING)).thenReturn(null);
+                storeOwner.getId(), SubscriptionStatus.PENDING)).thenReturn(null);
 
         assertThatThrownBy(() -> subscriptionService.getSubscriptionStatus(1))
                 .isInstanceOf(ApiException.class)
