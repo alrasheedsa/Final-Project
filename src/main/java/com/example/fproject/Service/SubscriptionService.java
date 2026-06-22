@@ -2,6 +2,7 @@ package com.example.fproject.Service;
 
 import com.example.fproject.Api.ApiException;
 import com.example.fproject.DTO.OUT.CanCreateBranchOut;
+import com.example.fproject.DTO.OUT.ExpiryResultOut;
 import com.example.fproject.DTO.OUT.StoreOwnerDashboardOut;
 import com.example.fproject.DTO.OUT.SubscriptionLimitsOut;
 import com.example.fproject.DTO.OUT.SubscriptionPlanOut;
@@ -17,6 +18,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.List;
@@ -207,8 +209,12 @@ public class SubscriptionService {
 
     // STORE_OWNER — يلغي اشتراك بالـ subscriptionId
     @Transactional
-    public void cancelSubscription(Integer subscriptionId) {
+    public void cancelSubscription(Integer userId, Integer subscriptionId) {
         Subscription subscription = findSubscriptionOrThrow(subscriptionId);
+
+        StoreOwner owner = findStoreOwnerByUserIdOrThrow(userId);
+        if (subscription.getStoreOwner() == null || !subscription.getStoreOwner().getId().equals(owner.getId()))
+            throw new ApiException("You do not have permission to access this resource");
 
         if (subscription.getStatus() == SubscriptionStatus.CANCELLED)
             throw new ApiException("Subscription is already cancelled");
@@ -227,15 +233,21 @@ public class SubscriptionService {
 
     // ADMIN
     @Transactional
-    public void checkExpiredSubscriptions() {
+    public ExpiryResultOut checkExpiredSubscriptions() {
         List<Subscription> expired = subscriptionRepository
                 .findSubscriptionsByStatusAndEndDateBefore(SubscriptionStatus.ACTIVE, LocalDate.now());
 
+        int deactivatedStores = 0;
+        int deactivatedBranches = 0;
         for (Subscription subscription : expired) {
             subscription.setStatus(SubscriptionStatus.EXPIRED);
             subscriptionRepository.save(subscription);
-            deactivateStoresAndBranches(subscription);
+            int[] counts = deactivateStoresAndBranches(subscription);
+            deactivatedStores += counts[0];
+            deactivatedBranches += counts[1];
         }
+
+        return new ExpiryResultOut(expired.size(), deactivatedStores, deactivatedBranches, LocalDateTime.now());
     }
 
     // ── helpers ──────────────────────────────────────────────────────────────
@@ -318,20 +330,25 @@ public class SubscriptionService {
         throw new ApiException("No subscription found to renew");
     }
 
-    private void deactivateStoresAndBranches(Subscription subscription) {
+    private int[] deactivateStoresAndBranches(Subscription subscription) {
+        int deactivatedStores = 0;
+        int deactivatedBranches = 0;
         List<Store> stores = storeRepository.findStoresByStoreOwnerId(subscription.getStoreOwner().getId());
         for (Store store : stores) {
             if (store.getStatus() == StoreStatus.ACTIVE) {
                 store.setStatus(StoreStatus.INACTIVE);
                 storeRepository.save(store);
+                deactivatedStores++;
                 for (Branch branch : branchRepository.findBranchesByStoreId(store.getId())) {
                     if (branch.getStatus() == StoreStatus.ACTIVE) {
                         branch.setStatus(StoreStatus.INACTIVE);
                         branchRepository.save(branch);
+                        deactivatedBranches++;
                     }
                 }
             }
         }
+        return new int[]{deactivatedStores, deactivatedBranches};
     }
 
     private Subscription findSubscriptionOrThrow(Integer subscriptionId) {

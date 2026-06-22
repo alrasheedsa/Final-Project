@@ -2,6 +2,8 @@ package com.example.fproject.Controller;
 
 import com.example.fproject.Api.ApiResponse;
 import com.example.fproject.DTO.IN.CustomerIn;
+import com.example.fproject.DTO.OUT.AuthUserOut;
+import com.example.fproject.DTO.OUT.CustomerOut;
 import com.example.fproject.Model.User;
 import com.example.fproject.Service.CustomerService;
 import jakarta.validation.Valid;
@@ -19,8 +21,8 @@ public class CustomerController {
 
     @PostMapping("/register")
     public ResponseEntity<?> registerCustomer(@Valid @RequestBody CustomerIn dto) {
-        customerService.registerCustomer(dto);
-        return ResponseEntity.status(200).body(new ApiResponse("Customer registered successfully"));
+        CustomerOut out = customerService.registerCustomer(dto);
+        return ResponseEntity.status(200).body(new AuthUserOut(out.getId(), out.getFullName(), out.getEmail(), "CUSTOMER"));
     }
 
     // ADMIN

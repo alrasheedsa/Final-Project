@@ -2,6 +2,8 @@ package com.example.fproject.Controller;
 
 import com.example.fproject.Api.ApiResponse;
 import com.example.fproject.DTO.IN.StoreOwnerIn;
+import com.example.fproject.DTO.OUT.AuthUserOut;
+import com.example.fproject.DTO.OUT.StoreOwnerOut;
 import com.example.fproject.Model.User;
 import com.example.fproject.Service.StoreOwnerService;
 import jakarta.validation.Valid;
@@ -19,8 +21,8 @@ public class StoreOwnerController {
 
     @PostMapping("/register")
     public ResponseEntity<?> registerStoreOwner(@Valid @RequestBody StoreOwnerIn dto) {
-        storeOwnerService.registerStoreOwner(dto);
-        return ResponseEntity.status(200).body(new ApiResponse("Store owner registered successfully"));
+        StoreOwnerOut out = storeOwnerService.registerStoreOwner(dto);
+        return ResponseEntity.status(200).body(new AuthUserOut(out.getId(), out.getFullName(), out.getEmail(), "STORE_OWNER"));
     }
 
     // ADMIN
