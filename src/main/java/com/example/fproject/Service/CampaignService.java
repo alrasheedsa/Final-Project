@@ -4,6 +4,7 @@ import com.example.fproject.Api.ApiException;
 import com.example.fproject.DTO.IN.CampaignRequestIn;
 import com.example.fproject.DTO.OUT.CampaignDetailsOut;
 import com.example.fproject.DTO.OUT.CampaignResponseOut;
+import com.example.fproject.DTO.OUT.CampaignSendOut;
 import com.example.fproject.DTO.OUT.CampaignTimingOut;
 import com.example.fproject.DTO.OUT.ValueOut;
 import com.example.fproject.Enum.CampaignStatus;
@@ -24,6 +25,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -44,6 +46,7 @@ public class CampaignService {
     private final GoogleMapService googleMapService;
     private final WhatsAppService whatsAppService;
     private final CampaignResultService campaignResultService;
+    private final EmailService emailService;
     private final ModelMapper modelMapper;
 
     // ADMIN
@@ -206,7 +209,7 @@ public class CampaignService {
 
     // STORE_OWNER
     @Transactional
-    public void sendCampaign(Integer userId, Integer campaignId) {
+    public CampaignSendOut sendCampaign(Integer userId, Integer campaignId) {
         Campaign campaign = checkCampaign(campaignId);
         verifyOwnership(userId, campaign);
         validateCampaignCanSend(campaign);
@@ -216,13 +219,14 @@ public class CampaignService {
 
         Branch branch = campaign.getBranch();
         Integer sentCount = 0;
+        Integer skippedCount = 0;
 
         for (Customer customer : customerRepository.findAll()) {
             if (sentCount >= campaign.getTargetCustomersCount()) break;
             if (customer.getUser() == null || customer.getUser().getPhone() == null
-                    || customer.getUser().getPhone().isBlank()) continue;
-            if (!isCustomerInsideRadius(customer, branch)) continue;
-            if (Boolean.TRUE.equals(campaignMessageRepository.existsByCampaignIdAndCustomerId(campaign.getId(), customer.getId()))) continue;
+                    || customer.getUser().getPhone().isBlank()) { skippedCount++; continue; }
+            if (!isCustomerInsideRadius(customer, branch)) { skippedCount++; continue; }
+            if (Boolean.TRUE.equals(campaignMessageRepository.existsByCampaignIdAndCustomerId(campaign.getId(), customer.getId()))) { skippedCount++; continue; }
 
             GoogleMapService.RouteResult route = googleMapService.calculateRoute(
                     customer.getLatitude(), customer.getLongitude(),
@@ -242,6 +246,7 @@ public class CampaignService {
                         campaign.getOfferText(), buildCampaignTime(campaign), branch.getLocationUrl(),
                         route.distanceText(), route.durationMinutes(), qrCode.getCode());
                 messageText = campaign.getOfferText();
+                sendQrCodeEmailSafely(customer, branch, campaign, qrCode);
             }
 
             CampaignMessage msg = new CampaignMessage();
@@ -262,6 +267,20 @@ public class CampaignService {
         campaign.setSentCount(campaign.getSentCount() + sentCount);
         campaign.setStatus(CampaignStatus.ACTIVE);
         campaignRepository.save(campaign);
+
+        return new CampaignSendOut(campaign.getId(), sentCount, skippedCount, campaign.getStatus());
+    }
+
+    private void sendQrCodeEmailSafely(Customer customer, Branch branch, Campaign campaign, QRCode qrCode) {
+        try {
+            if (customer.getUser() == null || customer.getUser().getEmail() == null
+                    || customer.getUser().getEmail().isBlank()) return;
+            byte[] qrPng = Base64.getDecoder().decode(qrCode.getQrImageBase64());
+            emailService.sendQrCodeEmail(customer.getUser().getEmail(),
+                    branch.getStore().getName(), campaign.getTitle(), qrCode.getCode(), qrPng);
+        } catch (Exception e) {
+            // email delivery must not break the campaign send flow
+        }
     }
 
     // ADMIN — يشغّل تلقائياً بدون userId
