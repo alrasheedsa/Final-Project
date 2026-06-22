@@ -394,6 +394,49 @@ public class EmailService {
         }
     }
 
+    public void sendQrCodeEmail(String to,
+                               String storeName,
+                               String campaignTitle,
+                               String qrCode,
+                               byte[] qrPng) {
+        validateText(to,            "Recipient email is required");
+        validateText(storeName,     "Store name is required");
+        validateText(campaignTitle, "Campaign title is required");
+        validateText(qrCode,        "QR code is required");
+
+        if (qrPng == null || qrPng.length == 0) {
+            throw new ApiException("QR code image is required");
+        }
+
+        String subject = "رمز العرض الخاص بك — على دربك";
+
+        String content = "";
+        content += buildEmailHighlightCard("اسم المتجر", storeName);
+        content += buildEmailSoftCard("الحملة", campaignTitle);
+        content += buildEmailSoftHighlightCard("كود العرض (QR)", qrCode);
+
+        String htmlBody = buildBrandedEmailHtml(
+                "رمز العرض الخاص بك",
+                "إليك رمز العرض الخاص بك",
+                "أرفقنا لك صورة رمز QR. اعرضها للكاشير عند زيارة الفرع للاستفادة من العرض.",
+                content,
+                "صورة رمز QR مرفقة بهذا الإيميل."
+        );
+
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setTo(to);
+            helper.setSubject(subject);
+            helper.setText(htmlBody, true);
+            helper.addAttachment("qr-" + qrCode + ".png", new ByteArrayResource(qrPng), "image/png");
+            mailSender.send(message);
+            logger.info("QR code email sent to: " + to);
+        } catch (Exception e) {
+            throw new ApiException("Failed to send QR code email: " + e.getMessage());
+        }
+    }
+
     private String safeEmailText(String value) {
         if (value == null || value.isBlank()) {
             return "غير متوفر";

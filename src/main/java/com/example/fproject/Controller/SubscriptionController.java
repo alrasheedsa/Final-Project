@@ -78,15 +78,14 @@ public class SubscriptionController {
 
     // STORE_OWNER
     @PutMapping("/cancel/{subscriptionId}")
-    public ResponseEntity<?> cancelSubscription(@PathVariable Integer subscriptionId) {
-        subscriptionService.cancelSubscription(subscriptionId);
+    public ResponseEntity<?> cancelSubscription(@AuthenticationPrincipal User user, @PathVariable Integer subscriptionId) {
+        subscriptionService.cancelSubscription(user.getId(), subscriptionId);
         return ResponseEntity.status(200).body(new ApiResponse("Subscription cancelled successfully"));
     }
 
     // ADMIN
     @PutMapping("/check-expired")
     public ResponseEntity<?> checkExpiredSubscriptions() {
-        subscriptionService.checkExpiredSubscriptions();
-        return ResponseEntity.status(200).body(new ApiResponse("Expired subscriptions checked and updated successfully"));
+        return ResponseEntity.status(200).body(subscriptionService.checkExpiredSubscriptions());
     }
 }

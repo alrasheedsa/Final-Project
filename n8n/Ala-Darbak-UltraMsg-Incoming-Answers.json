@@ -1,0 +1,124 @@
+{
+  "name": "Ala Darbak - UltraMsg Incoming Answers",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ultramsg-in",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "2f0b0001-0000-4000-8000-000000000001",
+      "name": "Webhook ultramsg-in",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "ultramsg-in"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "c1000000-0000-4000-8000-000000000001",
+              "leftValue": "={{ $json.body.data.fromMe }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "2f0b0002-0000-4000-8000-000000000002",
+      "name": "IF fromMe is false",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [470, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://backtalk-ransack-cohesive.ngrok-free.dev/api/v1/whatsapp/webhook",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {}
+      },
+      "id": "2f0b0003-0000-4000-8000-000000000003",
+      "name": "Forward To Spring Boot",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [700, 220]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "OK",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "2f0b0004-0000-4000-8000-000000000004",
+      "name": "Respond 200",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [940, 220]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "Ignored",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "2f0b0005-0000-4000-8000-000000000005",
+      "name": "Respond Ignored",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [700, 420]
+    }
+  ],
+  "connections": {
+    "Webhook ultramsg-in": {
+      "main": [
+        [
+          { "node": "IF fromMe is false", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "IF fromMe is false": {
+      "main": [
+        [
+          { "node": "Forward To Spring Boot", "type": "main", "index": 0 }
+        ],
+        [
+          { "node": "Respond Ignored", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Forward To Spring Boot": {
+      "main": [
+        [
+          { "node": "Respond 200", "type": "main", "index": 0 }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false,
+  "pinData": {},
+  "tags": []
+}

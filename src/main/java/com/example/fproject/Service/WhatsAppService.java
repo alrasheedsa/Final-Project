@@ -3,6 +3,7 @@ package com.example.fproject.Service;
 import com.example.fproject.Api.ApiException;
 import com.example.fproject.DTO.IN.UltraMsgWebhookIn;
 import com.example.fproject.DTO.OUT.CustomerAnswerResponseOut;
+import com.example.fproject.Enum.CampaignStatus;
 import com.example.fproject.Enum.MessageStatus;
 import com.example.fproject.Model.Branch;
 import com.example.fproject.Model.Campaign;
@@ -23,6 +24,9 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
+import java.time.LocalDateTime;
+import java.util.Base64;
+
 @Service
 @RequiredArgsConstructor
 public class WhatsAppService {
@@ -31,6 +35,7 @@ public class WhatsAppService {
     private final CampaignMessageRepository campaignMessageRepository;
     private final QRCodeRepository qrCodeRepository;
     private final CustomerAnswerService customerAnswerService;
+    private final EmailService emailService;
 
     private final RestTemplate restTemplate = new RestTemplate();
 
@@ -140,6 +145,10 @@ public class WhatsAppService {
             لا يوجد لديك عرض أو سؤال نشط حالياً.
             """;
 
+    private static final String CAMPAIGN_ENDED_MESSAGE = """
+            انتهت مدة الحملة، شكراً لتفاعلك.
+            """;
+
     public String sendMessage(String phone, String messageBody) {
         validateConfiguration();
         validateText(phone, "Phone is required");
@@ -221,6 +230,11 @@ public class WhatsAppService {
         return sendMessage(phone, NO_OPEN_CAMPAIGN_MESSAGE);
     }
 
+    public String sendCampaignEndedMessage(String phone) {
+        validateText(phone, "Phone is required");
+        return sendMessage(phone, CAMPAIGN_ENDED_MESSAGE);
+    }
+
     @Transactional
     public String receiveWebhook(UltraMsgWebhookIn webhookIn) {
         if (webhookIn == null || webhookIn.getData() == null) {
@@ -254,10 +268,15 @@ public class WhatsAppService {
             return "No open campaign message has been sent";
         }
 
+        Campaign campaign = message.getCampaign();
+        if (!isCampaignAcceptingAnswers(campaign)) {
+            sendCampaignEndedMessage(phone);
+            return "Campaign ended message has been sent";
+        }
+
         CustomerAnswerResponseOut answer = customerAnswerService.answerCampaignMessage(customer.getId(), message.getId(), selectedOption);
 
         if (Boolean.TRUE.equals(answer.getCorrect())) {
-            Campaign campaign = message.getCampaign();
             Branch branch = campaign.getBranch();
             QRCode qrCode = qrCodeRepository.findQRCodeByCampaignId(campaign.getId());
             if (qrCode == null) {
@@ -273,6 +292,7 @@ public class WhatsAppService {
                     message.getDistanceText(),
                     message.getDurationMinutes(),
                     qrCode.getCode());
+            sendQrCodeEmailSafely(customer, branch, campaign, qrCode);
         } else {
             sendWrongAnswerMessage(phone);
         }
@@ -290,6 +310,25 @@ public class WhatsAppService {
             }
         }
         return null;
+    }
+
+    private boolean isCampaignAcceptingAnswers(Campaign campaign) {
+        if (campaign == null || campaign.getStatus() != CampaignStatus.ACTIVE) return false;
+        if (campaign.getStartDateTime() == null || campaign.getEndDateTime() == null) return false;
+        LocalDateTime now = LocalDateTime.now();
+        return !now.isBefore(campaign.getStartDateTime()) && !now.isAfter(campaign.getEndDateTime());
+    }
+
+    private void sendQrCodeEmailSafely(Customer customer, Branch branch, Campaign campaign, QRCode qrCode) {
+        try {
+            if (customer.getUser() == null || customer.getUser().getEmail() == null
+                    || customer.getUser().getEmail().isBlank()) return;
+            byte[] qrPng = Base64.getDecoder().decode(qrCode.getQrImageBase64());
+            emailService.sendQrCodeEmail(customer.getUser().getEmail(),
+                    branch.getStore().getName(), campaign.getTitle(), qrCode.getCode(), qrPng);
+        } catch (Exception e) {
+            // email delivery must not break the WhatsApp answer flow
+        }
     }
 
     private CampaignMessage findOpenMessage(Integer customerId) {

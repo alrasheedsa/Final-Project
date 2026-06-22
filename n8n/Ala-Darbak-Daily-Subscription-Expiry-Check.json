@@ -1,0 +1,80 @@
+{
+  "name": "Ala Darbak - Daily Subscription Expiry Check",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "daysInterval": 1,
+              "triggerAtHour": 0,
+              "triggerAtMinute": 5
+            }
+          ]
+        }
+      },
+      "id": "1f0a0001-0000-4000-8000-000000000001",
+      "name": "Daily Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [260, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1000000-0000-4000-8000-000000000001",
+              "name": "baseUrl",
+              "value": "https://backtalk-ransack-cohesive.ngrok-free.dev",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "1f0a0002-0000-4000-8000-000000000002",
+      "name": "Set Base URL",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "={{ $json.baseUrl }}/api/v1/subscription/check-expired",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "options": {}
+      },
+      "id": "1f0a0003-0000-4000-8000-000000000003",
+      "name": "Check Expired Subscriptions",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [700, 300]
+    }
+  ],
+  "connections": {
+    "Daily Schedule": {
+      "main": [
+        [
+          { "node": "Set Base URL", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Set Base URL": {
+      "main": [
+        [
+          { "node": "Check Expired Subscriptions", "type": "main", "index": 0 }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false,
+  "pinData": {},
+  "tags": []
+}
