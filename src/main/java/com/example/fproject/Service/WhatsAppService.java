@@ -1,7 +1,7 @@
 package com.example.fproject.Service;
 
 import com.example.fproject.Api.ApiException;
-import com.example.fproject.DTO.IN.WhatsAppWebhookIn;
+import com.example.fproject.DTO.IN.UltraMsgWebhookIn;
 import com.example.fproject.DTO.OUT.CustomerAnswerResponseOut;
 import com.example.fproject.Enum.MessageStatus;
 import com.example.fproject.Model.Branch;
@@ -12,13 +12,16 @@ import com.example.fproject.Model.QRCode;
 import com.example.fproject.Repository.CampaignMessageRepository;
 import com.example.fproject.Repository.CustomerRepository;
 import com.example.fproject.Repository.QRCodeRepository;
-import com.twilio.Twilio;
-import com.twilio.rest.api.v2010.account.Message;
-import com.twilio.type.PhoneNumber;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.RestTemplate;
 
 @Service
 @RequiredArgsConstructor
@@ -29,14 +32,15 @@ public class WhatsAppService {
     private final QRCodeRepository qrCodeRepository;
     private final CustomerAnswerService customerAnswerService;
 
-    @Value("${twilio.account.sid}")
-    private String accountSid;
+    private final RestTemplate restTemplate = new RestTemplate();
 
-    @Value("${twilio.auth.token}")
-    private String authToken;
+    private static final String ULTRAMSG_BASE_URL = "https://api.ultramsg.com";
 
-    @Value("${twilio.whatsapp.number}")
-    private String fromNumber;
+    @Value("${ultramsg.instance.id}")
+    private String instanceId;
+
+    @Value("${ultramsg.token}")
+    private String token;
 
     private static final String QUESTION_MESSAGE_TEMPLATE = """
             مرحبا
@@ -140,12 +144,25 @@ public class WhatsAppService {
         validateConfiguration();
         validateText(phone, "Phone is required");
         validateText(messageBody, "Message is required");
-        Twilio.init(accountSid, authToken);
-        Message.creator(
-                new PhoneNumber(toWhatsAppNumber(phone)),
-                new PhoneNumber(toWhatsAppNumber(fromNumber)),
-                messageBody
-        ).create();
+
+        String url = ULTRAMSG_BASE_URL + "/" + instanceId + "/messages/chat";
+
+        MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
+        form.add("token", token);
+        form.add("to", toUltraMsgNumber(phone));
+        form.add("body", messageBody);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+
+        HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(form, headers);
+
+        try {
+            restTemplate.postForEntity(url, request, String.class);
+        } catch (Exception e) {
+            throw new ApiException("Failed to send WhatsApp message: " + e.getMessage());
+        }
+
         return "WhatsApp message has been sent";
     }
 
@@ -205,13 +222,17 @@ public class WhatsAppService {
     }
 
     @Transactional
-    public String receiveWebhook(WhatsAppWebhookIn webhookIn) {
-        if (webhookIn == null) {
+    public String receiveWebhook(UltraMsgWebhookIn webhookIn) {
+        if (webhookIn == null || webhookIn.getData() == null) {
             throw new ApiException("Webhook payload is required");
         }
 
-        String phone = normalizeWhatsAppPhone(webhookIn.getFrom());
-        String selectedOption = normalizeSelectedOption(webhookIn.getBody());
+        if (Boolean.TRUE.equals(webhookIn.getData().getFromMe())) {
+            return "Outgoing message ignored";
+        }
+
+        String phone = normalizeWhatsAppPhone(webhookIn.getData().getFrom());
+        String selectedOption = normalizeSelectedOption(webhookIn.getData().getBody());
 
         validateText(phone, "Sender phone is required");
         validateText(selectedOption, "Message body is required");
@@ -233,7 +254,7 @@ public class WhatsAppService {
             return "No open campaign message has been sent";
         }
 
-        CustomerAnswerResponseOut answer = customerAnswerService.answerCampaignMessage(customer.getId(),message.getId(), selectedOption);
+        CustomerAnswerResponseOut answer = customerAnswerService.answerCampaignMessage(customer.getId(), message.getId(), selectedOption);
 
         if (Boolean.TRUE.equals(answer.getCorrect())) {
             Campaign campaign = message.getCampaign();
@@ -283,12 +304,20 @@ public class WhatsAppService {
 
     private String normalizeWhatsAppPhone(String phone) {
         validateText(phone, "Sender phone is required");
-        return phone.replace("whatsapp:", "").trim();
+        return canonicalPhone(phone);
     }
 
     private String normalizeStoredPhone(String phone) {
         validateText(phone, "Phone is required");
-        return phone.replace("whatsapp:", "").trim();
+        return canonicalPhone(phone);
+    }
+
+    private String canonicalPhone(String phone) {
+        return phone.replace("whatsapp:", "")
+                .replace("@c.us", "")
+                .replace("+", "")
+                .replaceAll("\\s", "")
+                .trim();
     }
 
     private String normalizeSelectedOption(String body) {
@@ -300,13 +329,11 @@ public class WhatsAppService {
         return option.equals("A") || option.equals("B") || option.equals("C");
     }
 
-    private String toWhatsAppNumber(String phone) {
+    private String toUltraMsgNumber(String phone) {
         validateText(phone, "Phone is required");
-        String cleanPhone = phone.trim();
-        if (cleanPhone.startsWith("whatsapp:")) {
-            return cleanPhone;
-        }
-        return "whatsapp:" + cleanPhone;
+        return phone.replace("whatsapp:", "")
+                .replace("@c.us", "")
+                .trim();
     }
 
     private void validateOfferMessage(String phone, String storeName, String branchName,
@@ -329,14 +356,11 @@ public class WhatsAppService {
     }
 
     private void validateConfiguration() {
-        if (accountSid == null || accountSid.isBlank()) {
-            throw new ApiException("Twilio account SID is not configured");
+        if (instanceId == null || instanceId.isBlank()) {
+            throw new ApiException("UltraMsg instance id is not configured");
         }
-        if (authToken == null || authToken.isBlank()) {
-            throw new ApiException("Twilio auth token is not configured");
-        }
-        if (fromNumber == null || fromNumber.isBlank()) {
-            throw new ApiException("Twilio WhatsApp number is not configured");
+        if (token == null || token.isBlank()) {
+            throw new ApiException("UltraMsg token is not configured");
         }
     }
 
