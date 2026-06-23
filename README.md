@@ -493,8 +493,6 @@ The store uploads its sales data → AI analyzes the data and generates a market
 | GET | `/check` |
 </details>
 
-> ملاحظة: الإجمالي حسب ملكية الـ Controller هو **محمد 92 · رهف 72 · رغد 57**. إذا كان رقمك المتتبَّع (50 / 53 / 46) يحسب الـ **endpoints الإضافية فقط** (باستثناء CRUD الأساسي المشترك: register/get/add/update/delete)، قل لي وأفصل عمود "Extra" في كل جدول.
-
 ---
 
 ## 🗂️ مخطط الأصناف (Class Diagram)
