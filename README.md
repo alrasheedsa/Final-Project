@@ -887,7 +887,7 @@ CREATE DATABASE ala_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 | المورد | الرابط |
 |--------|--------|
-| 📚 **API Documentation (Postman)** | https://documenter.getpostman.com/view/54224451/2sBXwvL9jD#31baae79-ec5c-4cc4-b861-6e8db2af25f0 |
+| 📚 **API Documentation (Postman)** | https://documenter.getpostman.com/view/54224451/2sBXwwnT9M |
 | 🎨 **Figma Design** | https://www.figma.com/design/iCCIxJsa3QYa11zm4wHHZY/Untitled?node-id=32-304&t=Ap5axML4NqIVtLyC-1 |
 | ☁️ **AWS Deployment (Live)** | http://ala-darbak-env.eba-i9vnmum9.eu-central-1.elasticbeanstalk.com |
 
