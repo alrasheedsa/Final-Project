@@ -398,7 +398,9 @@ The store uploads its sales data → AI analyzes the data and generates a market
 
 ---
 
-### 🟣 رغد — بيانات المبيعات + تحليل AI + اقتراح الحملات + الإجازات + الحملات + نتائج الحملات (endpoint 65)النطاق: `SalesRecord`, `SalesRecordItem`, `AIAnalysis`, `CampaignSuggestion`, `Holiday`
+### 🟣 رغد البقمي — بيانات المبيعات + تحليل AI + اقتراح الحملات + الإجازات + الحملات + نتائج الحملات (endpoint 65)
+
+النطاق: `SalesRecord`, `SalesRecordItem`, `AIAnalysis`, `CampaignSuggestion`, `Holiday`, `Campaign`, `CampaignResult`
 
 <details open>
 <summary><b>AIAnalysis</b> · <code>/api/v1/ai-analysis</code> (29)</summary>
@@ -492,7 +494,7 @@ The store uploads its sales data → AI analyzes the data and generates a market
 | GET | `/check` |
 </details>
 
-```md
+
 <details>
 <summary><strong>Campaign</strong> · <code>/api/v1/campaigns</code> (5)</summary>
 
@@ -516,6 +518,9 @@ The store uploads its sales data → AI analyzes the data and generates a market
 | GET | `/qr-used/{campaignId}` |
 
 </details>
+
+```md
+
 ```
 
 
