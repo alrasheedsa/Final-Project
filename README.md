@@ -398,8 +398,7 @@ The store uploads its sales data → AI analyzes the data and generates a market
 
 ---
 
-### 🟣 رغد — *بيانات المبيعات + تحليل AI + اقتراح الحملات + الإجازات* (57 endpoint)
-النطاق: `SalesRecord`, `SalesRecordItem`, `AIAnalysis`, `CampaignSuggestion`, `Holiday`
+### 🟣 رغد — بيانات المبيعات + تحليل AI + اقتراح الحملات + الإجازات + الحملات + نتائج الحملات (endpoint 65)النطاق: `SalesRecord`, `SalesRecordItem`, `AIAnalysis`, `CampaignSuggestion`, `Holiday`
 
 <details open>
 <summary><b>AIAnalysis</b> · <code>/api/v1/ai-analysis</code> (29)</summary>
@@ -492,6 +491,33 @@ The store uploads its sales data → AI analyzes the data and generates a market
 | GET | `/public/{year}/{countryCode}` |
 | GET | `/check` |
 </details>
+
+```md
+<details>
+<summary><strong>Campaign</strong> · <code>/api/v1/campaigns</code> (5)</summary>
+
+| Method | Path |
+|---|---|
+| GET | `/{campaignId}/dashboard` |
+| GET | `/{campaignId}/qr-status` |
+| GET | `/remaining-coupons/{campaignId}` |
+| GET | `/type/{campaignId}` |
+| GET | `/source/{campaignId}` |
+
+</details>
+
+<details>
+<summary><strong>CampaignResult</strong> · <code>/api/v1/campaign-results</code> (3)</summary>
+
+| Method | Path |
+|---|---|
+| POST | `/generate-finished` |
+| GET | `/{campaignId}/dashboard` |
+| GET | `/qr-used/{campaignId}` |
+
+</details>
+```
+
 
 ---
 
@@ -893,6 +919,5 @@ CREATE DATABASE ala_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 <div align="center">
 
-صُنع بـ ❤️ بواسطة فريق **على دربك** — محمد الرشيد · رهف العمري · رغد
-
+صُنع بـ ❤️ بواسطة فريق **على دربك** — محمد الرشيد · رهف العمري · رغد البقمي
 </div>
