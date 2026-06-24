@@ -767,7 +767,7 @@ flowchart TD
     I1 --> I2[تجميع النتائج شهرياً]
     I2 --> I3[توليد التقرير الشهري<br/>MonthlyReport]
     I3 --> I4[ملخص AI + PDF<br/>OpenAI + OpenHTMLtoPDF]
-    I4 --> I5[📧 إرسال التقرير بالإيميل<br/>send-email/reportId]
+    I4 --> I5[📧 تحميل التقرير <br/>send-email/reportId]
 
     classDef ai fill:#1F5C4D,color:#fff;
     classDef ext fill:#8a5a00,color:#fff;
