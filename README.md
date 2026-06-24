@@ -117,18 +117,21 @@ The store uploads its sales data → AI analyzes the data and generates a market
 
 ---
 
-## 👥 فريق العمل والـ Endpoints (كاملة)
+## 👥 فريق العمل والـ Endpoints الإضافية (Extra)
 
-### 🟢 محمد الرشيد — *محرّك الحملات + واتساب + QR + الأسئلة* (92 endpoint)
+> هذا القسم يعرض **الـ endpoints الإضافية فقط** — تمّ استبعاد عمليات CRUD الأساسية المشتركة (`register` / `get` / `get/{id}` / `add` / `update/{id}` / `delete/{id}`).
+>
+> **الإجمالي: 149 endpoint إضافي** = 🟢 محمد **50** · 🔵 رهف **53** · 🟣 رغد **46**.
+>
+
+### 🟢 محمد الرشيد — *محرّك الحملات + واتساب + QR + الأسئلة* (50)
 النطاق: `Campaign`, `CampaignMessage`, `CampaignResult`, `AiQuestion`, `CustomerAnswer`, `QRCode`, `QRRedemption`, `WhatsApp`
 
 <details open>
-<summary><b>Campaign</b> · <code>/api/v1/campaigns</code> (30)</summary>
+<summary><b>Campaign</b> · <code>/api/v1/campaigns</code></summary>
 
 | Method | Path |
 |--------|------|
-| GET | `/get` |
-| GET | `/get/{campaignId}` |
 | GET | `/branch/{branchId}` |
 | GET | `/branch/{branchId}/active` |
 | GET | `/branch/{branchId}/scheduled` |
@@ -145,7 +148,6 @@ The store uploads its sales data → AI analyzes the data and generates a market
 | GET | `/question/{campaignId}` |
 | GET | `/source/{campaignId}` |
 | POST | `/create-from-suggestion` |
-| POST | `/add` |
 | PUT | `/approve/{campaignId}` |
 | PUT | `/cancel/{campaignId}` |
 | PUT | `/start/{campaignId}` |
@@ -155,34 +157,13 @@ The store uploads its sales data → AI analyzes the data and generates a market
 | PUT | `/expire-finished` |
 | PUT | `/check-finished` |
 | PUT | `/start-ready` |
-| PUT | `/update/{campaignId}` |
-| DELETE | `/deleted/{campaignId}` |
 </details>
 
 <details>
-<summary><b>CampaignMessage</b> · <code>/api/v1/campaign-messages</code> (10)</summary>
+<summary><b>CampaignResult</b> · <code>/api/v1/campaign-results</code></summary>
 
 | Method | Path |
 |--------|------|
-| GET | `/get` |
-| GET | `/get/{campaignMessageId}` |
-| GET | `/campaign/{campaignId}` |
-| GET | `/customer/{customerId}` |
-| GET | `/open-by-phone` |
-| POST | `/add` |
-| PUT | `/update/{campaignMessageId}` |
-| PUT | `/mark-sent/{campaignMessageId}` |
-| PUT | `/mark-answered/{campaignMessageId}` |
-| DELETE | `/deleted/{campaignMessageId}` |
-</details>
-
-<details>
-<summary><b>CampaignResult</b> · <code>/api/v1/campaign-results</code> (16)</summary>
-
-| Method | Path |
-|--------|------|
-| GET | `/get` |
-| GET | `/get/{campaignResultId}` |
 | GET | `/campaign/{campaignId}` |
 | GET | `/total-sent/{campaignId}` |
 | GET | `/total-answered/{campaignId}` |
@@ -194,76 +175,65 @@ The store uploads its sales data → AI analyzes the data and generates a market
 | POST | `/generate-finished` |
 | GET | `/{campaignId}/dashboard` |
 | POST | `/generate/{campaignId}` |
-| POST | `/add` |
-| PUT | `/update/{campaignResultId}` |
-| DELETE | `/deleted/{campaignResultId}` |
 </details>
 
 <details>
-<summary><b>AiQuestion</b> · <code>/api/v1/ai-questions</code> (9)</summary>
+<summary><b>CampaignMessage</b> · <code>/api/v1/campaign-messages</code></summary>
 
 | Method | Path |
 |--------|------|
-| GET | `/get` |
-| GET | `/get/{aiQuestionId}` |
-| POST | `/generate-question` |
-| POST | `/generate-for-campaign/{campaignId}` |
-| PUT | `/regenerate/{campaignId}` |
 | GET | `/campaign/{campaignId}` |
-| POST | `/add` |
-| PUT | `/update/{aiQuestionId}` |
-| DELETE | `/deleted/{aiQuestionId}` |
+| GET | `/customer/{customerId}` |
+| GET | `/open-by-phone` |
+| PUT | `/mark-sent/{campaignMessageId}` |
+| PUT | `/mark-answered/{campaignMessageId}` |
 </details>
 
 <details>
-<summary><b>CustomerAnswer</b> · <code>/api/v1/customer-answers</code> (8)</summary>
+<summary><b>QRRedemption</b> · <code>/api/v1/qr-redemptions</code></summary>
 
 | Method | Path |
 |--------|------|
-| GET | `/get` |
-| GET | `/get/{customerAnswerId}` |
-| GET | `/campaign-message/{campaignMessageId}` |
-| GET | `/campaign/{campaignId}` |
-| POST | `/answer/{campaignMessageId}` |
-| POST | `/add` |
-| PUT | `/update/{customerAnswerId}` |
-| DELETE | `/deleted/{customerAnswerId}` |
-</details>
-
-<details>
-<summary><b>QRCode</b> · <code>/api/v1/qr-codes</code> (8)</summary>
-
-| Method | Path |
-|--------|------|
-| GET | `/get` |
-| GET | `/get/{qrCodeId}` |
-| GET | `/code` |
-| GET | `/image/{qrCodeId}` (PNG) |
-| POST | `/generate/{campaignId}` |
-| POST | `/add` |
-| PUT | `/update/{qrCodeId}` |
-| DELETE | `/deleted/{qrCodeId}` |
-</details>
-
-<details>
-<summary><b>QRRedemption</b> · <code>/api/v1/qr-redemptions</code> (10)</summary>
-
-| Method | Path |
-|--------|------|
-| GET | `/get` |
-| GET | `/get/{qrRedemptionId}` |
 | GET | `/campaign/{campaignId}` |
 | POST | `/redeem-by-code` |
 | POST | `/redeem-by-qr/{qrCodeId}` |
 | POST | `/cashier/redeem-code` |
 | POST | `/cashier/check-code/{code}` |
-| POST | `/add` |
-| PUT | `/update/{qrRedemptionId}` |
-| DELETE | `/deleted/{qrRedemptionId}` |
 </details>
 
 <details>
-<summary><b>WhatsApp</b> · <code>/api/v1/whatsapp</code> (1)</summary>
+<summary><b>AiQuestion</b> · <code>/api/v1/ai-questions</code></summary>
+
+| Method | Path |
+|--------|------|
+| POST | `/generate-question` |
+| POST | `/generate-for-campaign/{campaignId}` |
+| PUT | `/regenerate/{campaignId}` |
+| GET | `/campaign/{campaignId}` |
+</details>
+
+<details>
+<summary><b>CustomerAnswer</b> · <code>/api/v1/customer-answers</code></summary>
+
+| Method | Path |
+|--------|------|
+| GET | `/campaign-message/{campaignMessageId}` |
+| GET | `/campaign/{campaignId}` |
+| POST | `/answer/{campaignMessageId}` |
+</details>
+
+<details>
+<summary><b>QRCode</b> · <code>/api/v1/qr-codes</code></summary>
+
+| Method | Path |
+|--------|------|
+| GET | `/code` |
+| GET | `/image/{qrCodeId}` (PNG) |
+| POST | `/generate/{campaignId}` |
+</details>
+
+<details>
+<summary><b>WhatsApp</b> · <code>/api/v1/whatsapp</code></summary>
 
 | Method | Path |
 |--------|------|
@@ -272,44 +242,18 @@ The store uploads its sales data → AI analyzes the data and generates a market
 
 ---
 
-### 🔵 رهف العمري — *المتاجر والفروع والعملاء والاشتراكات والتقارير* (72 endpoint)
-النطاق: `StoreOwner`, `Store`, `Branch`, `Customer`, `Subscription`, `Payment`, `MonthlyReport`
+### 🔵 رهف العمري — *المتاجر والفروع والعملاء والاشتراكات والتقارير* (53)
+النطاق: `Branch`, `Customer`, `Subscription`, `Store`, `StoreOwner`, `Payment`, `MonthlyReport`
 
 <details open>
-<summary><b>Branch</b> · <code>/api/v1/branch</code> (14)</summary>
+<summary><b>Customer</b> · <code>/api/v1/customer</code></summary>
 
 | Method | Path |
 |--------|------|
-| POST | `/add/{storeId}` |
-| GET | `/get` |
-| GET | `/get/{branchId}` |
-| GET | `/store/{storeId}` |
-| PUT | `/update/{branchId}` |
-| PUT | `/activate/{branchId}` |
-| PUT | `/deactivate/{branchId}` |
-| DELETE | `/delete/{branchId}` |
-| GET | `/subscribed/{branchId}` |
-| GET | `/recommended-radius/{branchId}` |
-| PUT | `/apply-recommended-radius/{branchId}` |
-| GET | `/{branchId}/dashboard` |
-| GET | `/{branchId}/customers-in-radius/count` |
-| GET | `/{branchId}/campaign-radius-info` |
-</details>
-
-<details>
-<summary><b>Customer</b> · <code>/api/v1/customer</code> (20)</summary>
-
-| Method | Path |
-|--------|------|
-| POST | `/register` |
-| GET | `/get` |
-| GET | `/get/{customerId}` |
 | GET | `/location-consent` |
 | GET | `/get-by-phone` |
 | GET | `/inside-radius/{branchId}` |
 | GET | `/my` |
-| PUT | `/update` |
-| DELETE | `/delete` |
 | GET | `/my/campaigns/in-radius` |
 | GET | `/my/campaigns/active` |
 | GET | `/my/campaigns/expired` |
@@ -324,13 +268,27 @@ The store uploads its sales data → AI analyzes the data and generates a market
 </details>
 
 <details>
-<summary><b>Subscription</b> · <code>/api/v1/subscription</code> (12)</summary>
+<summary><b>Branch</b> · <code>/api/v1/branch</code></summary>
+
+| Method | Path |
+|--------|------|
+| GET | `/store/{storeId}` |
+| PUT | `/activate/{branchId}` |
+| PUT | `/deactivate/{branchId}` |
+| GET | `/subscribed/{branchId}` |
+| GET | `/recommended-radius/{branchId}` |
+| PUT | `/apply-recommended-radius/{branchId}` |
+| GET | `/{branchId}/dashboard` |
+| GET | `/{branchId}/customers-in-radius/count` |
+| GET | `/{branchId}/campaign-radius-info` |
+</details>
+
+<details>
+<summary><b>Subscription</b> · <code>/api/v1/subscription</code></summary>
 
 | Method | Path |
 |--------|------|
 | GET | `/plans` |
-| GET | `/get` |
-| GET | `/get/{subscriptionId}` |
 | GET | `/my` |
 | GET | `/my/active` |
 | GET | `/my/status` |
@@ -343,35 +301,30 @@ The store uploads its sales data → AI analyzes the data and generates a market
 </details>
 
 <details>
-<summary><b>Store</b> · <code>/api/v1/store</code> (8)</summary>
+<summary><b>MonthlyReport</b> · <code>/api/v1/monthly-report</code></summary>
 
 | Method | Path |
 |--------|------|
-| POST | `/add` |
-| GET | `/get` |
-| GET | `/get/{storeId}` |
+| POST | `/generate/{branchId}` |
+| PUT | `/regenerate/{reportId}` |
+| GET | `/branch/{branchId}` |
+| GET | `/branch/{branchId}/date` |
+| GET | `/download/{reportId}` (PDF) |
+| POST | `/send-email/{reportId}` |
+</details>
+
+<details>
+<summary><b>Store</b> · <code>/api/v1/store</code></summary>
+
+| Method | Path |
+|--------|------|
 | GET | `/my-stores` |
-| PUT | `/update/{storeId}` |
 | PUT | `/activate/{storeId}` |
 | PUT | `/deactivate/{storeId}` |
-| DELETE | `/delete/{storeId}` |
 </details>
 
 <details>
-<summary><b>StoreOwner</b> · <code>/api/v1/store-owner</code> (6)</summary>
-
-| Method | Path |
-|--------|------|
-| POST | `/register` |
-| GET | `/get` |
-| GET | `/get/{storeOwnerId}` |
-| GET | `/my` |
-| PUT | `/update` |
-| DELETE | `/delete` |
-</details>
-
-<details>
-<summary><b>Payment</b> · <code>/api/v1/payment</code> (3)</summary>
+<summary><b>Payment</b> · <code>/api/v1/payment</code></summary>
 
 | Method | Path |
 |--------|------|
@@ -381,34 +334,23 @@ The store uploads its sales data → AI analyzes the data and generates a market
 </details>
 
 <details>
-<summary><b>MonthlyReport</b> · <code>/api/v1/monthly-report</code> (9)</summary>
+<summary><b>StoreOwner</b> · <code>/api/v1/store-owner</code></summary>
 
 | Method | Path |
 |--------|------|
-| POST | `/generate/{branchId}` |
-| PUT | `/regenerate/{reportId}` |
-| GET | `/get` |
-| GET | `/get/{reportId}` |
-| GET | `/branch/{branchId}` |
-| GET | `/branch/{branchId}/date` |
-| DELETE | `/delete/{reportId}` |
-| GET | `/download/{reportId}` (PDF) |
-| POST | `/send-email/{reportId}` |
+| GET | `/my` |
 </details>
 
 ---
 
-### 🟣 رغد البقمي — بيانات المبيعات + تحليل AI + اقتراح الحملات + الإجازات + الحملات + نتائج الحملات (endpoint 65)
-
-النطاق: `SalesRecord`, `SalesRecordItem`, `AIAnalysis`, `CampaignSuggestion`, `Holiday`, `Campaign`, `CampaignResult`
+### 🟣 رغد — *بيانات المبيعات + تحليل AI + اقتراح الحملات + الإجازات* (46)
+النطاق: `AIAnalysis`, `CampaignSuggestion`, `SalesRecord`, `SalesRecordItem`, `Holiday`
 
 <details open>
-<summary><b>AIAnalysis</b> · <code>/api/v1/ai-analysis</code> (29)</summary>
+<summary><b>AIAnalysis</b> · <code>/api/v1/ai-analysis</code></summary>
 
 | Method | Path |
 |--------|------|
-| GET | `/get` |
-| GET | `/get/{id}` |
 | GET | `/get-by-sales-record/{salesRecordId}` |
 | GET | `/peak-hours/{analysisId}` |
 | GET | `/slow-hours/{analysisId}` |
@@ -435,22 +377,18 @@ The store uploads its sales data → AI analyzes the data and generates a market
 | GET | `/latest/branch/{branchId}` |
 | GET | `/{analysisId}/dashboard` |
 | POST | `/{analysisId}/send-email-summary` |
-| DELETE | `/delete/{id}` |
 </details>
 
 <details>
-<summary><b>CampaignSuggestion</b> · <code>/api/v1/campaign-suggestion</code> (13)</summary>
+<summary><b>CampaignSuggestion</b> · <code>/api/v1/campaign-suggestion</code></summary>
 
 | Method | Path |
 |--------|------|
-| GET | `/get` |
-| GET | `/get/{id}` |
 | GET | `/get-by-ai-analysis/{aiAnalysisId}` |
 | POST | `/generate/{aiAnalysisId}` |
 | POST | `/regenerate/{aiAnalysisId}` |
 | POST | `/add/analysis/{aiAnalysisId}` |
 | PUT | `/update/{id}/analysis/{aiAnalysisId}` |
-| DELETE | `/delete/{id}` |
 | GET | `/approved/analysis/{analysisId}` |
 | GET | `/pending/analysis/{analysisId}` |
 | PUT | `/approve/{id}` |
@@ -459,70 +397,34 @@ The store uploads its sales data → AI analyzes the data and generates a market
 </details>
 
 <details>
-<summary><b>SalesRecord</b> · <code>/api/v1/sales-record</code> (7)</summary>
+<summary><b>SalesRecord</b> · <code>/api/v1/sales-record</code></summary>
 
 | Method | Path |
 |--------|------|
-| GET | `/get` |
-| GET | `/get/{id}` |
 | GET | `/get-by-branch/{branchId}` |
 | POST | `/add/branch/{branchId}` (Excel multipart) |
 | POST | `/import-google-sheet/branch/{branchId}` |
 | PUT | `/update/{id}/branch/{branchId}` |
-| DELETE | `/delete/{id}` |
 </details>
 
 <details>
-<summary><b>SalesRecordItem</b> · <code>/api/v1/sales-record-item</code> (6)</summary>
+<summary><b>SalesRecordItem</b> · <code>/api/v1/sales-record-item</code></summary>
 
 | Method | Path |
 |--------|------|
-| GET | `/get` |
-| GET | `/get/{id}` |
 | GET | `/get-by-sales-record/{salesRecordId}` |
 | POST | `/add/sales-record/{salesRecordId}` |
 | PUT | `/update/{id}/sales-record/{salesRecordId}` |
-| DELETE | `/delete/{id}` |
 </details>
 
 <details>
-<summary><b>Holiday</b> · <code>/api/v1/holidays</code> (2)</summary>
+<summary><b>Holiday</b> · <code>/api/v1/holidays</code></summary>
 
 | Method | Path |
 |--------|------|
 | GET | `/public/{year}/{countryCode}` |
 | GET | `/check` |
 </details>
-
-
-<details>
-<summary><strong>Campaign</strong> · <code>/api/v1/campaigns</code> (5)</summary>
-
-| Method | Path |
-|---|---|
-| GET | `/{campaignId}/dashboard` |
-| GET | `/{campaignId}/qr-status` |
-| GET | `/remaining-coupons/{campaignId}` |
-| GET | `/type/{campaignId}` |
-| GET | `/source/{campaignId}` |
-
-</details>
-
-<details>
-<summary><strong>CampaignResult</strong> · <code>/api/v1/campaign-results</code> (3)</summary>
-
-| Method | Path |
-|---|---|
-| POST | `/generate-finished` |
-| GET | `/{campaignId}/dashboard` |
-| GET | `/qr-used/{campaignId}` |
-
-</details>
-
-```md
-
-```
-
 
 ---
 
@@ -865,7 +767,7 @@ flowchart TD
     I1 --> I2[تجميع النتائج شهرياً]
     I2 --> I3[توليد التقرير الشهري<br/>MonthlyReport]
     I3 --> I4[ملخص AI + PDF<br/>OpenAI + OpenHTMLtoPDF]
-    I4 --> I5[📧 تحميل التقرير<br/>send-email/reportId]
+    I4 --> I5[📧 إرسال التقرير بالإيميل<br/>send-email/reportId]
 
     classDef ai fill:#1F5C4D,color:#fff;
     classDef ext fill:#8a5a00,color:#fff;
@@ -916,7 +818,7 @@ CREATE DATABASE ala_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 | المورد | الرابط |
 |--------|--------|
-| 📚 **API Documentation (Postman)** | https://documenter.getpostman.com/view/54224451/2sBXwwnT9M |
+| 📚 **API Documentation (Postman)** | https://documenter.getpostman.com/view/54224451/2sBXwvL9jD#31baae79-ec5c-4cc4-b861-6e8db2af25f0 |
 | 🎨 **Figma Design** | https://www.figma.com/design/iCCIxJsa3QYa11zm4wHHZY/Untitled?node-id=32-304&t=Ap5axML4NqIVtLyC-1 |
 | ☁️ **AWS Deployment (Live)** | http://ala-darbak-env.eba-i9vnmum9.eu-central-1.elasticbeanstalk.com |
 
@@ -924,5 +826,6 @@ CREATE DATABASE ala_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 <div align="center">
 
-صُنع بـ ❤️ بواسطة فريق **على دربك** — محمد الرشيد · رهف العمري · رغد البقمي
+صُنع بـ ❤️ بواسطة فريق **على دربك** — محمد الرشيد · رهف العمري · رغد
+
 </div>
