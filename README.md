@@ -124,7 +124,7 @@ The store uploads its sales data → AI analyzes the data and generates a market
 > **الإجمالي: 149 endpoint إضافي** = 🟢 محمد **50** · 🔵 رهف **53** · 🟣 رغد **46**.
 >
 
-### 🟢 محمد الرشيد — *محرّك الحملات + واتساب + QR + الأسئلة* (50)
+### 🟢 محمد الرشيد — *محرّك الحملات + واتساب + QR + الأسئلة* (49)
 النطاق: `Campaign`, `CampaignMessage`, `CampaignResult`, `AiQuestion`, `CustomerAnswer`, `QRCode`, `QRRedemption`, `WhatsApp`
 
 <details open>
@@ -228,7 +228,6 @@ The store uploads its sales data → AI analyzes the data and generates a market
 | Method | Path |
 |--------|------|
 | GET | `/code` |
-| GET | `/image/{qrCodeId}` (PNG) |
 | POST | `/generate/{campaignId}` |
 </details>
 
